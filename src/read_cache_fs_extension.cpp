@@ -6,11 +6,20 @@
 #include "hffs.hpp"
 #include "crypto.hpp"
 
+#include <array>
+
 namespace duckdb {
 
+// Cached httpfs cannot co-exist with non-cached version, because duckdb virtual
+// filesystem doesn't provide a native fs wrapper nor priority system, so
+// co-existence doesn't guarantee cached version is actually used.
+//
+// Here's how we handled (a hacky way):
+// 1. When we register cached filesystem, if uncached version already
+// registered, we unregister them.
+// 2. If uncached filesystem is registered later somehow, cached version is set
+// mutual set so it has higher priority than uncached version.
 static void LoadInternal(DatabaseInstance &instance) {
-  // TODO(hjiang): We cannot have both cached remote filesystem (i.e. httpfs)
-  // and remote fs in the same vfs.
   auto &fs = instance.GetFileSystem();
   fs.RegisterSubSystem(
       make_uniq<DiskCacheFileSystem>(make_uniq<HTTPFileSystem>()));
@@ -18,6 +27,15 @@ static void LoadInternal(DatabaseInstance &instance) {
       make_uniq<DiskCacheFileSystem>(make_uniq<HuggingFaceFileSystem>()));
   fs.RegisterSubSystem(make_uniq<DiskCacheFileSystem>(
       make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance))));
+
+  const std::array<string, 3> httpfs_names{"HTTPFileSystem", "S3FileSystem",
+                                           "HuggingFaceFileSystem"};
+  for (const auto &cur_http_fs : httpfs_names) {
+    try {
+      fs.UnregisterSubSystem(cur_http_fs);
+    } catch (...) {
+    }
+  }
 }
 
 void ReadCacheFsExtension::Load(DuckDB &db) { LoadInternal(*db.instance); }
