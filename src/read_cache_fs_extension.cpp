@@ -2,10 +2,25 @@
 
 #include "read_cache_fs_extension.hpp"
 #include "disk_cache_filesystem.hpp"
+#include "s3fs.hpp"
+#include "hffs.hpp"
+#include "crypto.hpp"
 
 namespace duckdb {
 
-void ReadCacheFsExtension::Load(DuckDB &db) {}
+static void LoadInternal(DatabaseInstance &instance) {
+  // TODO(hjiang): We cannot have both cached remote filesystem (i.e. httpfs)
+  // and remote fs in the same vfs.
+  auto &fs = instance.GetFileSystem();
+  fs.RegisterSubSystem(
+      make_uniq<DiskCacheFileSystem>(make_uniq<HTTPFileSystem>()));
+  fs.RegisterSubSystem(
+      make_uniq<DiskCacheFileSystem>(make_uniq<HuggingFaceFileSystem>()));
+  fs.RegisterSubSystem(make_uniq<DiskCacheFileSystem>(
+      make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance))));
+}
+
+void ReadCacheFsExtension::Load(DuckDB &db) { LoadInternal(*db.instance); }
 std::string ReadCacheFsExtension::Name() { return "read_cache_fs"; }
 
 std::string ReadCacheFsExtension::Version() const {

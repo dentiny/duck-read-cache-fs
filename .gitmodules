@@ -6,3 +6,6 @@
 	path = extension-ci-tools
 	url = https://github.com/duckdb/extension-ci-tools
 	branch = main
+[submodule "duckdb-httpfs"]
+	path = duckdb-httpfs
+	url = https://github.com/duckdb/duckdb-httpfs

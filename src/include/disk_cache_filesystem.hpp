@@ -9,7 +9,7 @@ namespace duckdb {
 
 class DiskCacheFileSystem : public FileSystem {
 public:
-  DiskCacheFileSystem(FileSystem &internal_filesystem_p);
+  DiskCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p);
   std::string GetName() const override { return "disk_cache_filesystem"; }
 
   void Read(FileHandle &handle, void *buffer, int64_t nr_bytes,
