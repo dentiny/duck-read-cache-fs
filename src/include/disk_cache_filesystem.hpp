@@ -29,24 +29,19 @@ public:
   std::string GetName() const override { return "disk_cache_filesystem"; }
 
   void Read(FileHandle &handle, void *buffer, int64_t nr_bytes,
-            idx_t location) override {
-    // TODO(hjiang): Implement on-disk read cache.
-    auto &disk_cache_handle = handle.Cast<DiskCacheFileHandle>();
-    internal_filesystem->Read(*disk_cache_handle.internal_file_handle, buffer,
-                              nr_bytes);
+            idx_t location) {
+    ReadImpl(handle, buffer, nr_bytes, location);
   }
   int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override {
-    // TODO(hjiang): Implement on-disk read cache.
-    auto &disk_cache_handle = handle.Cast<DiskCacheFileHandle>();
-    return internal_filesystem->Read(*disk_cache_handle.internal_file_handle,
-                                     buffer, nr_bytes);
+    return ReadImpl(handle, buffer, nr_bytes, handle.SeekPosition());
   }
 
   // For other API calls, delegate to [internal_filesystem] to handle.
   unique_ptr<FileHandle>
   OpenFile(const string &path, FileOpenFlags flags,
            optional_ptr<FileOpener> opener = nullptr) override {
-    auto file_handle = internal_filesystem->OpenFile(path, flags, opener);
+    auto file_handle = internal_filesystem->OpenFile(
+        path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
     return make_uniq<DiskCacheFileHandle>(std::move(file_handle), *this);
   }
   unique_ptr<FileHandle> OpenCompressedFile(unique_ptr<FileHandle> handle,
@@ -188,8 +183,18 @@ public:
   }
 
 private:
+  // Read from [handle] for an block-size aligned chunk into [start_addr]; cache
+  // to local filesystem and return to user.
+  void ReadAndCache(FileHandle &handle, char *start_addr, uint64_t start_offset,
+                    uint64_t bytes_to_read);
+
+  // Read from [location] on [nr_bytes] for the given [handle] into [buffer].
+  // Return the actual number of bytes to read.
+  int64_t ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes,
+                   idx_t location);
+
   // Used to access local cache files.
-  [[maybe_unused]] unique_ptr<FileSystem> local_filesystem;
+  unique_ptr<FileSystem> local_filesystem;
   // Used to access remote files.
   unique_ptr<FileSystem> internal_filesystem;
 };

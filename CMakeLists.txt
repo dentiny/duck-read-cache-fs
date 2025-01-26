@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.5)
 # Set extension name here
 set(TARGET_NAME read_cache_fs)
 
+# TODO(hjiang): Add compiler options, include compiler version and warning
+# options.
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 
@@ -34,3 +36,7 @@ install(
   TARGETS ${EXTENSION_NAME}
   EXPORT "${DUCKDB_EXPORT_SET}"
   LIBRARY DESTINATION "${INSTALL_LIB_DIR}")
+
+# C++ examples.
+add_executable(read_http_csv example/read_http_csv.cpp)
+target_link_libraries(read_http_csv duckdb)
