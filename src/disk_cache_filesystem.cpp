@@ -1,12 +1,9 @@
-// TODO(hjiang): Use `resize_without_initialization` to save memset.
-// Reference:
-// https://github.com/abseil/abseil-cpp/blob/master/absl/strings/internal/resize_uninitialized.h
-
 #include "duckdb/common/thread.hpp"
 #include "disk_cache_filesystem.hpp"
 #include "crypto.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "resize_uninitialized.h"
 
 #include <utility>
 #include <cstdint>
@@ -177,7 +174,7 @@ int64_t DiskCacheFileSystem::ReadImpl(FileHandle &handle, void *buffer,
   // TODO(hjiang): The only reason we need `content` is we could have unaligned
   // memory blocks, no need to read into `content` buffer if a read request is
   // perfectly aligned.
-  string content(bytes_to_read, '\0');
+  string content = CreateResizeUninitializedString(bytes_to_read);
   ReadAndCache(handle, const_cast<char *>(content.data()), start_offset,
                bytes_to_read, block_size);
 
