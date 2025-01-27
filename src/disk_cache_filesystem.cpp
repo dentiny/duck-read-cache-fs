@@ -96,8 +96,23 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *start_addr,
     char *cur_start_addr = start_addr + idx * BLOCK_SIZE;
     threads.emplace_back(
         [this, &handle, cur_start_offset, cur_bytes_to_read, cur_start_addr]() {
-          // TODO(hjiang): We should consider local cache first, will be
-          // implemented in next PR.
+          // Check local cache first, see if we could do a cached read.
+          const auto local_cache_file = GetLocalCacheFile(
+              handle.GetPath(), cur_start_offset, cur_bytes_to_read);
+
+          // TODO(hjiang): Add documentation and implementation for stale cache
+          // eviction policy, before that it's safe to access cache file
+          // directly.
+          if (local_filesystem->FileExists(local_cache_file)) {
+            auto file_handle = local_filesystem->OpenFile(
+                local_cache_file, FileOpenFlags::FILE_FLAGS_READ);
+            local_filesystem->Read(*file_handle, cur_start_addr,
+                                   cur_bytes_to_read, /*location=*/0);
+            return;
+          }
+
+          // We suffer a cache loss, fallback to remote access then local
+          // filesystem write.
           auto &disk_cache_handle = handle.Cast<DiskCacheFileHandle>();
           internal_filesystem->Read(*disk_cache_handle.internal_file_handle,
                                     cur_start_addr, cur_bytes_to_read,
@@ -122,8 +137,6 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *start_addr,
 
           // Then atomically move to the target postion to prevent data
           // corruption due to concurrent write.
-          const auto local_cache_file = GetLocalCacheFile(
-              handle.GetPath(), cur_start_offset, cur_bytes_to_read);
           local_filesystem->MoveFile(/*source=*/local_temp_file,
                                      /*target=*/local_cache_file);
         });
@@ -139,6 +152,10 @@ int64_t DiskCacheFileSystem::ReadImpl(FileHandle &handle, void *buffer,
   const auto file_size = handle.GetFileSize();
   const auto [start_offset, bytes_to_read] =
       GetStartOffsetAndBytesToRead(handle, location, nr_bytes, file_size);
+
+  // TODO(hjiang): The only reason we need `content` is we could have unaligned
+  // memory blocks, no need to read into `content` buffer if a read request is
+  // perfectly aligned.
   string content(bytes_to_read, '\0');
   ReadAndCache(handle, const_cast<char *>(content.data()), start_offset,
                bytes_to_read);
