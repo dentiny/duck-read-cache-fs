@@ -197,9 +197,8 @@ void DiskCacheFileSystem::ReadAndCache(
       }
     }
 
-    if (idx != 0 && idx != io_op_count - 1)
-      // Start file offset for current read operation.
-      const uint64_t cur_start_offset = block_size * idx;
+    // Start file offset for current read operation.
+    const uint64_t cur_start_offset = block_size * idx;
 
     threads.emplace_back([this, &handle, cur_start_offset,
                           cur_data_chunk =
