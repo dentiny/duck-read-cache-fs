@@ -5,6 +5,7 @@
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
+#include "cache_filesystem_config.hpp"
 
 namespace duckdb {
 
@@ -25,16 +26,20 @@ private:
 
 class DiskCacheFileSystem : public FileSystem {
 public:
-  explicit DiskCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p);
+  explicit DiskCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p)
+      : DiskCacheFileSystem(std::move(internal_filesystem_p),
+                            ON_DISK_CACHE_DIRECTORY) {}
+  DiskCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p,
+                      string cache_directory_p);
   std::string GetName() const override { return "disk_cache_filesystem"; }
 
-  void Read(FileHandle &handle, void *buffer, int64_t nr_bytes,
-            idx_t location) {
-    ReadImpl(handle, buffer, nr_bytes, location);
-  }
-  int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override {
-    return ReadImpl(handle, buffer, nr_bytes, handle.SeekPosition());
-  }
+  void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location);
+  int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
+
+  // Expose `Read` interface with testing property injected, underlying it uses
+  // the same implementation as production one.
+  int64_t ReadForTesting(FileHandle &handle, void *buffer, int64_t nr_bytes,
+                         idx_t location, uint64_t block_size);
 
   // For other API calls, delegate to [internal_filesystem] to handle.
   unique_ptr<FileHandle>
@@ -186,13 +191,15 @@ private:
   // Read from [handle] for an block-size aligned chunk into [start_addr]; cache
   // to local filesystem and return to user.
   void ReadAndCache(FileHandle &handle, char *start_addr, uint64_t start_offset,
-                    uint64_t bytes_to_read);
+                    uint64_t bytes_to_read, uint64_t block_size);
 
   // Read from [location] on [nr_bytes] for the given [handle] into [buffer].
   // Return the actual number of bytes to read.
   int64_t ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes,
-                   idx_t location);
+                   idx_t location, uint64_t block_size);
 
+  // Directory to store cache files.
+  string cache_directory;
   // Used to access local cache files.
   unique_ptr<FileSystem> local_filesystem;
   // Used to access remote files.
