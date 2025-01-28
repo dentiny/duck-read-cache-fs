@@ -86,6 +86,45 @@ string GetLocalCacheFile(const string &cache_directory,
                             bytes_to_read);
 }
 
+// Attempt to cache [chunk] to local filesystem, if there's sufficient disk
+// space available.
+void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem,
+                const FileHandle &handle, const string &cache_directory,
+                const string &local_cache_file) {
+  // Skip local cache if insufficient disk space.
+  // It's worth noting it's not a strict check since there could be concurrent
+  // check and write operation (RMW operation), but it's acceptable since min
+  // available disk space reservation is an order of magnitude bigger than cache
+  // chunk size.
+  auto disk_space =
+      local_filesystem.GetAvailableDiskSpace(ON_DISK_CACHE_DIRECTORY);
+  if (!disk_space.IsValid() ||
+      disk_space.GetIndex() < MIN_DISK_SPACE_FOR_CACHE) {
+    return;
+  }
+
+  // Dump to a temporary location at local filesystem.
+  const auto fname = StringUtil::GetFileName(handle.GetPath());
+  const auto local_temp_file =
+      StringUtil::Format("%s%s.%s.httpfs_local_cache", cache_directory, fname,
+                         UUID::ToString(UUID::GenerateRandomUUID()));
+  {
+    auto file_handle = local_filesystem.OpenFile(
+        local_temp_file, FileOpenFlags::FILE_FLAGS_WRITE |
+                             FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+    local_filesystem.Write(*file_handle,
+                           const_cast<char *>(chunk.content.data()),
+                           /*nr_bytes=*/chunk.content.length(),
+                           /*location=*/0);
+    file_handle->Sync();
+  }
+
+  // Then atomically move to the target postion to prevent data corruption due
+  // to concurrent write.
+  local_filesystem.MoveFile(/*source=*/local_temp_file,
+                            /*target=*/local_cache_file);
+}
+
 } // namespace
 
 DiskCacheFileHandle::DiskCacheFileHandle(
@@ -235,34 +274,9 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
       // Copy to destination buffer.
       cache_read_chunk.CopyBufferToRequestedMemory();
 
-      // Skip local cache if insufficient disk space.
-      auto disk_space =
-          local_filesystem->GetAvailableDiskSpace(ON_DISK_CACHE_DIRECTORY);
-      if (!disk_space.IsValid() ||
-          disk_space.GetIndex() < MIN_DISK_SPACE_FOR_CACHE) {
-        return;
-      }
-
-      // Dump to a temporary location at local filesystem.
-      const auto fname = StringUtil::GetFileName(handle.GetPath());
-      const auto local_temp_file =
-          StringUtil::Format("%s%s.%s.httpfs_local_cache", cache_directory,
-                             fname, UUID::ToString(UUID::GenerateRandomUUID()));
-      {
-        auto file_handle = local_filesystem->OpenFile(
-            local_temp_file, FileOpenFlags::FILE_FLAGS_WRITE |
-                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-        local_filesystem->Write(
-            *file_handle, const_cast<char *>(cache_read_chunk.content.data()),
-            /*nr_bytes=*/cache_read_chunk.content.length(),
-            /*location=*/0);
-        file_handle->Sync();
-      }
-
-      // Then atomically move to the target postion to prevent data
-      // corruption due to concurrent write.
-      local_filesystem->MoveFile(/*source=*/local_temp_file,
-                                 /*target=*/local_cache_file);
+      // Attempt to cache file locally.
+      CacheLocal(cache_read_chunk, *local_filesystem, handle, cache_directory,
+                 local_cache_file);
     });
   }
   for (auto &cur_thd : io_threads) {
