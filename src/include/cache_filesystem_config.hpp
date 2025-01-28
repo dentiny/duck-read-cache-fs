@@ -15,4 +15,7 @@ inline const std::string ON_DISK_CACHE_DIRECTORY =
 // if insufficient.
 inline constexpr uint64_t MIN_DISK_SPACE_FOR_CACHE = 1024ULL * 1024 * 1024;
 
+// Number of seconds which we define as the threshold of staleness.
+inline constexpr uint64_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
+
 } // namespace duckdb

@@ -3,10 +3,12 @@
 #include "crypto.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
-#include "resize_uninitialized.h"
+#include "utils/include/resize_uninitialized.hpp"
+#include "utils/include/filesystem_utils.hpp"
 
 #include <cstdint>
 #include <utility>
+#include <utime.h>
 
 namespace duckdb {
 
@@ -100,6 +102,7 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem,
       local_filesystem.GetAvailableDiskSpace(ON_DISK_CACHE_DIRECTORY);
   if (!disk_space.IsValid() ||
       disk_space.GetIndex() < MIN_DISK_SPACE_FOR_CACHE) {
+    EvictStaleCacheFiles(local_filesystem, cache_directory);
     return;
   }
 
@@ -255,6 +258,15 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
         local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size,
                                /*location=*/0);
         cache_read_chunk.CopyBufferToRequestedMemory();
+
+        // Update access and modification timestamp for the cache file, so it
+        // won't get evicted.
+        if (utime(local_cache_file.data(), /*times*/ nullptr) < 0) {
+          throw IOException("Fails to update %s's access and modification "
+                            "timestamp because %s",
+                            local_cache_file, strerror(errno));
+        }
+
         return;
       }
 

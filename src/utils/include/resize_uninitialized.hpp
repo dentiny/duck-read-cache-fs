@@ -32,36 +32,37 @@ namespace internal {
 template <typename string_type, typename = void>
 struct ResizeUninitializedTraits {
   using HasMember = std::false_type;
-  static void Resize(string_type* s, size_t new_size) { s->resize(new_size); }
+  static void Resize(string_type *s, size_t new_size) { s->resize(new_size); }
 };
 
 // __resize_default_init is provided by libc++ >= 8.0
 template <typename string_type>
 struct ResizeUninitializedTraits<
-    string_type, void_t<decltype(std::declval<string_type&>()
-                                           .__resize_default_init(237))> > {
+    string_type, void_t<decltype(std::declval<string_type &>()
+                                     .__resize_default_init(237))>> {
   using HasMember = std::true_type;
-  static void Resize(string_type* s, size_t new_size) {
+  static void Resize(string_type *s, size_t new_size) {
     s->__resize_default_init(new_size);
   }
 };
 
-}  // namespace internal
+} // namespace internal
 
 // Like str->resize(new_size), except any new characters added to "*str" as a
 // result of resizing may be left uninitialized, rather than being filled with
 // '0' bytes. Typically used when code is then going to overwrite the backing
 // store of the std::string with known data.
 template <typename string_type, typename = void>
-inline void STLStringResizeUninitialized(string_type* s, size_t new_size) {
+inline void STLStringResizeUninitialized(string_type *s, size_t new_size) {
   internal::ResizeUninitializedTraits<string_type>::Resize(s, new_size);
 }
 
-// Create a string with the given size, with all bytes uninitialized. Useful to use as a buffer.
+// Create a string with the given size, with all bytes uninitialized. Useful to
+// use as a buffer.
 std::string CreateResizeUninitializedString(size_t size) {
-    std::string content;
-    STLStringResizeUninitialized(&content, size);
-    return content;
+  std::string content;
+  STLStringResizeUninitialized(&content, size);
+  return content;
 }
 
-}  // namespace duckdb
+} // namespace duckdb

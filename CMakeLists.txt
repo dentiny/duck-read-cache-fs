@@ -10,13 +10,14 @@ set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 
 project(${TARGET_NAME})
 include_directories(src/include)
-include_directories(utils/include)
+include_directories(src/utils/include)
 include_directories(duckdb-httpfs/extension/httpfs/include)
 include_directories(duckdb/third_party/httplib)
 
 set(EXTENSION_SOURCES
     src/read_cache_fs_extension.cpp
     src/disk_cache_filesystem.cpp
+    src/utils/filesystem_utils.cpp
     duckdb-httpfs/extension/httpfs/create_secret_functions.cpp
     duckdb-httpfs/extension/httpfs/crypto.cpp
     duckdb-httpfs/extension/httpfs/hffs.cpp
@@ -44,5 +45,9 @@ target_link_libraries(read_http_csv duckdb)
 
 # Test cases.
 include_directories(duckdb/third_party/catch)
+
 add_executable(test_disk_cache_filesystem unit/test_disk_cache_filesystem.cpp)
 target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
+
+add_executable(test_stale_deletion unit/test_stale_deletion.cpp)
+target_link_libraries(test_stale_deletion ${EXTENSION_NAME})
