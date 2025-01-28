@@ -1,4 +1,11 @@
 // Unit test for disk cache filesystem.
+//
+// IO operations are performed in chunks, testing senarios are listed as follows:
+// (1) There're one or more chunks to read;
+// (2) Chunks to read include start, middle and end parts of the file;
+// (3) Bytes to read include partial or complete part of a chunk;
+// (4) Chunks to read is not cached, partially cached, or completed cached.
+// These senarios are orthogonal and should be tested in their combinations.
 
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
@@ -26,7 +33,7 @@ const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::Ge
 }  // namespace
 
 // One chunk is involved, requested bytes include only "first and last chunk".
-TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhile last chunk", "[on-disk cache test]") {
+TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhile last chunk", "[on-disk cache filesystem test]") {
     LocalFileSystem::CreateLocal()->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
     DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal()};
 
@@ -49,13 +56,14 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhil
         const uint64_t bytes_to_read = TEST_FILE_SIZE - 2;
         string content(bytes_to_read, '\0');
         const uint64_t test_block_size = 26;
-        disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        const uint64_t bytes_read = disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        REQUIRE(bytes_read == bytes_to_read);
         REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
     }
 }
 
 // Two chunks are involved, which include both first and last chunks. 
-TEST_CASE("Test on disk cache filesystem with requested chunk the first and last chunk", "[on-disk cache test]") {
+TEST_CASE("Test on disk cache filesystem with requested chunk the first and last chunk", "[on-disk cache filesystem test]") {
     LocalFileSystem::CreateLocal()->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
     DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal()};
     
@@ -85,7 +93,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first and last
 }
 
 // Three blocks involved, which include first, last and middle chunk.
-TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle and last chunk", "[on-disk cache test]") {
+TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle and last chunk", "[on-disk cache filesystem test]") {
     LocalFileSystem::CreateLocal()->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
     DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal()};
     
@@ -96,7 +104,8 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle 
         const uint64_t bytes_to_read = 11;
         string content(bytes_to_read, '\0');
         const uint64_t test_block_size = 5;
-        disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        const uint64_t bytes_read = disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        REQUIRE(bytes_read == bytes_to_read);
         REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
     }
 
@@ -107,13 +116,14 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle 
         const uint64_t bytes_to_read = 10;
         string content(bytes_to_read, '\0');
         const uint64_t test_block_size = 5;
-        disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        const uint64_t bytes_read = disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        REQUIRE(bytes_read == bytes_to_read);
         REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
     }
 }
 
 // One block involved, it's the first meanwhile last block; requested content doesn't involve the end of the file.
-TEST_CASE("Test on disk cache filesystem with requested chunk first and last one", "[on-disk cache test]") {
+TEST_CASE("Test on disk cache filesystem with requested chunk first and last one", "[on-disk cache filesystem test]") {
     LocalFileSystem::CreateLocal()->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
     DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal()};
     
@@ -124,7 +134,8 @@ TEST_CASE("Test on disk cache filesystem with requested chunk first and last one
         const uint64_t bytes_to_read = 2;
         string content(bytes_to_read, '\0');
         const uint64_t test_block_size = 5;
-        disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        const uint64_t bytes_read = disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        REQUIRE(bytes_read == bytes_to_read);
         REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
     }
 
@@ -135,13 +146,14 @@ TEST_CASE("Test on disk cache filesystem with requested chunk first and last one
         const uint64_t bytes_to_read = 2;
         string content(bytes_to_read, '\0');
         const uint64_t test_block_size = 5;
-        disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        const uint64_t bytes_read = disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        REQUIRE(bytes_read == bytes_to_read);
         REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
     }
 }
 
 // Requested chunk involves the end of the file.
-TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", "[on-disk cache test]") {
+TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", "[on-disk cache filesystem test]") {
     LocalFileSystem::CreateLocal()->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
     DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal()};
     
@@ -185,7 +197,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", 
 }
 
 // Requested chunk involves the middle of the file.
-TEST_CASE("Test on disk cache filesystem with requested chunk at middle of file", "[on-disk cache test]") {
+TEST_CASE("Test on disk cache filesystem with requested chunk at middle of file", "[on-disk cache filesystem test]") {
     LocalFileSystem::CreateLocal()->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
     DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal()};
     
@@ -229,7 +241,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at middle of file"
 }
 
 // All chunks cached locally, later access shouldn't create new cache file.
-TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", "[on-disk cache test]") {
+TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", "[on-disk cache filesystem test]") {
     LocalFileSystem::CreateLocal()->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
     DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal()};
     
@@ -240,7 +252,8 @@ TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", 
         const uint64_t bytes_to_read = TEST_FILE_SIZE;
         string content(bytes_to_read, '\0');
         const uint64_t test_block_size = 5;
-        disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        const uint64_t bytes_read = disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        REQUIRE(bytes_read == bytes_to_read);
         REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
     }
 
@@ -257,7 +270,8 @@ TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", 
         const uint64_t bytes_to_read = 10;
         string content(bytes_to_read, '\0');
         const uint64_t test_block_size = 5;
-        disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        const uint64_t bytes_read = disk_cache_fs.ReadForTesting(*handle, const_cast<void*>(static_cast<const void*>(content.data())), bytes_to_read, start_offset, test_block_size);
+        REQUIRE(bytes_read == bytes_to_read);
         REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
     }
 
@@ -269,7 +283,7 @@ TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", 
     REQUIRE(cache_files1 == cache_files2);
 }
 
-TEST_CASE("Test on disk cache filesystem read from end of file", "[on-disk cache test]") {
+TEST_CASE("Test on disk cache filesystem read from end of file", "[on-disk cache filesystem test]") {
     LocalFileSystem::CreateLocal()->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
     DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal()};
     
@@ -279,6 +293,12 @@ TEST_CASE("Test on disk cache filesystem read from end of file", "[on-disk cache
     const uint64_t test_block_size = 5;
     const int64_t bytes_read = disk_cache_fs.ReadForTesting(*handle, /*buffer=*/nullptr, bytes_to_read, start_offset, test_block_size);
     REQUIRE(bytes_read == 0);
+}
+
+TEST_CASE("Test on reading non-existent file", "[on-disk cache filesystem test]") {
+    LocalFileSystem::CreateLocal()->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
+    DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal()};
+    REQUIRE_THROWS(disk_cache_fs.OpenFile("non-existent-file", FileOpenFlags::FILE_FLAGS_READ));
 }
 
 int main(int argc, char** argv) {
