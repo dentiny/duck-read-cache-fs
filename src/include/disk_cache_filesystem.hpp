@@ -1,7 +1,4 @@
 // A filesystem wrapper, which performs on-disk cache for read operations.
-//
-// TODO(hjiang): Handle concurrent access, which is possible for
-// `FILE_FLAGS_PARALLEL_ACCESS`.
 
 #pragma once
 

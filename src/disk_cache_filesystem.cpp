@@ -232,9 +232,17 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
           cache_read_chunk.content.length(),
           cache_read_chunk.aligned_start_offset);
 
-      // TODO(hjiang): Before local cache we should check whether there's enough
-      // space left, and trigger a stale file cleanup if necessary.
-      //
+      // Copy to destination buffer.
+      cache_read_chunk.CopyBufferToRequestedMemory();
+
+      // Skip local cache if insufficient disk space.
+      auto disk_space =
+          local_filesystem->GetAvailableDiskSpace(ON_DISK_CACHE_DIRECTORY);
+      if (!disk_space.IsValid() ||
+          disk_space.GetIndex() < MIN_DISK_SPACE_FOR_CACHE) {
+        return;
+      }
+
       // Dump to a temporary location at local filesystem.
       const auto fname = StringUtil::GetFileName(handle.GetPath());
       const auto local_temp_file =
@@ -255,9 +263,6 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
       // corruption due to concurrent write.
       local_filesystem->MoveFile(/*source=*/local_temp_file,
                                  /*target=*/local_cache_file);
-
-      // Copy to destination buffer.
-      cache_read_chunk.CopyBufferToRequestedMemory();
     });
   }
   for (auto &cur_thd : io_threads) {
