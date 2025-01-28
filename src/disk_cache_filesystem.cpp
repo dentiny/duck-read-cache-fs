@@ -13,47 +13,38 @@ namespace duckdb {
 namespace {
 
 struct DataChunk {
+  // Requested memory address and file offset to read from for current chunk.
   char *requested_start_addr = nullptr;
-  uint64_t requested_bytes_to_read = 0;
+  uint64_t requested_start_offset = 0;
+  // Block size aligned [requested_start_offset].
+  uint64_t aligned_start_offset = 0;
 
-  // |             buffer                  |
-  // | start-unreq-sz | req | end-unreq-sz |
-  uint64_t start_unrequested_size = 0;
+  // Number of bytes for the chunk for IO operations, apart from the last chunk
+  // it's always cache block size.
+  uint64_t chunk_size = 0;
 
-  // All IO operations are aligned with block size, if requested [start_addr]
-  // isn't aligned with block size, allocate an internal buffer then copy to
-  // [start_addr], otherwise it's unassigned.
-  string buffer;
+  // Always allocate block size of memory for first and last chunk.
+  // For middle chunks, if local cache is not hit, we also allocate memory for
+  // [content] as intermediate buffer.
+  //
+  // TODO(hjiang): For middle chunks, the performance could be improved further:
+  // remote IO operation directly read into [requested_start_addr] then write to
+  // local cache file; but for code simplicity we also allocate here.
+  string content;
+  // Number of bytes to copy from [content] to requested memory address.
+  uint64_t bytes_to_copy = 0;
 
-  char *GetAddrReadTo() {
-    return !buffer.empty() ? const_cast<char *>(buffer.data())
-                           : requested_start_addr;
-  }
-  uint64_t GetLenToRead() {
-    return !buffer.empty() ? buffer.length() : requested_bytes_to_read;
-  }
+  // Copy from [content] to application-provided buffer.
   void CopyBufferToRequestedMemory() {
-    if (!buffer.empty()) {
-      char *src = const_cast<char *>(buffer.data()) + start_unrequested_size;
-      std::memmove(requested_start_addr, src, requested_bytes_to_read);
+    if (!content.empty()) {
+      const uint64_t delta_offset =
+          requested_start_offset - aligned_start_offset;
+      std::memmove(requested_start_addr,
+                   const_cast<char *>(content.data()) + delta_offset,
+                   bytes_to_copy);
     }
   }
 };
-
-// IO operations are performed based on block size, this function returns
-// aligned start offset and bytes to read.
-std::pair<uint64_t, int64_t> GetStartOffsetAndBytesToRead(FileHandle &handle,
-                                                          uint64_t start_offset,
-                                                          int64_t bytes_to_read,
-                                                          uint64_t file_size,
-                                                          uint64_t block_size) {
-  const uint64_t aligned_start_offset = start_offset / block_size * block_size;
-  uint64_t aligned_end_offset =
-      ((start_offset + bytes_to_read - 1) / block_size + 1) * block_size;
-  aligned_end_offset = std::min<uint64_t>(aligned_end_offset, file_size);
-  return std::make_pair(aligned_start_offset,
-                        aligned_end_offset - aligned_start_offset);
-}
 
 // Convert SHA256 value to hex string.
 string Sha256ToHexString(const duckdb::hash_bytes &sha256) {
@@ -125,112 +116,121 @@ int64_t DiskCacheFileSystem::ReadForTesting(FileHandle &handle, void *buffer,
   return ReadImpl(handle, buffer, nr_bytes, location, block_size);
 }
 
-void DiskCacheFileSystem::ReadAndCache(
-    FileHandle &handle, char *buffer, uint64_t requested_start_offset,
-    uint64_t requested_bytes_to_read, uint64_t aligned_start_offset,
-    uint64_t aligned_bytes_to_read, uint64_t file_size, uint64_t block_size) {
-  D_ASSERT(aligned_bytes_to_read >= 1);
-  const uint64_t io_op_count = (aligned_bytes_to_read - 1) / block_size + 1;
-  vector<thread> threads;
-  threads.reserve(io_op_count);
+void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
+                                       uint64_t requested_start_offset,
+                                       uint64_t requested_bytes_to_read,
+                                       uint64_t file_size,
+                                       uint64_t block_size) {
+  const uint64_t aligned_start_offset =
+      requested_start_offset / block_size * block_size;
+  const uint64_t aligned_last_chunk_offset =
+      (requested_start_offset + requested_bytes_to_read) / block_size *
+      block_size;
 
-  // |     buffer    | ...
-  // | un-req | req  | ...
-  const uint64_t offset_delta = requested_start_offset - aligned_start_offset;
-  char *aligned_start_addr = buffer - offset_delta;
+  // Indicate the meory address to copy to for each IO operation
+  char *addr_to_write = buffer;
+  // Used to calculate bytes to copy for last chunk.
+  uint64_t already_read_bytes = 0;
+  // Threads to parallelly perform IO.
+  vector<thread> io_threads;
+  const uint64_t io_threads_count =
+      (aligned_last_chunk_offset - aligned_start_offset) / block_size + 1;
+  io_threads.reserve(io_threads_count);
 
-  for (uint64_t idx = 0; idx < io_op_count; ++idx) {
-    DataChunk cur_data_chunk;
-    cur_data_chunk.requested_start_addr = aligned_start_addr + idx * block_size;
-    cur_data_chunk.requested_bytes_to_read = block_size;
+  // To improve IO performance, we split requested bytes (after alignment) into
+  // multiple chunks and fetch them in parallel.
+  for (uint64_t io_start_offset = aligned_start_offset;
+       io_start_offset <= aligned_last_chunk_offset;
+       io_start_offset += block_size) {
+    DataChunk data_chunk;
+    data_chunk.requested_start_addr = addr_to_write;
+    data_chunk.aligned_start_offset = io_start_offset;
+    data_chunk.requested_start_offset = requested_start_offset;
 
-    // Adjust first and last block.
-    if (idx == 0 && idx == io_op_count - 1) {
-      const uint64_t first_chunk_read_size =
-          std::min(block_size, file_size - aligned_start_offset); // 1222
-      cur_data_chunk.buffer =
-          CreateResizeUninitializedString(first_chunk_read_size);
-      cur_data_chunk.requested_start_addr = buffer;
-      cur_data_chunk.requested_bytes_to_read = requested_bytes_to_read;
-      cur_data_chunk.start_unrequested_size = offset_delta;
+    // Implementation-wise, middle chunks are easy to handle -- read in
+    // [block_size], and copy the whole chunk to the requested memory address;
+    // but the first and last chunk require special handling.
+    // For first chunk, requested start offset might not be aligned with block
+    // size; for the last chunk, we might not need to copy the whole
+    // [block_size] of memory.
+    //
+    // Case-1: If there's only one chunk, which serves as both the first chunk
+    // and the last one.
+    if (io_start_offset == aligned_start_offset &&
+        io_start_offset == aligned_last_chunk_offset) {
+      data_chunk.chunk_size =
+          std::min<uint64_t>(block_size, file_size - io_start_offset);
+      data_chunk.content =
+          CreateResizeUninitializedString(data_chunk.chunk_size);
+      data_chunk.bytes_to_copy = requested_bytes_to_read;
+    }
+    // Case-2: First chunk.
+    else if (io_start_offset == aligned_start_offset) {
+      const uint64_t delta_offset =
+          requested_start_offset - aligned_start_offset;
+      addr_to_write += block_size - delta_offset;
+      already_read_bytes += block_size - delta_offset;
+
+      data_chunk.chunk_size = block_size;
+      data_chunk.content = CreateResizeUninitializedString(block_size);
+      data_chunk.bytes_to_copy = block_size - delta_offset;
+    }
+    // Case-3: Last chunk.
+    else if (io_start_offset == aligned_last_chunk_offset) {
+      data_chunk.chunk_size =
+          std::min<uint64_t>(block_size, file_size - io_start_offset);
+      data_chunk.content =
+          CreateResizeUninitializedString(data_chunk.chunk_size);
+      data_chunk.bytes_to_copy = requested_bytes_to_read - already_read_bytes;
+    }
+    // Case-4: Middle chunks.
+    else {
+      addr_to_write += block_size;
+      already_read_bytes += block_size;
+
+      data_chunk.bytes_to_copy = block_size;
+      data_chunk.chunk_size = block_size;
     }
 
-    // Adjust first but not last block.
-    if (idx == 0 && idx != io_op_count - 1) {
-      const uint64_t first_chunk_read_size =
-          std::min(block_size, file_size - aligned_start_offset);
-      cur_data_chunk.buffer =
-          CreateResizeUninitializedString(first_chunk_read_size);
-      cur_data_chunk.requested_start_addr = buffer;
-      cur_data_chunk.requested_bytes_to_read = block_size - offset_delta;
-      cur_data_chunk.start_unrequested_size = offset_delta;
-    }
+    // Update read offset for next chunk read.
+    requested_start_offset = io_start_offset + block_size;
 
-    // Adjust last but not first block.
-    if (idx == io_op_count - 1 && idx != 0) {
-      const uint64_t last_chunk_start_offset =
-          aligned_start_offset + block_size * (io_op_count - 1);
-      const uint64_t last_chunk_end_offset =
-          last_chunk_start_offset + block_size;
-
-      // | un-req | req | ... | req | un-req |
-      //          |<-  requested  ->|
-      cur_data_chunk.requested_bytes_to_read = requested_bytes_to_read +
-                                               offset_delta -
-                                               (io_op_count - 1) * block_size;
-
-      // Handle case-1: buffer end already exceeds file end
-      // ... |      buffer     |
-      // ... | file end | noth |
-      // ... | req |   noth    |
-      if (last_chunk_end_offset > file_size) {
-        cur_data_chunk.buffer = CreateResizeUninitializedString(
-            file_size - last_chunk_start_offset);
-      }
-
-      // Handle case-2.
-      // ... |    buffer    |
-      // ... |      ...     | ... | file end |
-      // ... | req | un-req |
-      else {
-        cur_data_chunk.buffer = CreateResizeUninitializedString(block_size);
-      }
-    }
-
-    // Start file offset for current read operation.
-    const uint64_t cur_start_offset = block_size * idx;
-
-    threads.emplace_back([this, &handle, cur_start_offset,
-                          cur_data_chunk =
-                              std::move(cur_data_chunk)]() mutable {
+    // Perform read operation in parallel.
+    io_threads.emplace_back([this, &handle, block_size,
+                             data_chunk = std::move(data_chunk)]() mutable {
       // Check local cache first, see if we could do a cached read.
-      const auto local_cache_file =
-          GetLocalCacheFile(cache_directory, handle.GetPath(), cur_start_offset,
-                            cur_data_chunk.GetLenToRead());
+      const auto local_cache_file = GetLocalCacheFile(
+          cache_directory, handle.GetPath(), data_chunk.aligned_start_offset,
+          data_chunk.chunk_size);
 
       // TODO(hjiang): Add documentation and implementation for stale cache
-      // eviction policy, before that it's safe to access cache file
-      // directly.
+      // eviction policy, before that it's safe to access cache file directly.
       if (local_filesystem->FileExists(local_cache_file)) {
         auto file_handle = local_filesystem->OpenFile(
             local_cache_file, FileOpenFlags::FILE_FLAGS_READ);
-        local_filesystem->Read(*file_handle, cur_data_chunk.GetAddrReadTo(),
-                               cur_data_chunk.GetLenToRead(),
+        void *addr = !data_chunk.content.empty()
+                         ? const_cast<char *>(data_chunk.content.data())
+                         : data_chunk.requested_start_addr;
+        local_filesystem->Read(*file_handle, addr, data_chunk.chunk_size,
                                /*location=*/0);
-        cur_data_chunk.CopyBufferToRequestedMemory();
+        data_chunk.CopyBufferToRequestedMemory();
         return;
       }
 
-      // We suffer a cache loss, fallback to remote access then local
-      // filesystem write.
+      // We suffer a cache loss, fallback to remote access then local filesystem
+      // write.
+      if (data_chunk.content.empty()) {
+        data_chunk.content =
+            CreateResizeUninitializedString(data_chunk.chunk_size);
+      }
       auto &disk_cache_handle = handle.Cast<DiskCacheFileHandle>();
       internal_filesystem->Read(*disk_cache_handle.internal_file_handle,
-                                cur_data_chunk.GetAddrReadTo(),
-                                cur_data_chunk.GetLenToRead(),
-                                cur_start_offset);
+                                const_cast<char *>(data_chunk.content.data()),
+                                data_chunk.content.length(),
+                                data_chunk.aligned_start_offset);
 
-      // TODO(hjiang): Before local cache we should check whether there's
-      // enough space left, and trigger a stale file cleanup if necessary.
+      // TODO(hjiang): Before local cache we should check whether there's enough
+      // space left, and trigger a stale file cleanup if necessary.
       //
       // Dump to a temporary location at local filesystem.
       const auto fname = StringUtil::GetFileName(handle.GetPath());
@@ -241,8 +241,9 @@ void DiskCacheFileSystem::ReadAndCache(
         auto file_handle = local_filesystem->OpenFile(
             local_temp_file, FileOpenFlags::FILE_FLAGS_WRITE |
                                  FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-        local_filesystem->Write(*file_handle, cur_data_chunk.GetAddrReadTo(),
-                                cur_data_chunk.GetLenToRead(),
+        local_filesystem->Write(*file_handle,
+                                const_cast<char *>(data_chunk.content.data()),
+                                /*nr_bytes=*/data_chunk.content.length(),
                                 /*location=*/0);
         file_handle->Sync();
       }
@@ -253,10 +254,10 @@ void DiskCacheFileSystem::ReadAndCache(
                                  /*target=*/local_cache_file);
 
       // Copy to destination buffer.
-      cur_data_chunk.CopyBufferToRequestedMemory();
+      data_chunk.CopyBufferToRequestedMemory();
     });
   }
-  for (auto &cur_thd : threads) {
+  for (auto &cur_thd : io_threads) {
     D_ASSERT(cur_thd.joinable());
     cur_thd.join();
   }
@@ -274,13 +275,8 @@ int64_t DiskCacheFileSystem::ReadImpl(FileHandle &handle, void *buffer,
 
   const int64_t bytes_to_read =
       std::min<int64_t>(nr_bytes, file_size - location);
-  const auto [aligned_start_position, aligned_bytes_to_read] =
-      GetStartOffsetAndBytesToRead(handle, location, bytes_to_read,
-                                   bytes_to_read, block_size);
-
   ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read,
-               aligned_start_position, aligned_bytes_to_read, bytes_to_read,
-               block_size);
+               file_size, block_size);
 
   return bytes_to_read;
 }
