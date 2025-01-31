@@ -32,7 +32,11 @@ const auto TEST_FILE_CONTENT = []() {
 const auto TEST_FILENAME =
     StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cached_http_cache";
-
+const OnDiskCacheConfig TEST_CACHE_CONFIG = []() {
+  OnDiskCacheConfig cache_config;
+  cache_config.on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+  return cache_config;
+}();
 } // namespace
 
 // One chunk is involved, requested bytes include only "first and last chunk".
@@ -41,7 +45,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first "
           "[on-disk cache filesystem test]") {
   LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
   DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal(),
-                                    TEST_ON_DISK_CACHE_DIRECTORY};
+                                    TEST_CACHE_CONFIG};
 
   // First uncached read.
   {
@@ -80,7 +84,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first and "
           "[on-disk cache filesystem test]") {
   LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
   DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal(),
-                                    TEST_ON_DISK_CACHE_DIRECTORY};
+                                    TEST_CACHE_CONFIG};
 
   // First uncached read.
   {
@@ -119,7 +123,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first, "
           "[on-disk cache filesystem test]") {
   LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
   DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal(),
-                                    TEST_ON_DISK_CACHE_DIRECTORY};
+                                    TEST_CACHE_CONFIG};
 
   // First uncached read.
   {
@@ -159,7 +163,7 @@ TEST_CASE(
     "[on-disk cache filesystem test]") {
   LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
   DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal(),
-                                    TEST_ON_DISK_CACHE_DIRECTORY};
+                                    TEST_CACHE_CONFIG};
 
   // First uncached read.
   {
@@ -197,7 +201,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at last of file",
           "[on-disk cache filesystem test]") {
   LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
   DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal(),
-                                    TEST_ON_DISK_CACHE_DIRECTORY};
+                                    TEST_CACHE_CONFIG};
 
   // First uncached read.
   {
@@ -254,7 +258,7 @@ TEST_CASE(
     "[on-disk cache filesystem test]") {
   LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
   DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal(),
-                                    TEST_ON_DISK_CACHE_DIRECTORY};
+                                    TEST_CACHE_CONFIG};
 
   // First uncached read.
   {
@@ -310,7 +314,7 @@ TEST_CASE("Test on disk cache filesystem no new cache file after a full cache",
           "[on-disk cache filesystem test]") {
   LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
   DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal(),
-                                    TEST_ON_DISK_CACHE_DIRECTORY};
+                                    TEST_CACHE_CONFIG};
 
   // First uncached read.
   {
@@ -364,7 +368,7 @@ TEST_CASE("Test on disk cache filesystem read from end of file",
           "[on-disk cache filesystem test]") {
   LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
   DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal(),
-                                    TEST_ON_DISK_CACHE_DIRECTORY};
+                                    TEST_CACHE_CONFIG};
 
   auto handle =
       disk_cache_fs.OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
@@ -381,7 +385,7 @@ TEST_CASE("Test on reading non-existent file",
           "[on-disk cache filesystem test]") {
   LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
   DiskCacheFileSystem disk_cache_fs{LocalFileSystem::CreateLocal(),
-                                    TEST_ON_DISK_CACHE_DIRECTORY};
+                                    TEST_CACHE_CONFIG};
   REQUIRE_THROWS(disk_cache_fs.OpenFile("non-existent-file",
                                         FileOpenFlags::FILE_FLAGS_READ));
 }

@@ -137,11 +137,12 @@ DiskCacheFileHandle::DiskCacheFileHandle(
       internal_file_handle(std::move(internal_file_handle_p)) {}
 
 DiskCacheFileSystem::DiskCacheFileSystem(
-    unique_ptr<FileSystem> internal_filesystem_p, string cache_directory_p)
-    : cache_directory(std::move(cache_directory_p)),
+    unique_ptr<FileSystem> internal_filesystem_p,
+    OnDiskCacheConfig cache_config_p)
+    : cache_config(std::move(cache_config_p)),
       local_filesystem(FileSystem::CreateLocal()),
       internal_filesystem(std::move(internal_filesystem_p)) {
-  local_filesystem->CreateDirectory(cache_directory);
+  local_filesystem->CreateDirectory(cache_config.on_disk_cache_directory);
 }
 
 void DiskCacheFileSystem::Read(FileHandle &handle, void *buffer,
@@ -244,7 +245,7 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
                                  std::move(cache_read_chunk)]() mutable {
       // Check local cache first, see if we could do a cached read.
       const auto local_cache_file = GetLocalCacheFile(
-          cache_directory, handle.GetPath(),
+          cache_config.on_disk_cache_directory, handle.GetPath(),
           cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
 
       // TODO(hjiang): Add documentation and implementation for stale cache
@@ -287,8 +288,8 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
       cache_read_chunk.CopyBufferToRequestedMemory();
 
       // Attempt to cache file locally.
-      CacheLocal(cache_read_chunk, *local_filesystem, handle, cache_directory,
-                 local_cache_file);
+      CacheLocal(cache_read_chunk, *local_filesystem, handle,
+                 cache_config.on_disk_cache_directory, local_cache_file);
     });
   }
   for (auto &cur_thd : io_threads) {

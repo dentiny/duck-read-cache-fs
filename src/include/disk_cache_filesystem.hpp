@@ -28,9 +28,9 @@ class DiskCacheFileSystem : public FileSystem {
 public:
   explicit DiskCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p)
       : DiskCacheFileSystem(std::move(internal_filesystem_p),
-                            ON_DISK_CACHE_DIRECTORY) {}
+                            OnDiskCacheConfig{}) {}
   DiskCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p,
-                      string cache_directory_p);
+                      OnDiskCacheConfig cache_directory_p);
   std::string GetName() const override { return "disk_cache_filesystem"; }
 
   void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location);
@@ -200,6 +200,8 @@ private:
   int64_t ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes,
                    idx_t location, uint64_t block_size);
 
+  // Read-cache filesystem configuration.
+  OnDiskCacheConfig cache_config;
   // Directory to store cache files.
   string cache_directory;
   // Used to access local cache files.

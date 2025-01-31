@@ -51,3 +51,7 @@ target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
 
 add_executable(test_stale_deletion unit/test_stale_deletion.cpp)
 target_link_libraries(test_stale_deletion ${EXTENSION_NAME})
+
+# Benchmark
+add_executable(read_s3_object benchmark/read_s3_object.cpp)
+target_link_libraries(read_s3_object ${EXTENSION_NAME})

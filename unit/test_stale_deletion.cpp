@@ -11,8 +11,6 @@
 
 using namespace duckdb; // NOLINT
 
-#include <iostream>
-
 namespace {
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cached_http_cache";
 } // namespace
