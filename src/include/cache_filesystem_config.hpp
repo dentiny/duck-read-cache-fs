@@ -17,6 +17,10 @@ inline const std::string ON_DISK_CACHE_DIRECTORY =
 // if insufficient.
 inline const uint64_t MIN_DISK_SPACE_FOR_CACHE = 1_MiB;
 
+// Maximum in-memory cache block number, which caps the overall memory
+// consumption as (block size * max block count).
+inline const uint64_t MAX_IN_MEM_CACHE_BLOCK_COUNT = 256;
+
 // Number of seconds which we define as the threshold of staleness.
 inline constexpr uint64_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
 
@@ -26,6 +30,13 @@ struct OnDiskCacheConfig {
   uint64_t block_size = DEFAULT_BLOCK_SIZE;
   // Cache storage location on local filesystem.
   std::string on_disk_cache_directory = ON_DISK_CACHE_DIRECTORY;
+};
+
+struct InMemoryCacheConfig {
+  // Cache block size.
+  uint64_t block_size = DEFAULT_BLOCK_SIZE;
+  // Max cache size.
+  uint64_t block_count = MAX_IN_MEM_CACHE_BLOCK_COUNT;
 };
 
 } // namespace duckdb

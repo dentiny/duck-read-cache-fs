@@ -59,7 +59,7 @@ inline void STLStringResizeUninitialized(string_type *s, size_t new_size) {
 
 // Create a string with the given size, with all bytes uninitialized. Useful to
 // use as a buffer.
-std::string CreateResizeUninitializedString(size_t size) {
+inline std::string CreateResizeUninitializedString(size_t size) {
   std::string content;
   STLStringResizeUninitialized(&content, size);
   return content;
