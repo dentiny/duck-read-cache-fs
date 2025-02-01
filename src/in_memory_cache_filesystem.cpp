@@ -154,8 +154,7 @@ void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
           block_key.fname = handle.GetPath();
           block_key.start_off = cache_read_chunk.aligned_start_offset;
           block_key.blk_size = cache_read_chunk.chunk_size;
-          string block_key_str = block_key.ToString();
-          auto cache_block = cache.Get(block_key_str);
+          auto cache_block = cache.Get(block_key);
 
           // TODO(hjiang): Add documentation and implementation for stale cache
           // eviction policy, before that it's safe to access cache file
@@ -179,7 +178,7 @@ void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
           cache_read_chunk.CopyBufferToRequestedMemory(content);
 
           // Attempt to cache file locally.
-          cache.Put(std::move(block_key_str),
+          cache.Put(std::move(block_key),
                     std::make_shared<std::string>(std::move(content)));
         });
   }

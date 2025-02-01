@@ -163,7 +163,7 @@ public:
 
 private:
   std::mutex mu_;
-  SharedLruCache<Key, Val> cache_;
+  SharedLruCache<Key, Val, KeyHash, KeyEqual> cache_;
 };
 
 // Same interfaces as `SharedLruCache`, but all cached values are

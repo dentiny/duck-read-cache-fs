@@ -210,9 +210,9 @@ private:
   // Used to access remote files.
   unique_ptr<FileSystem> internal_filesystem;
   // LRU cache to store blocks.
-  // TODO(hjiang): Temporarily use string as key, should switch to customized
-  // hash.
-  ThreadSafeSharedLruCache<string, string> cache;
+  ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash,
+                           InMemCacheBlockEqual>
+      cache;
 };
 
 } // namespace duckdb
