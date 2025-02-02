@@ -29,6 +29,10 @@ LOAD read_cache_fs;
 SELECT * FROM read_csv_auto('https://csvbase.com/meripaterson/stock-exchanges') LIMIT 10;
 ```
 
+## Formatting
+All code should be formatted as `make format-all`.
+When new folder added, `Makefile` might be changed to include more files to lint.
+
 ## TODO items
 - [ ] Expose a function to clean read cache files on local filesystem
 - [ ] Provide options to configure parameters, for example, block size, total memory consumption for in-memory cache, etc

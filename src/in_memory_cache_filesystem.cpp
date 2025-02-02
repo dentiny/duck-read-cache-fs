@@ -42,35 +42,11 @@ struct CacheReadChunk {
 
 } // namespace
 
-InMemoryCacheFileHandle::InMemoryCacheFileHandle(
-    unique_ptr<FileHandle> internal_file_handle_p, InMemoryCacheFileSystem &fs)
-    : FileHandle(fs, internal_file_handle_p->GetPath(),
-                 internal_file_handle_p->GetFlags()),
-      internal_file_handle(std::move(internal_file_handle_p)) {}
-
 InMemoryCacheFileSystem::InMemoryCacheFileSystem(
     unique_ptr<FileSystem> internal_filesystem_p,
     InMemoryCacheConfig cache_config_p)
-    : cache_config(std::move(cache_config_p)),
-      internal_filesystem(std::move(internal_filesystem_p)),
-      cache(cache_config.block_count) {}
-
-void InMemoryCacheFileSystem::Read(FileHandle &handle, void *buffer,
-                                   int64_t nr_bytes, idx_t location) {
-  ReadImpl(handle, buffer, nr_bytes, location, DEFAULT_BLOCK_SIZE);
-}
-int64_t InMemoryCacheFileSystem::Read(FileHandle &handle, void *buffer,
-                                      int64_t nr_bytes) {
-  const int64_t bytes_read = ReadImpl(
-      handle, buffer, nr_bytes, handle.SeekPosition(), DEFAULT_BLOCK_SIZE);
-  handle.Seek(handle.SeekPosition() + bytes_read);
-  return bytes_read;
-}
-int64_t InMemoryCacheFileSystem::ReadForTesting(FileHandle &handle,
-                                                void *buffer, int64_t nr_bytes,
-                                                idx_t location,
-                                                uint64_t block_size) {
-  return ReadImpl(handle, buffer, nr_bytes, location, block_size);
+    : CacheFileSystem(std::move(internal_filesystem_p)),
+      cache_config(std::move(cache_config_p)), cache(cache_config.block_count) {
 }
 
 void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
@@ -168,7 +144,7 @@ void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
           // filesystem write.
           auto content =
               CreateResizeUninitializedString(cache_read_chunk.chunk_size);
-          auto &in_mem_cache_handle = handle.Cast<InMemoryCacheFileHandle>();
+          auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
           internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle,
                                     const_cast<char *>(content.data()),
                                     content.length(),
@@ -186,24 +162,6 @@ void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
     D_ASSERT(cur_thd.joinable());
     cur_thd.join();
   }
-}
-
-int64_t InMemoryCacheFileSystem::ReadImpl(FileHandle &handle, void *buffer,
-                                          int64_t nr_bytes, idx_t location,
-                                          uint64_t block_size) {
-  const auto file_size = handle.GetFileSize();
-
-  // No more bytes to read.
-  if (location == file_size) {
-    return 0;
-  }
-
-  const int64_t bytes_to_read =
-      std::min<int64_t>(nr_bytes, file_size - location);
-  ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read,
-               file_size, block_size);
-
-  return bytes_to_read;
 }
 
 } // namespace duckdb

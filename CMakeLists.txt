@@ -16,6 +16,7 @@ include_directories(duckdb/third_party/httplib)
 
 set(EXTENSION_SOURCES
     src/read_cache_fs_extension.cpp
+    src/base_cache_filesystem.cpp
     src/disk_cache_filesystem.cpp
     src/in_memory_cache_filesystem.cpp
     src/utils/filesystem_utils.cpp
