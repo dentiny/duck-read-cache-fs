@@ -5,10 +5,23 @@
 #include "s3fs.hpp"
 #include "hffs.hpp"
 #include "crypto.hpp"
+#include "duckdb/main/extension_util.hpp"
+#include "cache_filesystem_config.hpp"
 
 #include <array>
 
 namespace duckdb {
+
+static void ClearOnDiskCache(const DataChunk &args, ExpressionState &state,
+                             Vector &result) {
+  auto local_filesystem = LocalFileSystem::CreateLocal();
+  local_filesystem->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
+  // Create an empty directory, otherwise later read access errors.
+  local_filesystem->CreateDirectory(ON_DISK_CACHE_DIRECTORY);
+
+  constexpr int32_t SUCCESS = 1;
+  result.Reference(Value(SUCCESS));
+}
 
 // Cached httpfs cannot co-exist with non-cached version, because duckdb virtual
 // filesystem doesn't provide a native fs wrapper nor priority system, so
@@ -36,6 +49,12 @@ static void LoadInternal(DatabaseInstance &instance) {
     } catch (...) {
     }
   }
+
+  // Register on-disk cache cleanup function.
+  ScalarFunction ulid_function("cache_httpfs_clear_cache", /*arguments=*/{},
+                               /*return_type=*/LogicalType::INTEGER,
+                               ClearOnDiskCache);
+  ExtensionUtil::RegisterFunction(instance, ulid_function);
 }
 
 void ReadCacheFsExtension::Load(DuckDB &db) { LoadInternal(*db.instance); }
