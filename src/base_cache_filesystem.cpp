@@ -11,23 +11,17 @@ CacheFileSystemHandle::CacheFileSystemHandle(
 
 void CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes,
                            idx_t location) {
-  ReadImpl(handle, buffer, nr_bytes, location, DEFAULT_BLOCK_SIZE);
+  ReadImpl(handle, buffer, nr_bytes, location);
 }
 int64_t CacheFileSystem::Read(FileHandle &handle, void *buffer,
                               int64_t nr_bytes) {
-  const int64_t bytes_read = ReadImpl(
-      handle, buffer, nr_bytes, handle.SeekPosition(), DEFAULT_BLOCK_SIZE);
+  const int64_t bytes_read =
+      ReadImpl(handle, buffer, nr_bytes, handle.SeekPosition());
   handle.Seek(handle.SeekPosition() + bytes_read);
   return bytes_read;
 }
-int64_t CacheFileSystem::ReadForTesting(FileHandle &handle, void *buffer,
-                                        int64_t nr_bytes, idx_t location,
-                                        uint64_t block_size) {
-  return ReadImpl(handle, buffer, nr_bytes, location, block_size);
-}
 int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer,
-                                  int64_t nr_bytes, idx_t location,
-                                  uint64_t block_size) {
+                                  int64_t nr_bytes, idx_t location) {
   const auto file_size = handle.GetFileSize();
 
   // No more bytes to read.
@@ -38,7 +32,7 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer,
   const int64_t bytes_to_read =
       std::min<int64_t>(nr_bytes, file_size - location);
   ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read,
-               file_size, block_size);
+               file_size);
 
   return bytes_to_read;
 }

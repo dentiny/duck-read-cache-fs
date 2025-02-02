@@ -30,11 +30,6 @@ public:
             idx_t location) override;
   int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
 
-  // Expose `Read` interface with testing property injected, underlying it uses
-  // the same implementation as production one.
-  int64_t ReadForTesting(FileHandle &handle, void *buffer, int64_t nr_bytes,
-                         idx_t location, uint64_t block_size);
-
   // For other API calls, delegate to [internal_filesystem] to handle.
   unique_ptr<FileHandle>
   OpenFile(const string &path, FileOpenFlags flags,
@@ -187,12 +182,12 @@ protected:
   virtual void ReadAndCache(FileHandle &handle, char *buffer,
                             uint64_t requested_start_offset,
                             uint64_t requested_bytes_to_read,
-                            uint64_t file_size, uint64_t block_size) = 0;
+                            uint64_t file_size) = 0;
 
   // Read from [location] on [nr_bytes] for the given [handle] into [buffer].
   // Return the actual number of bytes to read.
   int64_t ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes,
-                   idx_t location, uint64_t block_size);
+                   idx_t location);
 
   // Used to access remote files.
   unique_ptr<FileSystem> internal_filesystem;

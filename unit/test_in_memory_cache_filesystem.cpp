@@ -41,10 +41,9 @@ TEST_CASE("Test on in-memory cache filesystem",
     const uint64_t bytes_to_read = TEST_FILE_SIZE - 2;
     string content(bytes_to_read, '\0');
     const uint64_t test_block_size = 26;
-    const uint64_t bytes_read = in_mem_cache_fs.ReadForTesting(
+    in_mem_cache_fs.Read(
         *handle, const_cast<void *>(static_cast<const void *>(content.data())),
-        bytes_to_read, start_offset, test_block_size);
-    REQUIRE(bytes_read == bytes_to_read);
+        bytes_to_read, start_offset);
     REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
   }
 
@@ -56,10 +55,9 @@ TEST_CASE("Test on in-memory cache filesystem",
     const uint64_t bytes_to_read = TEST_FILE_SIZE - 2;
     string content(bytes_to_read, '\0');
     const uint64_t test_block_size = 26;
-    const uint64_t bytes_read = in_mem_cache_fs.ReadForTesting(
+    in_mem_cache_fs.Read(
         *handle, const_cast<void *>(static_cast<const void *>(content.data())),
-        bytes_to_read, start_offset, test_block_size);
-    REQUIRE(bytes_read == bytes_to_read);
+        bytes_to_read, start_offset);
     REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
   }
 }

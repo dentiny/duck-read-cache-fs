@@ -29,8 +29,8 @@ protected:
   // to local filesystem and return to user.
   void ReadAndCache(FileHandle &handle, char *buffer,
                     uint64_t requested_start_offset,
-                    uint64_t requested_bytes_to_read, uint64_t file_size,
-                    uint64_t block_size) override;
+                    uint64_t requested_bytes_to_read,
+                    uint64_t file_size) override;
 
   // Read-cache filesystem configuration.
   InMemoryCacheConfig cache_config;

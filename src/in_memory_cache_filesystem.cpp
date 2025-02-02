@@ -52,8 +52,8 @@ InMemoryCacheFileSystem::InMemoryCacheFileSystem(
 void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
                                            uint64_t requested_start_offset,
                                            uint64_t requested_bytes_to_read,
-                                           uint64_t file_size,
-                                           uint64_t block_size) {
+                                           uint64_t file_size) {
+  const uint64_t block_size = cache_config.block_size;
   const uint64_t aligned_start_offset =
       requested_start_offset / block_size * block_size;
   const uint64_t aligned_last_chunk_offset =
