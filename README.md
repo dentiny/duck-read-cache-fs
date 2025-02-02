@@ -27,6 +27,10 @@ SELECT * FROM duckdb_extensions();
 LOAD read_cache_fs;
 -- Read remote CSV file.
 SELECT * FROM read_csv_auto('https://csvbase.com/meripaterson/stock-exchanges') LIMIT 10;
+-- Get all cache file size.
+SELECT cache_httpfs_get_cache_size();
+-- Clear all local cache files.
+SELECT cache_httpfs_clear_cache();
 ```
 
 ## Formatting

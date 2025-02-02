@@ -23,6 +23,23 @@ static void ClearOnDiskCache(const DataChunk &args, ExpressionState &state,
   result.Reference(Value(SUCCESS));
 }
 
+static void GetOnDiskCacheSize(const DataChunk &args, ExpressionState &state,
+                               Vector &result) {
+  auto local_filesystem = LocalFileSystem::CreateLocal();
+
+  int64_t total_cache_size = 0;
+  local_filesystem->ListFiles(
+      ON_DISK_CACHE_DIRECTORY, [&local_filesystem, &total_cache_size](
+                                   const string &fname, bool /*unused*/) {
+        const string file_path =
+            StringUtil::Format("%s/%s", ON_DISK_CACHE_DIRECTORY, fname);
+        auto file_handle = local_filesystem->OpenFile(
+            file_path, FileOpenFlags::FILE_FLAGS_READ);
+        total_cache_size += local_filesystem->GetFileSize(*file_handle);
+      });
+  result.Reference(Value(total_cache_size));
+}
+
 // Cached httpfs cannot co-exist with non-cached version, because duckdb virtual
 // filesystem doesn't provide a native fs wrapper nor priority system, so
 // co-existence doesn't guarantee cached version is actually used.
@@ -51,10 +68,16 @@ static void LoadInternal(DatabaseInstance &instance) {
   }
 
   // Register on-disk cache cleanup function.
-  ScalarFunction ulid_function("cache_httpfs_clear_cache", /*arguments=*/{},
-                               /*return_type=*/LogicalType::INTEGER,
-                               ClearOnDiskCache);
-  ExtensionUtil::RegisterFunction(instance, ulid_function);
+  ScalarFunction clear_cache_function(
+      "cache_httpfs_clear_cache", /*arguments=*/{},
+      /*return_type=*/LogicalType::INTEGER, ClearOnDiskCache);
+  ExtensionUtil::RegisterFunction(instance, clear_cache_function);
+
+  // Register on-disk cache file size stat function.
+  ScalarFunction get_cache_size_function(
+      "cache_httpfs_get_cache_size", /*arguments=*/{},
+      /*return_type=*/LogicalType::BIGINT, GetOnDiskCacheSize);
+  ExtensionUtil::RegisterFunction(instance, get_cache_size_function);
 }
 
 void ReadCacheFsExtension::Load(DuckDB &db) { LoadInternal(*db.instance); }
