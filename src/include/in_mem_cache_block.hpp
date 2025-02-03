@@ -15,8 +15,8 @@ namespace duckdb {
 // temporarily unblock by using string as key.
 struct InMemCacheBlock {
   std::string fname;
-  uint64_t start_off = 0;
-  uint64_t blk_size = 0;
+  idx_t start_off = 0;
+  idx_t blk_size = 0;
 };
 
 struct InMemCacheBlockEqual {
@@ -29,8 +29,7 @@ struct InMemCacheBlockEqual {
 struct InMemCacheBlockHash {
   std::size_t operator()(const InMemCacheBlock &key) const {
     return std::hash<std::string>{}(key.fname) ^
-           std::hash<uint64_t>{}(key.start_off) ^
-           std::hash<uint64_t>{}(key.blk_size);
+           std::hash<idx_t>{}(key.start_off) ^ std::hash<idx_t>{}(key.blk_size);
   }
 };
 

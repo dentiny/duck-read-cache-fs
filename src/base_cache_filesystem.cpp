@@ -30,7 +30,7 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer,
   }
 
   const int64_t bytes_to_read =
-      std::min<int64_t>(nr_bytes, file_size - location);
+      MinValue<int64_t>(nr_bytes, file_size - location);
   ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read,
                file_size);
 

@@ -8,8 +8,11 @@ It provides two options:
 - In-memory cache, which caches read block in memory, and is only accessible within in single duckdb process;
 - On-disk cache, which caches blocks on disk, and could be shared among all duckdb instances.
 
-On-disk cache files are stored under `<cache-directory>/<filename-sha256>.<filename>`, the default cache directory is `/tmp/duckdb_cached_http_cache`.
-There're also temporary cache files stored locally for write atomicity, named as `<filename>.<uuid>.httpfs_local_cache.tmp`, also placed under the above cache directory.
+
+Local cache file storage:
+- On-disk cache files are stored under `<cache-directory>/<filename-sha256>.<filename>`, the default cache directory is `/tmp/duckdb_cached_http_cache`.
+  + There're also temporary cache files stored locally for write atomicity, named as `<filename>.<uuid>.httpfs_local_cache.tmp`, also placed under the above cache directory.
+- An naive cache file eviction for stale files is triggered when left space on local filesystem is less than a threshold.
 
 ## Build
 ```sh

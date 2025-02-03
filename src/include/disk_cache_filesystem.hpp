@@ -23,9 +23,8 @@ protected:
   // Read from [handle] for an block-size aligned chunk into [start_addr]; cache
   // to local filesystem and return to user.
   void ReadAndCache(FileHandle &handle, char *buffer,
-                    uint64_t requested_start_offset,
-                    uint64_t requested_bytes_to_read,
-                    uint64_t file_size) override;
+                    idx_t requested_start_offset, idx_t requested_bytes_to_read,
+                    idx_t file_size) override;
 
   // Read-cache filesystem configuration.
   OnDiskCacheConfig cache_config;

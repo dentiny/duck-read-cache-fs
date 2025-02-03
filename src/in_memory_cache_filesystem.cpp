@@ -20,20 +20,20 @@ namespace {
 struct CacheReadChunk {
   // Requested memory address and file offset to read from for current chunk.
   char *requested_start_addr = nullptr;
-  uint64_t requested_start_offset = 0;
+  idx_t requested_start_offset = 0;
   // Block size aligned [requested_start_offset].
-  uint64_t aligned_start_offset = 0;
+  idx_t aligned_start_offset = 0;
 
   // Number of bytes for the chunk for IO operations, apart from the last chunk
   // it's always cache block size.
-  uint64_t chunk_size = 0;
+  idx_t chunk_size = 0;
 
   // Number of bytes to copy from [content] to requested memory address.
-  uint64_t bytes_to_copy = 0;
+  idx_t bytes_to_copy = 0;
 
   // Copy from [content] to application-provided buffer.
   void CopyBufferToRequestedMemory(const std::string &content) {
-    const uint64_t delta_offset = requested_start_offset - aligned_start_offset;
+    const idx_t delta_offset = requested_start_offset - aligned_start_offset;
     std::memmove(requested_start_addr,
                  const_cast<char *>(content.data()) + delta_offset,
                  bytes_to_copy);
@@ -50,26 +50,26 @@ InMemoryCacheFileSystem::InMemoryCacheFileSystem(
 }
 
 void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
-                                           uint64_t requested_start_offset,
-                                           uint64_t requested_bytes_to_read,
-                                           uint64_t file_size) {
-  const uint64_t block_size = cache_config.block_size;
-  const uint64_t aligned_start_offset =
+                                           idx_t requested_start_offset,
+                                           idx_t requested_bytes_to_read,
+                                           idx_t file_size) {
+  const idx_t block_size = cache_config.block_size;
+  const idx_t aligned_start_offset =
       requested_start_offset / block_size * block_size;
-  const uint64_t aligned_last_chunk_offset =
+  const idx_t aligned_last_chunk_offset =
       (requested_start_offset + requested_bytes_to_read) / block_size *
       block_size;
 
   // Indicate the meory address to copy to for each IO operation
   char *addr_to_write = buffer;
   // Used to calculate bytes to copy for last chunk.
-  uint64_t already_read_bytes = 0;
+  idx_t already_read_bytes = 0;
   // Threads to parallelly perform IO.
   vector<thread> io_threads;
 
   // To improve IO performance, we split requested bytes (after alignment) into
   // multiple chunks and fetch them in parallel.
-  for (uint64_t io_start_offset = aligned_start_offset;
+  for (idx_t io_start_offset = aligned_start_offset;
        io_start_offset <= aligned_last_chunk_offset;
        io_start_offset += block_size) {
     CacheReadChunk cache_read_chunk;
@@ -89,13 +89,12 @@ void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
     if (io_start_offset == aligned_start_offset &&
         io_start_offset == aligned_last_chunk_offset) {
       cache_read_chunk.chunk_size =
-          std::min<uint64_t>(block_size, file_size - io_start_offset);
+          MinValue<idx_t>(block_size, file_size - io_start_offset);
       cache_read_chunk.bytes_to_copy = requested_bytes_to_read;
     }
     // Case-2: First chunk.
     else if (io_start_offset == aligned_start_offset) {
-      const uint64_t delta_offset =
-          requested_start_offset - aligned_start_offset;
+      const idx_t delta_offset = requested_start_offset - aligned_start_offset;
       addr_to_write += block_size - delta_offset;
       already_read_bytes += block_size - delta_offset;
 
@@ -105,7 +104,7 @@ void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
     // Case-3: Last chunk.
     else if (io_start_offset == aligned_last_chunk_offset) {
       cache_read_chunk.chunk_size =
-          std::min<uint64_t>(block_size, file_size - io_start_offset);
+          MinValue<idx_t>(block_size, file_size - io_start_offset);
       cache_read_chunk.bytes_to_copy =
           requested_bytes_to_read - already_read_bytes;
     }
@@ -132,9 +131,6 @@ void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
           block_key.blk_size = cache_read_chunk.chunk_size;
           auto cache_block = cache.Get(block_key);
 
-          // TODO(hjiang): Add documentation and implementation for stale cache
-          // eviction policy, before that it's safe to access cache file
-          // directly.
           if (cache_block != nullptr) {
             cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
             return;
