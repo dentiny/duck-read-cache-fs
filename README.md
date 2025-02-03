@@ -8,7 +8,8 @@ It provides two options:
 - In-memory cache, which caches read block in memory, and is only accessible within in single duckdb process;
 - On-disk cache, which caches blocks on disk, and could be shared among all duckdb instances.
 
-It's worth notice, cached httpfs extension only supports unix platform due to certain syscalls.
+On-disk cache files are stored under `<cache-directory>/<filename-sha256>.<filename>`, the default cache directory is `/tmp/duckdb_cached_http_cache`.
+There're also temporary cache files stored locally for write atomicity, named as `<filename>.<uuid>.httpfs_local_cache.tmp`, also placed under the above cache directory.
 
 ## Build
 ```sh
@@ -33,10 +34,7 @@ SELECT cache_httpfs_get_cache_size();
 SELECT cache_httpfs_clear_cache();
 ```
 
-## Formatting
-All code should be formatted as `make format-all`.
-When new folder added, `Makefile` might be changed to include more files to lint.
-
 ## TODO items
-- [ ] Expose a function to clean read cache files on local filesystem
-- [ ] Provide options to configure parameters, for example, block size, total memory consumption for in-memory cache, etc
+- [ ] Clear specification on compilation/link options, for example, C++ version, warning and error options.
+- [ ] Provide options to configure parameters, for example, block size, total memory consumption for in-memory cache, etc.
+- [ ] Provide an option to profile read cache filesystem and store them in an in-memory duckdb table for later diagnose; key metrics include single IO request latency, request latency distribution, etc.
