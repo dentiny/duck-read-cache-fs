@@ -16,6 +16,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "cache_filesystem_config.hpp"
+#include "filesystem_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -215,14 +216,8 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at last of file",
     REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
   }
 
-  // Get all cache files and check file count.
-  vector<string> cache_files;
-  REQUIRE(LocalFileSystem::CreateLocal()->ListFiles(
-      TEST_ON_DISK_CACHE_DIRECTORY,
-      [&cache_files](const string &fname, bool /*unused*/) {
-        cache_files.emplace_back(fname);
-      }));
-  REQUIRE(cache_files.size() == 2);
+  // Check cache files count.
+  REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 2);
 
   // Second cached read, partial cached and another part uncached.
   {
@@ -238,13 +233,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at last of file",
   }
 
   // Get all cache files and check file count.
-  cache_files.clear();
-  REQUIRE(LocalFileSystem::CreateLocal()->ListFiles(
-      TEST_ON_DISK_CACHE_DIRECTORY,
-      [&cache_files](const string &fname, bool /*unused*/) {
-        cache_files.emplace_back(fname);
-      }));
-  REQUIRE(cache_files.size() == 3);
+  REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 3);
 }
 
 // Requested chunk involves the middle of the file.
@@ -273,13 +262,7 @@ TEST_CASE(
   }
 
   // Get all cache files and check file count.
-  vector<string> cache_files;
-  REQUIRE(LocalFileSystem::CreateLocal()->ListFiles(
-      TEST_ON_DISK_CACHE_DIRECTORY,
-      [&cache_files](const string &fname, bool /*unused*/) {
-        cache_files.emplace_back(fname);
-      }));
-  REQUIRE(cache_files.size() == 1);
+  REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
 
   // Second cached read, partial cached and another part uncached.
   {
@@ -295,13 +278,7 @@ TEST_CASE(
   }
 
   // Get all cache files and check file count.
-  cache_files.clear();
-  REQUIRE(LocalFileSystem::CreateLocal()->ListFiles(
-      TEST_ON_DISK_CACHE_DIRECTORY,
-      [&cache_files](const string &fname, bool /*unused*/) {
-        cache_files.emplace_back(fname);
-      }));
-  REQUIRE(cache_files.size() == 4);
+  REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 4);
 }
 
 // All chunks cached locally, later access shouldn't create new cache file.
@@ -329,12 +306,7 @@ TEST_CASE("Test on disk cache filesystem no new cache file after a full cache",
   }
 
   // Get all cache files.
-  vector<string> cache_files1;
-  REQUIRE(LocalFileSystem::CreateLocal()->ListFiles(
-      TEST_ON_DISK_CACHE_DIRECTORY,
-      [&cache_files1](const string &fname, bool /*unused*/) {
-        cache_files1.emplace_back(fname);
-      }));
+  auto cache_files1 = GetSortedFilesUnder(TEST_ON_DISK_CACHE_DIRECTORY);
 
   // Second cached read.
   {
@@ -350,12 +322,7 @@ TEST_CASE("Test on disk cache filesystem no new cache file after a full cache",
   }
 
   // Get all cache files and check unchanged.
-  vector<string> cache_files2;
-  REQUIRE(LocalFileSystem::CreateLocal()->ListFiles(
-      TEST_ON_DISK_CACHE_DIRECTORY,
-      [&cache_files2](const string &fname, bool /*unused*/) {
-        cache_files2.emplace_back(fname);
-      }));
+  auto cache_files2 = GetSortedFilesUnder(TEST_ON_DISK_CACHE_DIRECTORY);
   REQUIRE(cache_files1 == cache_files2);
 }
 

@@ -15,4 +15,11 @@ namespace duckdb {
 void EvictStaleCacheFiles(FileSystem &local_filesystem,
                           const string &cache_directory);
 
+// Get the number of files under the given local filesystem [folder].
+int GetFileCountUnder(const std::string &folder);
+
+// Get all files under the given local filesystem [folder] in alphabetically
+// ascending order.
+vector<std::string> GetSortedFilesUnder(const std::string &folder);
+
 } // namespace duckdb

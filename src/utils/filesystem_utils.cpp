@@ -1,9 +1,11 @@
 #include "filesystem_utils.hpp"
 
+#include <algorithm>
 #include <ctime>
 
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/common/local_file_system.hpp"
 
 namespace duckdb {
 
@@ -34,6 +36,25 @@ void EvictStaleCacheFiles(FileSystem &local_filesystem,
           }
         }
       });
+}
+
+int GetFileCountUnder(const std::string &folder) {
+  int file_count = 0;
+  LocalFileSystem::CreateLocal()->ListFiles(
+      folder, [&file_count](const string & /*unused*/, bool /*unused*/) {
+        ++file_count;
+      });
+  return file_count;
+}
+
+vector<std::string> GetSortedFilesUnder(const std::string &folder) {
+  vector<std::string> file_names;
+  LocalFileSystem::CreateLocal()->ListFiles(
+      folder, [&file_names](const string &fname, bool /*unused*/) {
+        file_names.emplace_back(fname);
+      });
+  std::sort(file_names.begin(), file_names.end());
+  return file_names;
 }
 
 } // namespace duckdb
