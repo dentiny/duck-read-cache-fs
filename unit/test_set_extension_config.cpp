@@ -33,30 +33,28 @@ TEST_CASE("Test on changing extension config"
       LocalFileSystem::CreateLocal(), OnDiskCacheConfig{}));
 
   Connection con(db);
-  con.Query("SET cached_http_cache_directory=" +
-            StringUtil::Format("'%s'", TEST_ON_DISK_CACHE_DIRECTORY));
+  con.Query(StringUtil::Format("SET cached_http_cache_directory ='%s'",
+                               TEST_ON_DISK_CACHE_DIRECTORY));
   con.Query("CREATE TABLE integers AS SELECT i, i+1 as j FROM range(10) r(i)");
-  con.Query("COPY integers TO" +
-            StringUtil::Format("'%s'", TEST_ON_DISK_CACHE_FILE));
+  con.Query(
+      StringUtil::Format("COPY integers TO '%s'", TEST_ON_DISK_CACHE_FILE));
 
   // Ensure the cache directory is empty before executing the query.
-  int files = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY);
+  const int files = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY);
   REQUIRE(files == 0);
 
-  con.Query("SELECT * FROM" +
-            StringUtil::Format("'%s'", TEST_ON_DISK_CACHE_FILE));
+  con.Query(StringUtil::Format("SELECT * FROM '%s'", TEST_ON_DISK_CACHE_FILE));
 
   // After executing the query, the cache directory should have one cache file.
-  int files_after_query = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY);
+  const int files_after_query = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY);
   vector<string> files_in_cache =
       GetSortedFilesUnder(TEST_ON_DISK_CACHE_DIRECTORY);
   REQUIRE(files_after_query == 1);
 
   // Change the cache directory path and execute the query again.
-  con.Query("SET cached_http_cache_directory=" +
-            StringUtil::Format("'%s'", TEST_SECOND_ON_DISK_CACHE_DIRECTORY));
-  con.Query("SELECT * FROM" +
-            StringUtil::Format("'%s'", TEST_ON_DISK_CACHE_FILE));
+  con.Query(StringUtil::Format("SET cached_http_cache_directory ='%s'",
+                               TEST_SECOND_ON_DISK_CACHE_DIRECTORY));
+  con.Query(StringUtil::Format("SELECT * FROM '%s'", TEST_ON_DISK_CACHE_FILE));
 
   // After executing the query, the NEW directory should have one cache file.
   // Both directories should have the same cache file.
