@@ -69,8 +69,8 @@ static void LoadInternal(DatabaseInstance &instance) {
 
   auto &config = DBConfig::GetConfig(instance);
   config.AddExtensionOption(
-      "cached_http_cache",
-      "The diskcache directory temporarily stores cached data ",
+      "cached_http_cache_directory",
+      "The disk cache directory temporarily stores cached data ",
       LogicalType::VARCHAR, ON_DISK_CACHE_DIRECTORY);
 
   // Register on-disk cache cleanup function.

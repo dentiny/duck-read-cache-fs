@@ -25,12 +25,10 @@ public:
            optional_ptr<FileOpener> opener = nullptr) override {
     Value val;
     if (opener) {
-      if (!local_filesystem->DirectoryExists(
-              cache_config.on_disk_cache_directory)) {
-        local_filesystem->CreateDirectory(cache_config.on_disk_cache_directory);
-      }
-      FileOpener::TryGetCurrentSetting(opener, "cached_http_cache", val);
+      FileOpener::TryGetCurrentSetting(opener, "cached_http_cache_directory",
+                                       val);
       cache_config.on_disk_cache_directory = val.ToString();
+      local_filesystem->CreateDirectory(cache_config.on_disk_cache_directory);
     }
 
     return CacheFileSystem::OpenFile(path, flags, opener);
