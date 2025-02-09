@@ -12,6 +12,7 @@
 #include "in_mem_cache_block.hpp"
 #include "lru_cache.hpp"
 #include "base_cache_filesystem.hpp"
+#include "duckdb/common/file_opener.hpp"
 
 namespace duckdb {
 
@@ -24,7 +25,15 @@ public:
                           InMemoryCacheConfig cache_config);
   std::string GetName() const override;
 
+  unique_ptr<FileHandle>
+  OpenFile(const string &path, FileOpenFlags flags,
+           optional_ptr<FileOpener> opener = nullptr) override;
+
 protected:
+  using InMemCache =
+      ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash,
+                               InMemCacheBlockEqual>;
+
   // Read from [handle] for an block-size aligned chunk into [start_addr]; cache
   // to local filesystem and return to user.
   void ReadAndCache(FileHandle &handle, char *buffer,
@@ -34,10 +43,8 @@ protected:
 
   // Read-cache filesystem configuration.
   InMemoryCacheConfig cache_config;
-  // LRU cache to store blocks.
-  ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash,
-                           InMemCacheBlockEqual>
-      cache;
+  // LRU cache to store blocks; late initialized after first access.
+  unique_ptr<InMemCache> cache;
 };
 
 } // namespace duckdb

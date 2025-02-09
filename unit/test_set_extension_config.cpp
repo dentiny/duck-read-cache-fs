@@ -21,7 +21,54 @@ const std::string TEST_SECOND_ON_DISK_CACHE_DIRECTORY =
     "/tmp/duckdb_test_cached_http_cache_second";
 const std::string TEST_ON_DISK_CACHE_FILE = "/tmp/test-config.parquet";
 
+void CleanupTestDirectory() {
+  auto local_filesystem = LocalFileSystem::CreateLocal();
+  if (local_filesystem->DirectoryExists(TEST_ON_DISK_CACHE_DIRECTORY)) {
+    local_filesystem->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+  }
+  if (local_filesystem->DirectoryExists(TEST_SECOND_ON_DISK_CACHE_DIRECTORY)) {
+    local_filesystem->RemoveDirectory(TEST_SECOND_ON_DISK_CACHE_DIRECTORY);
+  }
+  if (local_filesystem->FileExists(TEST_ON_DISK_CACHE_FILE)) {
+    local_filesystem->RemoveFile(TEST_ON_DISK_CACHE_FILE);
+  }
+}
 } // namespace
+
+TEST_CASE("Test on incorrect config", "[extension config test]") {
+  DuckDB db(nullptr);
+  Connection con(db);
+
+  // Set non-existent config parameter.
+  auto result = con.Query(
+      StringUtil::Format("SET wrong_cached_http_cache_directory ='%s'",
+                         TEST_ON_DISK_CACHE_DIRECTORY));
+  REQUIRE(result->HasError());
+
+  // Set existent config parameter to incorrect type.
+  result =
+      con.Query(StringUtil::Format("SET cached_http_cache_block_size='hello'"));
+  REQUIRE(result->HasError());
+}
+
+TEST_CASE("Test on correct config", "[extension config test]") {
+  DuckDB db(nullptr);
+  Connection con(db);
+
+  // On-disk cache directory.
+  auto result = con.Query(
+      StringUtil::Format("SET cached_http_cache_directory='helloworld'"));
+  REQUIRE(!result->HasError());
+
+  // Cache block size.
+  result = con.Query(StringUtil::Format("SET cached_http_cache_block_size=10"));
+  REQUIRE(!result->HasError());
+
+  // In-memory cache block count.
+  result = con.Query(
+      StringUtil::Format("SET cached_http_max_in_mem_cache_block_count=10"));
+  REQUIRE(!result->HasError());
+}
 
 TEST_CASE("Test on changing extension config"
           "change defaul cache dir path setting",
@@ -29,8 +76,8 @@ TEST_CASE("Test on changing extension config"
   DuckDB db(nullptr);
   auto &instance = db.instance;
   auto &fs = instance->GetFileSystem();
-  fs.RegisterSubSystem(make_uniq<DiskCacheFileSystem>(
-      LocalFileSystem::CreateLocal(), OnDiskCacheConfig{}));
+  fs.RegisterSubSystem(
+      make_uniq<DiskCacheFileSystem>(LocalFileSystem::CreateLocal()));
 
   Connection con(db);
   con.Query(StringUtil::Format("SET cached_http_cache_directory ='%s'",
@@ -43,12 +90,13 @@ TEST_CASE("Test on changing extension config"
   const int files = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY);
   REQUIRE(files == 0);
 
-  con.Query(StringUtil::Format("SELECT * FROM '%s'", TEST_ON_DISK_CACHE_FILE));
-
   // After executing the query, the cache directory should have one cache file.
+  auto result = con.Query(
+      StringUtil::Format("SELECT * FROM '%s'", TEST_ON_DISK_CACHE_FILE));
+  REQUIRE(!result->HasError());
+
   const int files_after_query = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY);
-  vector<string> files_in_cache =
-      GetSortedFilesUnder(TEST_ON_DISK_CACHE_DIRECTORY);
+  const auto files_in_cache = GetSortedFilesUnder(TEST_ON_DISK_CACHE_DIRECTORY);
   REQUIRE(files_after_query == 1);
 
   // Change the cache directory path and execute the query again.
@@ -60,19 +108,15 @@ TEST_CASE("Test on changing extension config"
   // Both directories should have the same cache file.
   const int files_after_query_second =
       GetFileCountUnder(TEST_SECOND_ON_DISK_CACHE_DIRECTORY);
-  vector<string> files_in_cache_second =
+  const auto files_in_cache_second =
       GetSortedFilesUnder(TEST_SECOND_ON_DISK_CACHE_DIRECTORY);
   REQUIRE(files_after_query_second == 1);
   REQUIRE(files_in_cache == files_in_cache_second);
-
-  // Clean up
-  auto local_filesystem = LocalFileSystem::CreateLocal();
-  local_filesystem->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-  local_filesystem->RemoveDirectory(TEST_SECOND_ON_DISK_CACHE_DIRECTORY);
-  local_filesystem->RemoveFile(TEST_ON_DISK_CACHE_FILE);
 };
 
 int main(int argc, char **argv) {
+  CleanupTestDirectory();
   int result = Catch::Session().run(argc, argv);
+  CleanupTestDirectory();
   return result;
 }

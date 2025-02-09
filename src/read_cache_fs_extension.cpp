@@ -15,9 +15,9 @@ namespace duckdb {
 static void ClearOnDiskCache(const DataChunk &args, ExpressionState &state,
                              Vector &result) {
   auto local_filesystem = LocalFileSystem::CreateLocal();
-  local_filesystem->RemoveDirectory(ON_DISK_CACHE_DIRECTORY);
+  local_filesystem->RemoveDirectory(g_on_disk_cache_directory);
   // Create an empty directory, otherwise later read access errors.
-  local_filesystem->CreateDirectory(ON_DISK_CACHE_DIRECTORY);
+  local_filesystem->CreateDirectory(g_on_disk_cache_directory);
 
   constexpr int32_t SUCCESS = 1;
   result.Reference(Value(SUCCESS));
@@ -29,10 +29,10 @@ static void GetOnDiskCacheSize(const DataChunk &args, ExpressionState &state,
 
   int64_t total_cache_size = 0;
   local_filesystem->ListFiles(
-      ON_DISK_CACHE_DIRECTORY, [&local_filesystem, &total_cache_size](
-                                   const string &fname, bool /*unused*/) {
+      g_on_disk_cache_directory, [&local_filesystem, &total_cache_size](
+                                     const string &fname, bool /*unused*/) {
         const string file_path =
-            StringUtil::Format("%s/%s", ON_DISK_CACHE_DIRECTORY, fname);
+            StringUtil::Format("%s/%s", g_on_disk_cache_directory, fname);
         auto file_handle = local_filesystem->OpenFile(
             file_path, FileOpenFlags::FILE_FLAGS_READ);
         total_cache_size += local_filesystem->GetFileSize(*file_handle);
@@ -50,6 +50,7 @@ static void GetOnDiskCacheSize(const DataChunk &args, ExpressionState &state,
 // 2. If uncached filesystem is registered later somehow, cached version is set
 // mutual set so it has higher priority than uncached version.
 static void LoadInternal(DatabaseInstance &instance) {
+  // Register filesystem instance to instance.
   auto &fs = instance.GetFileSystem();
   fs.RegisterSubSystem(
       make_uniq<DiskCacheFileSystem>(make_uniq<HTTPFileSystem>()));
@@ -67,10 +68,29 @@ static void LoadInternal(DatabaseInstance &instance) {
     }
   }
 
+  // Register extension configuration.
+  //
+  // TODO(hjiang): We should have a way to set global configurations to decide
+  // cache mode.
   auto &config = DBConfig::GetConfig(instance);
   config.AddExtensionOption("cached_http_cache_directory",
                             "The disk cache directory that stores cached data",
-                            LogicalType::VARCHAR, ON_DISK_CACHE_DIRECTORY);
+                            LogicalType::VARCHAR,
+                            DEFAULT_ON_DISK_CACHE_DIRECTORY);
+  config.AddExtensionOption(
+      "cached_http_cache_block_size",
+      "Block size for cache, applies to both in-memory "
+      "cache filesystem and on-disk cache filesystem. It's worth noting for "
+      "on-disk filesystem, all existing cache files are invalidated after "
+      "config update.",
+      LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_CACHE_BLOCK_SIZE));
+  config.AddExtensionOption(
+      "cached_http_max_in_mem_cache_block_count",
+      "Max in-memory cache block count for in-memory cache filesystem. It's "
+      "worth noting it should be set only once before all filesystem access, "
+      "otherwise there's no affect.",
+      LogicalType::UBIGINT,
+      Value::UBIGINT(DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT));
 
   // Register on-disk cache cleanup function.
   ScalarFunction clear_cache_function(
