@@ -12,8 +12,6 @@
 #include "duckdb/main/connection.hpp"
 #include "cache_filesystem_config.hpp"
 
-#include <algorithm>
-
 using namespace duckdb; // NOLINT
 
 namespace {
@@ -28,7 +26,6 @@ const std::string TEST_ON_DISK_CACHE_FILE = "/tmp/test-config.parquet";
 TEST_CASE("Test on changing extension config"
           "change defaul cache dir path setting",
           "[extension config test]") {
-
   DuckDB db(nullptr);
   auto &instance = db.instance;
   auto &fs = instance->GetFileSystem();

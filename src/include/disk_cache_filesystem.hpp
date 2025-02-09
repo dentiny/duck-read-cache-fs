@@ -22,17 +22,7 @@ public:
 
   unique_ptr<FileHandle>
   OpenFile(const string &path, FileOpenFlags flags,
-           optional_ptr<FileOpener> opener = nullptr) override {
-    Value val;
-    if (opener) {
-      FileOpener::TryGetCurrentSetting(opener, "cached_http_cache_directory",
-                                       val);
-      cache_config.on_disk_cache_directory = val.ToString();
-      local_filesystem->CreateDirectory(cache_config.on_disk_cache_directory);
-    }
-
-    return CacheFileSystem::OpenFile(path, flags, opener);
-  }
+           optional_ptr<FileOpener> opener = nullptr) override;
 
 protected:
   // Read from [handle] for an block-size aligned chunk into [start_addr]; cache

@@ -145,6 +145,19 @@ std::string DiskCacheFileSystem::GetName() const {
                             internal_filesystem->GetName());
 }
 
+unique_ptr<FileHandle>
+DiskCacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
+                              optional_ptr<FileOpener> opener) {
+  Value val;
+  if (opener) {
+    FileOpener::TryGetCurrentSetting(opener, "cached_http_cache_directory",
+                                     val);
+    cache_config.on_disk_cache_directory = val.ToString();
+    local_filesystem->CreateDirectory(cache_config.on_disk_cache_directory);
+  }
+
+  return CacheFileSystem::OpenFile(path, flags, opener);
+}
 void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer,
                                        idx_t requested_start_offset,
                                        idx_t requested_bytes_to_read,
