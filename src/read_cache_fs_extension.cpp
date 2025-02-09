@@ -71,7 +71,7 @@ static void LoadInternal(DatabaseInstance &instance) {
   config.AddExtensionOption(
       "cached_http_cache",
       "The diskcache directory temporarily stores cached data ",
-      LogicalType::VARCHAR, "/tmp/duckdb_cached_http_cache");
+      LogicalType::VARCHAR, ON_DISK_CACHE_DIRECTORY);
 
   // Register on-disk cache cleanup function.
   ScalarFunction clear_cache_function(
