@@ -31,19 +31,20 @@ namespace internal {
 // indicate whether __resize_default_init is present.
 template <typename string_type, typename = void>
 struct ResizeUninitializedTraits {
-  using HasMember = std::false_type;
-  static void Resize(string_type *s, size_t new_size) { s->resize(new_size); }
+	using HasMember = std::false_type;
+	static void Resize(string_type *s, size_t new_size) {
+		s->resize(new_size);
+	}
 };
 
 // __resize_default_init is provided by libc++ >= 8.0
 template <typename string_type>
-struct ResizeUninitializedTraits<
-    string_type, void_t<decltype(std::declval<string_type &>()
-                                     .__resize_default_init(237))>> {
-  using HasMember = std::true_type;
-  static void Resize(string_type *s, size_t new_size) {
-    s->__resize_default_init(new_size);
-  }
+struct ResizeUninitializedTraits<string_type,
+                                 void_t<decltype(std::declval<string_type &>().__resize_default_init(237))>> {
+	using HasMember = std::true_type;
+	static void Resize(string_type *s, size_t new_size) {
+		s->__resize_default_init(new_size);
+	}
 };
 
 } // namespace internal
@@ -54,15 +55,15 @@ struct ResizeUninitializedTraits<
 // store of the std::string with known data.
 template <typename string_type, typename = void>
 inline void STLStringResizeUninitialized(string_type *s, size_t new_size) {
-  internal::ResizeUninitializedTraits<string_type>::Resize(s, new_size);
+	internal::ResizeUninitializedTraits<string_type>::Resize(s, new_size);
 }
 
 // Create a string with the given size, with all bytes uninitialized. Useful to
 // use as a buffer.
 inline std::string CreateResizeUninitializedString(size_t size) {
-  std::string content;
-  STLStringResizeUninitialized(&content, size);
-  return content;
+	std::string content;
+	STLStringResizeUninitialized(&content, size);
+	return content;
 }
 
 } // namespace duckdb

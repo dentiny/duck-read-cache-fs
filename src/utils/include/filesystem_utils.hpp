@@ -12,8 +12,7 @@ namespace duckdb {
 // stat call on each of them, could be a performance bottleneck. But as the
 // initial implementation, cache eviction only happens when insufficient disk
 // space detected, which happens rarely thus not a big concern.
-void EvictStaleCacheFiles(FileSystem &local_filesystem,
-                          const string &cache_directory);
+void EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_directory);
 
 // Get the number of files under the given local filesystem [folder].
 int GetFileCountUnder(const std::string &folder);
