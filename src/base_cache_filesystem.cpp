@@ -1,10 +1,7 @@
 #include "base_cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
-#include "cache_type.hpp"
 #include "disk_cache_filesystem.hpp"
 #include "in_memory_cache_filesystem.hpp"
-
-#include <iostream>
 
 namespace duckdb {
 

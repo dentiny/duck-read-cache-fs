@@ -57,6 +57,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 }
 
 void ResetGlobalConfig() {
+    // Intentionally not set [g_test_cache_type].
 	g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
 	g_on_disk_cache_directory = DEFAULT_ON_DISK_CACHE_DIRECTORY;
 	g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;

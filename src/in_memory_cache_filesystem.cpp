@@ -5,7 +5,6 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/filesystem_utils.hpp"
-#include "cache_type.hpp"
 
 #include <cstdint>
 #include <utility>

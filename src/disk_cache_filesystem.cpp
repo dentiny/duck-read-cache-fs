@@ -1,4 +1,3 @@
-#include "cache_type.hpp"
 #include "crypto.hpp"
 #include "disk_cache_filesystem.hpp"
 #include "duckdb/common/local_file_system.hpp"
