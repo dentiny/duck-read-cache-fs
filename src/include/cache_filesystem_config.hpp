@@ -1,18 +1,29 @@
 #pragma once
 
-#include <string>
 #include <cstdint>
+#include <optional>
+#include <string>
 
-#include "size_literals.hpp"
+#include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/typedefs.hpp"
+#include "size_literals.hpp"
 
 namespace duckdb {
+
+//===--------------------------------------------------------------------===//
+// Config constant
+//===--------------------------------------------------------------------===//
+inline const std::string ON_DISK_CACHE_TYPE = "on_disk";
+inline const std::string IN_MEM_CACHE_TYPE = "in_mem";
 
 //===--------------------------------------------------------------------===//
 // Default configuration
 //===--------------------------------------------------------------------===//
 inline const idx_t DEFAULT_CACHE_BLOCK_SIZE = 64_KiB;
 inline const std::string DEFAULT_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_cached_http_cache";
+
+// Default to use on-disk cache filesystem.
+inline std::string DEFAULT_CACHE_TYPE = ON_DISK_CACHE_TYPE;
 
 // To prevent go out of disk space, we set a threshold to disable local caching
 // if insufficient.
@@ -31,22 +42,20 @@ inline constexpr idx_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
 inline idx_t g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
 inline std::string g_on_disk_cache_directory = DEFAULT_ON_DISK_CACHE_DIRECTORY;
 inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
+inline std::string g_cache_type = DEFAULT_CACHE_TYPE;
+
+// Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
+// TODO(hjiang): A better is bake configuration into `FileOpener`.
+inline std::string g_test_cache_type = "";
 
 //===--------------------------------------------------------------------===//
-// Configuration struct
+// Util function for filesystem configurations.
 //===--------------------------------------------------------------------===//
-struct OnDiskCacheConfig {
-	// Cache block size.
-	idx_t block_size = g_cache_block_size;
-	// Cache storage location on local filesystem.
-	std::string on_disk_cache_directory = g_on_disk_cache_directory;
-};
 
-struct InMemoryCacheConfig {
-	// Cache block size.
-	idx_t block_size = g_cache_block_size;
-	// Max cache size.
-	idx_t block_count = g_max_in_mem_cache_block_count;
-};
+// Set global cache filesystem configuration.
+void SetGlobalConfig(optional_ptr<FileOpener> opener);
+
+// Reset all global cache filesystem configuration.
+void ResetGlobalConfig();
 
 } // namespace duckdb

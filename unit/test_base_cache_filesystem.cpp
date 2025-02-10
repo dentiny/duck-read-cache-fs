@@ -31,8 +31,8 @@ void DeleteTestFile() {
 // be used for certains files.
 TEST_CASE("Test cached filesystem CanHandle", "[base cache filesystem]") {
 	unique_ptr<FileSystem> vfs = make_uniq<VirtualFileSystem>();
-	vfs->RegisterSubSystem(make_uniq<DiskCacheFileSystem>(make_uniq<HuggingFaceFileSystem>()));
-	vfs->RegisterSubSystem(make_uniq<DiskCacheFileSystem>(make_uniq<LocalFileSystem>()));
+	vfs->RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<HuggingFaceFileSystem>()));
+	vfs->RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<LocalFileSystem>()));
 
 	// VFS can handle local files with cached local filesystem.
 	auto file_handle = vfs->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);

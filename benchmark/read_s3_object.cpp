@@ -3,8 +3,9 @@
 
 #include "disk_cache_filesystem.hpp"
 #include "duckdb/storage/standard_buffer_manager.hpp"
-#include "s3fs.hpp"
 #include "duckdb/main/client_context_file_opener.hpp"
+#include "s3fs.hpp"
+#include "scope_guard.hpp"
 
 #include <array>
 #include <iostream>
@@ -54,14 +55,18 @@ void BaseLineRead() {
 }
 
 void ReadUncachedWholeFile(uint64_t block_size) {
+	g_cache_block_size = block_size;
+	g_cache_type = DEFAULT_ON_DISK_CACHE_DIRECTORY;
+	SCOPE_EXIT {
+		ResetGlobalConfig();
+	};
+
 	DuckDB db {};
 	StandardBufferManager buffer_manager {*db.instance, "/tmp/cached_http_fs_benchmark"};
 	auto s3fs = make_uniq<S3FileSystem>(buffer_manager);
 
-	OnDiskCacheConfig cache_config;
-	cache_config.block_size = block_size;
-	FileSystem::CreateLocal()->RemoveDirectory(cache_config.on_disk_cache_directory);
-	auto disk_cache_fs = make_uniq<DiskCacheFileSystem>(std::move(s3fs));
+	FileSystem::CreateLocal()->RemoveDirectory(g_on_disk_cache_directory);
+	auto disk_cache_fs = make_uniq<CacheFileSystem>(std::move(s3fs));
 
 	auto client_context = make_shared_ptr<ClientContext>(db.instance);
 	auto &set_vars = client_context->config.set_variables;

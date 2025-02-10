@@ -5,6 +5,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/filesystem_utils.hpp"
+#include "cache_type.hpp"
 
 #include <cstdint>
 #include <utility>
@@ -40,42 +41,13 @@ struct CacheReadChunk {
 
 } // namespace
 
-InMemoryCacheFileSystem::InMemoryCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p,
-                                                 InMemoryCacheConfig cache_config_p)
-    : CacheFileSystem(std::move(internal_filesystem_p)), cache_config(std::move(cache_config_p)) {
-}
-
-std::string InMemoryCacheFileSystem::GetName() const {
-	return StringUtil::Format("in_mem_cache_filesystem for %s", internal_filesystem->GetName());
-}
-
-unique_ptr<FileHandle> InMemoryCacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
-                                                         optional_ptr<FileOpener> opener) {
-	if (opener != nullptr && cache == nullptr) {
-		Value val;
-
-		// Check and update in-memory cache block size.
-		FileOpener::TryGetCurrentSetting(opener, "cached_http_cache_block_size", val);
-		cache_config.block_size = val.GetValue<uint64_t>();
-		g_cache_block_size = cache_config.block_size;
-
-		// Check and update in-memory cache max block count.
-		FileOpener::TryGetCurrentSetting(opener, "cached_http_max_in_mem_cache_block_count", val);
-		cache_config.block_count = val.GetValue<uint64_t>();
-		g_max_in_mem_cache_block_count = cache_config.block_count;
-	}
-
-	// Initialize LRU cache at first IO access.
+void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
+                                       idx_t requested_bytes_to_read, idx_t file_size) {
 	if (cache == nullptr) {
-		cache = make_uniq<InMemCache>(cache_config.block_count);
+		cache = make_uniq<InMemCache>(g_max_in_mem_cache_block_count);
 	}
 
-	return CacheFileSystem::OpenFile(path, flags, opener);
-}
-
-void InMemoryCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
-                                           idx_t requested_bytes_to_read, idx_t file_size) {
-	const idx_t block_size = cache_config.block_size;
+	const idx_t block_size = g_cache_block_size;
 	const idx_t aligned_start_offset = requested_start_offset / block_size * block_size;
 	const idx_t aligned_last_chunk_offset =
 	    (requested_start_offset + requested_bytes_to_read) / block_size * block_size;

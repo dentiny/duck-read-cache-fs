@@ -15,6 +15,8 @@ include_directories(duckdb-httpfs/extension/httpfs/include)
 include_directories(duckdb/third_party/httplib)
 
 set(EXTENSION_SOURCES
+    src/cache_type.cpp
+    src/cache_filesystem_config.cpp
     src/read_cache_fs_extension.cpp
     src/base_cache_filesystem.cpp
     src/disk_cache_filesystem.cpp
@@ -61,6 +63,7 @@ target_link_libraries(test_shared_lru_cache ${EXTENSION_NAME})
 add_executable(test_size_literals unit/test_size_literals.cpp)
 target_link_libraries(test_size_literals ${EXTENSION_NAME})
 
+# TODO(hjiang): Fix configuration test.
 add_executable(test_set_extension_config unit/test_set_extension_config.cpp)
 target_link_libraries(test_set_extension_config ${EXTENSION_NAME})
 

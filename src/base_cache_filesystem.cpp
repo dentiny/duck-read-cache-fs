@@ -1,11 +1,34 @@
 #include "base_cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_type.hpp"
+#include "disk_cache_filesystem.hpp"
+#include "in_memory_cache_filesystem.hpp"
+
+#include <iostream>
 
 namespace duckdb {
 
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs)
     : FileHandle(fs, internal_file_handle_p->GetPath(), internal_file_handle_p->GetFlags()),
       internal_file_handle(std::move(internal_file_handle_p)) {
+}
+
+void CacheFileSystem::SetAndGetCacheReader() {
+	if (g_cache_type == ON_DISK_CACHE_TYPE) {
+		if (on_disk_cache_reader == nullptr) {
+			on_disk_cache_reader = make_uniq<DiskCacheReader>(internal_filesystem.get());
+		}
+		internal_cache_reader = on_disk_cache_reader.get();
+		return;
+	}
+
+	if (g_cache_type == IN_MEM_CACHE_TYPE) {
+		if (in_mem_cache_reader == nullptr) {
+			in_mem_cache_reader = make_uniq<InMemoryCacheReader>(internal_filesystem.get());
+		}
+		internal_cache_reader = in_mem_cache_reader.get();
+		return;
+	}
 }
 
 bool CacheFileSystem::CanHandleFile(const string &fpath) {
@@ -15,11 +38,9 @@ bool CacheFileSystem::CanHandleFile(const string &fpath) {
 
 	// Special handle cases where local filesystem is the internal filesystem.
 	//
-	// duckdb's implementation is `LocalFileSystem::CanHandle` always returns
-	// false, to enable cached local filesystem (i.e. make in-memory cache for
-	// disk access), we inherit the virtual filesystem's assumption that local
-	// filesystem is the fallback type, which could potentially handles
-	// everything.
+	// duckdb's implementation is `LocalFileSystem::CanHandle` always returns false, to enable cached local filesystem
+	// (i.e. make in-memory cache for disk access), we inherit the virtual filesystem's assumption that local filesystem
+	// is the fallback type, which could potentially handles everything.
 	//
 	// If it doesn't work with local filesystem, an error is returned anyway.
 	if (internal_filesystem->GetName() == "LocalFileSystem") {
@@ -30,14 +51,28 @@ bool CacheFileSystem::CanHandleFile(const string &fpath) {
 }
 
 bool CacheFileSystem::IsManuallySet() {
-	// As documented at [CanHandleFile], local filesystem serves as the fallback
-	// filesystem for all given paths, return false in certain case so virtual
-	// filesystem could pick the most suitable one if exists.
+	// As documented at [CanHandleFile], local filesystem serves as the fallback filesystem for all given paths, return
+	// false in certain case so virtual filesystem could pick the most suitable one if exists.
 	if (internal_filesystem->GetName() == "LocalFileSystem") {
 		return false;
 	}
 
 	return true;
+}
+
+std::string CacheFileSystem::GetName() const {
+	return StringUtil::Format("cache_httpfs with %s", internal_filesystem->GetName());
+}
+
+unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
+                                                 optional_ptr<FileOpener> opener) {
+	SetGlobalConfig(opener);
+	SetAndGetCacheReader();
+	D_ASSERT(internal_cache_reader != nullptr);
+
+	// TODO(hjiang): We need to make sure all reader should be thread-safe.
+	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
+	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
 }
 
 void CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
@@ -57,7 +92,7 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	}
 
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
-	ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read, file_size);
+	internal_cache_reader->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read, file_size);
 
 	return bytes_to_read;
 }

@@ -1,10 +1,12 @@
-#include "duckdb/common/thread.hpp"
-#include "disk_cache_filesystem.hpp"
+#include "cache_type.hpp"
 #include "crypto.hpp"
+#include "disk_cache_filesystem.hpp"
+#include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
-#include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/filesystem_utils.hpp"
+#include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/thread_utils.hpp"
 
 #include <cstdint>
@@ -120,41 +122,13 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 
 } // namespace
 
-DiskCacheFileSystem::DiskCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p, OnDiskCacheConfig cache_config_p)
-    : CacheFileSystem(std::move(internal_filesystem_p)), cache_config(std::move(cache_config_p)),
-      local_filesystem(FileSystem::CreateLocal()) {
-	local_filesystem->CreateDirectory(cache_config.on_disk_cache_directory);
+DiskCacheReader::DiskCacheReader(FileSystem *internal_filesystem_p)
+    : BaseCacheReader(internal_filesystem_p), local_filesystem(LocalFileSystem::CreateLocal()) {
 }
 
-std::string DiskCacheFileSystem::GetName() const {
-	return StringUtil::Format("disk_cache_filesystem for %s", internal_filesystem->GetName());
-}
-
-unique_ptr<FileHandle> DiskCacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
-                                                     optional_ptr<FileOpener> opener) {
-	if (opener != nullptr) {
-		Value val;
-
-		// Check and update cache block size if necessary.
-		FileOpener::TryGetCurrentSetting(opener, "cached_http_cache_block_size", val);
-		cache_config.block_size = val.GetValue<uint64_t>();
-		g_cache_block_size = cache_config.block_size;
-
-		// Check and update cache directory if necessary.
-		FileOpener::TryGetCurrentSetting(opener, "cached_http_cache_directory", val);
-		// Check and update global setting if updated.
-		cache_config.on_disk_cache_directory = val.ToString();
-		if (cache_config.on_disk_cache_directory != g_on_disk_cache_directory) {
-			g_on_disk_cache_directory = cache_config.on_disk_cache_directory;
-			local_filesystem->CreateDirectory(g_on_disk_cache_directory);
-		}
-	}
-
-	return CacheFileSystem::OpenFile(path, flags, opener);
-}
-void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
-                                       idx_t requested_bytes_to_read, idx_t file_size) {
-	const idx_t block_size = cache_config.block_size;
+void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
+                                   idx_t requested_bytes_to_read, idx_t file_size) {
+	const idx_t block_size = g_cache_block_size;
 	const idx_t aligned_start_offset = requested_start_offset / block_size * block_size;
 	const idx_t aligned_last_chunk_offset =
 	    (requested_start_offset + requested_bytes_to_read) / block_size * block_size;
@@ -223,11 +197,11 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 
 			// Check local cache first, see if we could do a cached read.
 			const auto local_cache_file =
-			    GetLocalCacheFile(cache_config.on_disk_cache_directory, handle.GetPath(),
-			                      cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
+			    GetLocalCacheFile(g_on_disk_cache_directory, handle.GetPath(), cache_read_chunk.aligned_start_offset,
+			                      cache_read_chunk.chunk_size);
 
-			// TODO(hjiang): Add documentation and implementation for stale cache
-			// eviction policy, before that it's safe to access cache file directly.
+			// TODO(hjiang): Add documentation and implementation for stale cache eviction policy, before that it's safe
+			// to access cache file directly.
 			if (local_filesystem->FileExists(local_cache_file)) {
 				auto file_handle = local_filesystem->OpenFile(local_cache_file, FileOpenFlags::FILE_FLAGS_READ);
 				void *addr = !cache_read_chunk.content.empty() ? const_cast<char *>(cache_read_chunk.content.data())
@@ -247,8 +221,7 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 				return;
 			}
 
-			// We suffer a cache loss, fallback to remote access then local filesystem
-			// write.
+			// We suffer a cache loss, fallback to remote access then local filesystem write.
 			if (cache_read_chunk.content.empty()) {
 				cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			}
@@ -261,8 +234,7 @@ void DiskCacheFileSystem::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			cache_read_chunk.CopyBufferToRequestedMemory();
 
 			// Attempt to cache file locally.
-			CacheLocal(cache_read_chunk, *local_filesystem, handle, cache_config.on_disk_cache_directory,
-			           local_cache_file);
+			CacheLocal(cache_read_chunk, *local_filesystem, handle, g_on_disk_cache_directory, local_cache_file);
 		});
 	}
 	for (auto &cur_thd : io_threads) {

@@ -1,12 +1,13 @@
 #define DUCKDB_EXTENSION_MAIN
 
 #include "read_cache_fs_extension.hpp"
-#include "disk_cache_filesystem.hpp"
 #include "s3fs.hpp"
 #include "hffs.hpp"
 #include "crypto.hpp"
 #include "duckdb/main/extension_util.hpp"
 #include "cache_filesystem_config.hpp"
+#include "base_cache_filesystem.hpp"
+#include "duckdb/common/local_file_system.hpp"
 
 #include <array>
 
@@ -46,11 +47,13 @@ static void GetOnDiskCacheSize(const DataChunk &args, ExpressionState &state, Ve
 // mutual set so it has higher priority than uncached version.
 static void LoadInternal(DatabaseInstance &instance) {
 	// Register filesystem instance to instance.
+	// Here we register both in-memory filesystem and on-disk filesystem, and
+	// leverage global configuration to decide which one to use.
 	auto &fs = instance.GetFileSystem();
-	fs.RegisterSubSystem(make_uniq<DiskCacheFileSystem>(make_uniq<HTTPFileSystem>()));
-	fs.RegisterSubSystem(make_uniq<DiskCacheFileSystem>(make_uniq<HuggingFaceFileSystem>()));
+	fs.RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<HTTPFileSystem>()));
+	fs.RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<HuggingFaceFileSystem>()));
 	fs.RegisterSubSystem(
-	    make_uniq<DiskCacheFileSystem>(make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance))));
+	    make_uniq<CacheFileSystem>(make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance))));
 
 	const std::array<string, 3> httpfs_names {"HTTPFileSystem", "S3FileSystem", "HuggingFaceFileSystem"};
 	for (const auto &cur_http_fs : httpfs_names) {
@@ -61,9 +64,6 @@ static void LoadInternal(DatabaseInstance &instance) {
 	}
 
 	// Register extension configuration.
-	//
-	// TODO(hjiang): We should have a way to set global configurations to decide
-	// cache mode.
 	auto &config = DBConfig::GetConfig(instance);
 	config.AddExtensionOption("cached_http_cache_directory", "The disk cache directory that stores cached data",
 	                          LogicalType::VARCHAR, DEFAULT_ON_DISK_CACHE_DIRECTORY);
@@ -78,6 +78,10 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                          "worth noting it should be set only once before all filesystem access, "
 	                          "otherwise there's no affect.",
 	                          LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT));
+	config.AddExtensionOption("cached_http_type",
+	                          "Type for cached filesystem. Currently there're two types available, one "
+	                          "is `in_mem`, another is `on_disk`. By default we use on-disk cache.",
+	                          LogicalType::VARCHAR, ON_DISK_CACHE_TYPE);
 
 	// Register on-disk cache cleanup function.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},

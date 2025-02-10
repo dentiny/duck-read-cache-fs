@@ -4,6 +4,7 @@
 
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
+#include "base_cache_reader.hpp"
 
 namespace duckdb {
 
@@ -26,17 +27,14 @@ public:
 	explicit CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p)
 	    : internal_filesystem(std::move(internal_filesystem_p)) {
 	}
+	~CacheFileSystem() override = default;
 
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 	int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
+	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags, optional_ptr<FileOpener> opener = nullptr);
+	std::string GetName() const override;
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
-	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags,
-	                                optional_ptr<FileOpener> opener = nullptr) override {
-		auto file_handle =
-		    internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
-		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
-	}
 	unique_ptr<FileHandle> OpenCompressedFile(unique_ptr<FileHandle> handle, bool write) override {
 		auto file_handle = internal_filesystem->OpenCompressedFile(std::move(handle), write);
 		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
@@ -148,17 +146,21 @@ public:
 	}
 
 protected:
-	// Read from [handle] for an block-size aligned chunk into [start_addr]; cache
-	// to local filesystem and return to user.
-	virtual void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
-	                          idx_t requested_bytes_to_read, idx_t file_size) = 0;
-
 	// Read from [location] on [nr_bytes] for the given [handle] into [buffer].
 	// Return the actual number of bytes to read.
 	int64_t ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location);
 
+	// Initialize cache reader data member, and set to [internal_cache_reader].
+	void SetAndGetCacheReader();
+
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
+	// In-memory and on-disk cache reader.
+	unique_ptr<BaseCacheReader> in_mem_cache_reader;
+	unique_ptr<BaseCacheReader> on_disk_cache_reader;
+	// Either in-memory or on-disk cache reader, whichever is actively being used, ownership lies the above cache
+	// reader.
+	BaseCacheReader *internal_cache_reader = nullptr;
 };
 
 } // namespace duckdb

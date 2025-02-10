@@ -1,7 +1,4 @@
 // A filesystem wrapper, which performs in-memory cache for read operations.
-//
-// TODO(hjiang): The implementation for parallel read, check and update cache is
-// basically the same, should extract into a comon function.
 
 #pragma once
 
@@ -13,30 +10,28 @@
 #include "lru_cache.hpp"
 #include "base_cache_filesystem.hpp"
 #include "duckdb/common/file_opener.hpp"
+#include "base_cache_reader.hpp"
 
 namespace duckdb {
 
-class InMemoryCacheFileSystem : public CacheFileSystem {
+class InMemoryCacheReader final : public BaseCacheReader {
 public:
-	explicit InMemoryCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p)
-	    : InMemoryCacheFileSystem(std::move(internal_filesystem_p), InMemoryCacheConfig {}) {
+	explicit InMemoryCacheReader(FileSystem *internal_filesystem_p) : BaseCacheReader(internal_filesystem_p) {
 	}
-	InMemoryCacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p, InMemoryCacheConfig cache_config);
-	std::string GetName() const override;
+	~InMemoryCacheReader() override = default;
 
-	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags,
-	                                optional_ptr<FileOpener> opener = nullptr) override;
-
-protected:
-	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
+	std::string GetName() const override {
+		return "in_mem_cache_reader";
+	}
 
 	// Read from [handle] for an block-size aligned chunk into [start_addr]; cache
 	// to local filesystem and return to user.
 	void ReadAndCache(FileHandle &handle, char *buffer, uint64_t requested_start_offset,
 	                  uint64_t requested_bytes_to_read, uint64_t file_size) override;
 
-	// Read-cache filesystem configuration.
-	InMemoryCacheConfig cache_config;
+private:
+	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
+
 	// LRU cache to store blocks; late initialized after first access.
 	unique_ptr<InMemCache> cache;
 };

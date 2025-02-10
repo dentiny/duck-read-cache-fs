@@ -3,14 +3,15 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
+#include "cache_filesystem_config.hpp"
 #include "disk_cache_filesystem.hpp"
-#include "filesystem_utils.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "duckdb/main/database.hpp"
 #include "duckdb/main/connection.hpp"
-#include "cache_filesystem_config.hpp"
+#include "filesystem_utils.hpp"
+#include "in_memory_cache_filesystem.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -64,13 +65,11 @@ TEST_CASE("Test on correct config", "[extension config test]") {
 	REQUIRE(!result->HasError());
 }
 
-TEST_CASE("Test on changing extension config"
-          "change defaul cache dir path setting",
-          "[extension config test]") {
+TEST_CASE("Test on changing extension config change defaul cache dir path setting", "[extension config test]") {
 	DuckDB db(nullptr);
 	auto &instance = db.instance;
 	auto &fs = instance->GetFileSystem();
-	fs.RegisterSubSystem(make_uniq<DiskCacheFileSystem>(LocalFileSystem::CreateLocal()));
+	fs.RegisterSubSystem(make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal()));
 
 	Connection con(db);
 	con.Query(StringUtil::Format("SET cached_http_cache_directory ='%s'", TEST_ON_DISK_CACHE_DIRECTORY));
@@ -91,7 +90,8 @@ TEST_CASE("Test on changing extension config"
 
 	// Change the cache directory path and execute the query again.
 	con.Query(StringUtil::Format("SET cached_http_cache_directory ='%s'", TEST_SECOND_ON_DISK_CACHE_DIRECTORY));
-	con.Query(StringUtil::Format("SELECT * FROM '%s'", TEST_ON_DISK_CACHE_FILE));
+	result = con.Query(StringUtil::Format("SELECT * FROM '%s'", TEST_ON_DISK_CACHE_FILE));
+	REQUIRE(!result->HasError());
 
 	// After executing the query, the NEW directory should have one cache file.
 	// Both directories should have the same cache file.
@@ -99,6 +99,14 @@ TEST_CASE("Test on changing extension config"
 	const auto files_in_cache_second = GetSortedFilesUnder(TEST_SECOND_ON_DISK_CACHE_DIRECTORY);
 	REQUIRE(files_after_query_second == 1);
 	REQUIRE(files_in_cache == files_in_cache_second);
+
+	// Update cache type to in-memory cache type and on-disk cache directory, and check no new cache files created.
+	//
+	// Set cache directory to the root directory, which test program doesn't have the permission to write to.
+	con.Query(StringUtil::Format("SET cached_http_cache_directory ='%s'", "/non_existent_directory"));
+	con.Query("SET cached_http_type='in_mem'");
+	result = con.Query(StringUtil::Format("SELECT * FROM '%s'", TEST_ON_DISK_CACHE_FILE));
+	REQUIRE(!result->HasError());
 };
 
 int main(int argc, char **argv) {
