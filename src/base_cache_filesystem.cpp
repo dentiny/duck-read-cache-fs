@@ -67,7 +67,7 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFla
 	SetAndGetCacheReader();
 	D_ASSERT(internal_cache_reader != nullptr);
 
-	// TODO(hjiang): We need to make sure all reader should be thread-safe.
+	// TODO(hjiang): We need to add unit test to make sure all reader should be thread-safe.
 	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
 }

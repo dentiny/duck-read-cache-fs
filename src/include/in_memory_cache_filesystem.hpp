@@ -2,15 +2,15 @@
 
 #pragma once
 
+#include "base_cache_filesystem.hpp"
+#include "base_cache_reader.hpp"
+#include "cache_filesystem_config.hpp"
+#include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
-#include "cache_filesystem_config.hpp"
 #include "in_mem_cache_block.hpp"
 #include "lru_cache.hpp"
-#include "base_cache_filesystem.hpp"
-#include "duckdb/common/file_opener.hpp"
-#include "base_cache_reader.hpp"
 
 namespace duckdb {
 
@@ -32,6 +32,8 @@ public:
 private:
 	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
 
+	// Once flag to guard against cache's initialization.
+	std::once_flag cache_init_flag;
 	// LRU cache to store blocks; late initialized after first access.
 	unique_ptr<InMemCache> cache;
 };

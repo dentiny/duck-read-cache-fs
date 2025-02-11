@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include <string>
-#include <tuple>
 #include <cstdint>
 #include <functional>
+#include <mutex>
+#include <string>
+#include <tuple>
 
 #include "duckdb/common/string_util.hpp"
 

@@ -42,9 +42,7 @@ struct CacheReadChunk {
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                        idx_t requested_bytes_to_read, idx_t file_size) {
-	if (cache == nullptr) {
-		cache = make_uniq<InMemCache>(g_max_in_mem_cache_block_count);
-	}
+	std::call_once(cache_init_flag, [this]() { cache = make_uniq<InMemCache>(g_max_in_mem_cache_block_count); });
 
 	const idx_t block_size = g_cache_block_size;
 	const idx_t aligned_start_offset = requested_start_offset / block_size * block_size;
