@@ -17,8 +17,7 @@ namespace duckdb {
 namespace {
 
 // All read requests are split into chunks, and executed in parallel.
-// A [CacheReadChunk] represents a chunked IO request and its corresponding
-// partial IO request.
+// A [CacheReadChunk] represents a chunked IO request and its corresponding partial IO request.
 struct CacheReadChunk {
 	// Requested memory address and file offset to read from for current chunk.
 	char *requested_start_addr = nullptr;
@@ -26,17 +25,14 @@ struct CacheReadChunk {
 	// Block size aligned [requested_start_offset].
 	idx_t aligned_start_offset = 0;
 
-	// Number of bytes for the chunk for IO operations, apart from the last chunk
-	// it's always cache block size.
+	// Number of bytes for the chunk for IO operations, apart from the last chunk it's always cache block size.
 	idx_t chunk_size = 0;
 
 	// Always allocate block size of memory for first and last chunk.
-	// For middle chunks, if local cache is not hit, we also allocate memory for
-	// [content] as intermediate buffer.
+	// For middle chunks, if local cache is not hit, we also allocate memory for [content] as intermediate buffer.
 	//
-	// TODO(hjiang): For middle chunks, the performance could be improved further:
-	// remote IO operation directly read into [requested_start_addr] then write to
-	// local cache file; but for code simplicity we also allocate here.
+	// TODO(hjiang): For middle chunks, the performance could be improved further: remote IO operation directly read
+	// into [requested_start_addr] then write to local cache file; but for code simplicity we also allocate here.
 	string content;
 	// Number of bytes to copy from [content] to requested memory address.
 	idx_t bytes_to_copy = 0;
@@ -66,12 +62,10 @@ string Sha256ToHexString(const duckdb::hash_bytes &sha256) {
 
 // Get local cache filename for the given [remote_file].
 //
-// Cache filename is formatted as
-// `<cache-directory>/<filename-sha256>.<filename>`. So we could get all cache
-// files under one directory, and get all cache files with commands like `ls`.
+// Cache filename is formatted as `<cache-directory>/<filename-sha256>.<filename>`. So we could get all cache files
+// under one directory, and get all cache files with commands like `ls`.
 //
-// Considering the naming format, it's worth noting it might _NOT_ work for
-// local files, including mounted filesystems.
+// Considering the naming format, it's worth noting it might _NOT_ work for local files, including mounted filesystems.
 string GetLocalCacheFile(const string &cache_directory, const string &remote_file, idx_t start_offset,
                          idx_t bytes_to_read) {
 	duckdb::hash_bytes remote_file_sha256_val;
@@ -83,17 +77,15 @@ string GetLocalCacheFile(const string &cache_directory, const string &remote_fil
 	                          bytes_to_read);
 }
 
-// Attempt to cache [chunk] to local filesystem, if there's sufficient disk
-// space available.
+// Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
 //
 // TODO(hjiang): Document local cache file pattern and its eviction policy.
 void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const FileHandle &handle,
                 const string &cache_directory, const string &local_cache_file) {
 	// Skip local cache if insufficient disk space.
-	// It's worth noting it's not a strict check since there could be concurrent
-	// check and write operation (RMW operation), but it's acceptable since min
-	// available disk space reservation is an order of magnitude bigger than cache
-	// chunk size.
+	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
+	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
+	// cache chunk size.
 	auto disk_space = local_filesystem.GetAvailableDiskSpace(cache_directory);
 	if (!disk_space.IsValid() || disk_space.GetIndex() < MIN_DISK_SPACE_FOR_CACHE) {
 		EvictStaleCacheFiles(local_filesystem, cache_directory);
@@ -148,15 +140,12 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		cache_read_chunk.aligned_start_offset = io_start_offset;
 		cache_read_chunk.requested_start_offset = requested_start_offset;
 
-		// Implementation-wise, middle chunks are easy to handle -- read in
-		// [block_size], and copy the whole chunk to the requested memory address;
-		// but the first and last chunk require special handling.
-		// For first chunk, requested start offset might not be aligned with block
-		// size; for the last chunk, we might not need to copy the whole
-		// [block_size] of memory.
+		// Implementation-wise, middle chunks are easy to handle -- read in [block_size], and copy the whole chunk to
+		// the requested memory address; but the first and last chunk require special handling. For first chunk,
+		// requested start offset might not be aligned with block size; for the last chunk, we might not need to copy
+		// the whole [block_size] of memory.
 		//
-		// Case-1: If there's only one chunk, which serves as both the first chunk
-		// and the last one.
+		// Case-1: If there's only one chunk, which serves as both the first chunk and the last one.
 		if (io_start_offset == aligned_start_offset && io_start_offset == aligned_last_chunk_offset) {
 			cache_read_chunk.chunk_size = MinValue<idx_t>(block_size, file_size - io_start_offset);
 			cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
@@ -202,6 +191,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			// TODO(hjiang): Add documentation and implementation for stale cache eviction policy, before that it's safe
 			// to access cache file directly.
 			if (local_filesystem->FileExists(local_cache_file)) {
+				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheAccess::kCacheHit);
 				auto file_handle = local_filesystem->OpenFile(local_cache_file, FileOpenFlags::FILE_FLAGS_READ);
 				void *addr = !cache_read_chunk.content.empty() ? const_cast<char *>(cache_read_chunk.content.data())
 				                                               : cache_read_chunk.requested_start_addr;
@@ -221,13 +211,17 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			}
 
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
+			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheAccess::kCacheMiss);
 			if (cache_read_chunk.content.empty()) {
 				cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			}
 			auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+			const string cur_oper = StringUtil::Format("%d", cache_read_chunk.aligned_start_offset);
+			profile_collector->RecordOperationStart(cur_oper);
 			internal_filesystem->Read(*disk_cache_handle.internal_file_handle,
 			                          const_cast<char *>(cache_read_chunk.content.data()),
 			                          cache_read_chunk.content.length(), cache_read_chunk.aligned_start_offset);
+			profile_collector->RecordOperationEnd(cur_oper);
 
 			// Copy to destination buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory();

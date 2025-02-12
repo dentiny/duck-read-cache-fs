@@ -5,6 +5,7 @@
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "base_cache_reader.hpp"
+#include "base_profile_collector.hpp"
 
 namespace duckdb {
 
@@ -33,6 +34,9 @@ public:
 	int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags, optional_ptr<FileOpener> opener = nullptr);
 	std::string GetName() const override;
+	BaseProfileCollector *GetProfileCollector() const {
+		return profile_collector.get();
+	}
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
 	unique_ptr<FileHandle> OpenCompressedFile(unique_ptr<FileHandle> handle, bool write) override {
@@ -153,6 +157,9 @@ protected:
 	// Initialize cache reader data member, and set to [internal_cache_reader].
 	void SetAndGetCacheReader();
 
+	// Initialize profile collector data member.
+	void SetProfileCollector();
+
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
 	// In-memory and on-disk cache reader.
@@ -161,6 +168,8 @@ protected:
 	// Either in-memory or on-disk cache reader, whichever is actively being used, ownership lies the above cache
 	// reader.
 	BaseCacheReader *internal_cache_reader = nullptr;
+	// Used to profile operations.
+	unique_ptr<BaseProfileCollector> profile_collector;
 };
 
 } // namespace duckdb

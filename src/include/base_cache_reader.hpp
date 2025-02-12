@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "base_cache_reader.hpp"
+#include "base_profile_collector.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/file_system.hpp"
 
@@ -23,9 +25,16 @@ public:
 		throw NotImplementedException("Base cache reader doesn't implement GetName.");
 	}
 
+	void SetProfileCollector(BaseProfileCollector *profile_collector_p) {
+		profile_collector = profile_collector_p;
+		profile_collector->SetCacheReaderType(GetName());
+	}
+
 protected:
 	// Ownership lies in cache filesystem.
 	FileSystem *internal_filesystem = nullptr;
+	// Ownership lies in cache filesystem.
+	BaseProfileCollector *profile_collector = nullptr;
 };
 
 } // namespace duckdb

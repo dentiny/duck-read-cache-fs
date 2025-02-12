@@ -2,6 +2,7 @@
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_filesystem.hpp"
 #include "in_memory_cache_filesystem.hpp"
+#include "temp_profile_collector.hpp"
 
 namespace duckdb {
 
@@ -25,6 +26,19 @@ void CacheFileSystem::SetAndGetCacheReader() {
 		}
 		internal_cache_reader = in_mem_cache_reader.get();
 		return;
+	}
+}
+
+void CacheFileSystem::SetProfileCollector() {
+	if (g_profile_type == NOOP_PROFILE_TYPE) {
+		if (profile_collector == nullptr || profile_collector->GetProfilerType() != NOOP_PROFILE_TYPE) {
+			profile_collector = make_uniq<NoopProfileCollector>();
+		}
+	}
+	if (g_profile_type == TEMP_PROFILE_TYPE) {
+		if (profile_collector == nullptr || profile_collector->GetProfilerType() != TEMP_PROFILE_TYPE) {
+			profile_collector = make_uniq<TempProfileCollector>();
+		}
 	}
 }
 
@@ -64,10 +78,12 @@ std::string CacheFileSystem::GetName() const {
 unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                  optional_ptr<FileOpener> opener) {
 	SetGlobalConfig(opener);
+	SetProfileCollector();
 	SetAndGetCacheReader();
+	D_ASSERT(profile_collector != nullptr);
 	D_ASSERT(internal_cache_reader != nullptr);
+	internal_cache_reader->SetProfileCollector(profile_collector.get());
 
-	// TODO(hjiang): We need to add unit test to make sure all reader should be thread-safe.
 	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
 }

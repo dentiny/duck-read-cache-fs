@@ -12,8 +12,6 @@
 
 namespace duckdb {
 
-// TODO(hjiang): Use customized hash and equal functor to store in cache,
-// temporarily unblock by using string as key.
 struct InMemCacheBlock {
 	std::string fname;
 	idx_t start_off = 0;

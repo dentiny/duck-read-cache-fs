@@ -13,6 +13,10 @@
 
 namespace duckdb {
 
+// Store all cache filesystems to access their profile collector.
+// Lifecycle lies in virtual filesystem and db instance.
+static vector<CacheFileSystem *> cache_file_systems;
+
 static void ClearOnDiskCache(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	local_filesystem->RemoveDirectory(g_on_disk_cache_directory);
@@ -36,24 +40,73 @@ static void GetOnDiskCacheSize(const DataChunk &args, ExpressionState &state, Ve
 	result.Reference(Value(total_cache_size));
 }
 
-// Cached httpfs cannot co-exist with non-cached version, because duckdb virtual
-// filesystem doesn't provide a native fs wrapper nor priority system, so
-// co-existence doesn't guarantee cached version is actually used.
+static void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
+	string latest_stat;
+	uint64_t latest_timestamp = 0;
+	for (auto *cur_filesystem : cache_file_systems) {
+		auto *profile_collector = cur_filesystem->GetProfileCollector();
+		// Profile collector is only initialized after cache filesystem access.
+		if (profile_collector == nullptr) {
+			continue;
+		}
+
+		auto [cur_profile_stat, cur_timestamp] = profile_collector->GetHumanReadableStats();
+		if (cur_timestamp > latest_timestamp) {
+			latest_timestamp = cur_timestamp;
+			latest_stat = std::move(cur_profile_stat);
+			continue;
+		}
+		if (cur_timestamp == latest_timestamp) {
+			latest_stat = MaxValue<string>(latest_stat, cur_profile_stat);
+		}
+	}
+
+	if (latest_stat.empty()) {
+		latest_stat = "No valid access to cache filesystem";
+	}
+	result.Reference(Value(std::move(latest_stat)));
+}
+
+static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
+	for (auto *cur_filesystem : cache_file_systems) {
+		auto *profile_collector = cur_filesystem->GetProfileCollector();
+		// Profile collector is only initialized after cache filesystem access.
+		if (profile_collector == nullptr) {
+			continue;
+		}
+		profile_collector->Reset();
+	}
+
+	constexpr int32_t SUCCESS = 1;
+	result.Reference(Value(SUCCESS));
+}
+
+// Cached httpfs cannot co-exist with non-cached version, because duckdb virtual filesystem doesn't provide a native fs
+// wrapper nor priority system, so co-existence doesn't guarantee cached version is actually used.
 //
 // Here's how we handled (a hacky way):
-// 1. When we register cached filesystem, if uncached version already
-// registered, we unregister them.
-// 2. If uncached filesystem is registered later somehow, cached version is set
-// mutual set so it has higher priority than uncached version.
+// 1. When we register cached filesystem, if uncached version already registered, we unregister them.
+// 2. If uncached filesystem is registered later somehow, cached version is set mutual set so it has higher priority
+// than uncached version.
 static void LoadInternal(DatabaseInstance &instance) {
 	// Register filesystem instance to instance.
-	// Here we register both in-memory filesystem and on-disk filesystem, and
-	// leverage global configuration to decide which one to use.
+	// Here we register both in-memory filesystem and on-disk filesystem, and leverage global configuration to decide
+	// which one to use.
 	auto &fs = instance.GetFileSystem();
-	fs.RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<HTTPFileSystem>()));
-	fs.RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<HuggingFaceFileSystem>()));
-	fs.RegisterSubSystem(
-	    make_uniq<CacheFileSystem>(make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance))));
+
+	cache_file_systems.reserve(3);
+	auto cached_http_filesystem = make_uniq<CacheFileSystem>(make_uniq<HTTPFileSystem>());
+	cache_file_systems.emplace_back(cached_http_filesystem.get());
+	fs.RegisterSubSystem(std::move(cached_http_filesystem));
+
+	auto cached_hf_filesystem = make_uniq<CacheFileSystem>(make_uniq<HuggingFaceFileSystem>());
+	cache_file_systems.emplace_back(cached_hf_filesystem.get());
+	fs.RegisterSubSystem(std::move(cached_hf_filesystem));
+
+	auto cached_s3_filesystem =
+	    make_uniq<CacheFileSystem>(make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance)));
+	cache_file_systems.emplace_back(cached_s3_filesystem.get());
+	fs.RegisterSubSystem(std::move(cached_s3_filesystem));
 
 	const std::array<string, 3> httpfs_names {"HTTPFileSystem", "S3FileSystem", "HuggingFaceFileSystem"};
 	for (const auto &cur_http_fs : httpfs_names) {
@@ -67,21 +120,25 @@ static void LoadInternal(DatabaseInstance &instance) {
 	auto &config = DBConfig::GetConfig(instance);
 	config.AddExtensionOption("cached_http_cache_directory", "The disk cache directory that stores cached data",
 	                          LogicalType::VARCHAR, DEFAULT_ON_DISK_CACHE_DIRECTORY);
-	config.AddExtensionOption("cached_http_cache_block_size",
-	                          "Block size for cache, applies to both in-memory "
-	                          "cache filesystem and on-disk cache filesystem. It's worth noting for "
-	                          "on-disk filesystem, all existing cache files are invalidated after "
-	                          "config update.",
-	                          LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_CACHE_BLOCK_SIZE));
+	config.AddExtensionOption(
+	    "cached_http_cache_block_size",
+	    "Block size for cache, applies to both in-memory cache filesystem and on-disk cache filesystem. It's worth "
+	    "noting for on-disk filesystem, all existing cache files are invalidated after config update.",
+	    LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_CACHE_BLOCK_SIZE));
 	config.AddExtensionOption("cached_http_max_in_mem_cache_block_count",
-	                          "Max in-memory cache block count for in-memory cache filesystem. It's "
-	                          "worth noting it should be set only once before all filesystem access, "
-	                          "otherwise there's no affect.",
+	                          "Max in-memory cache block count for in-memory cache filesystem. It's worth noting it "
+	                          "should be set only once before all filesystem access, otherwise there's no affect.",
 	                          LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT));
 	config.AddExtensionOption("cached_http_type",
-	                          "Type for cached filesystem. Currently there're two types available, one "
-	                          "is `in_mem`, another is `on_disk`. By default we use on-disk cache.",
+	                          "Type for cached filesystem. Currently there're two types available, one is `in_mem`, "
+	                          "another is `on_disk`. By default we use on-disk cache.",
 	                          LogicalType::VARCHAR, ON_DISK_CACHE_TYPE);
+	config.AddExtensionOption(
+	    "cached_http_profile_type",
+	    "Profiling type for cached filesystem. There're three options available: `noop`, `temp`, and `duckdb`. `temp` "
+	    "option stores the latest IO operation profiling result, which potentially suffers concurrent updates; "
+	    "`duckdb` stores the IO operation profiling results into duckdb table, which unblocks advanced analysis.",
+	    LogicalType::VARCHAR, DEFAULT_PROFILE_TYPE);
 
 	// Register on-disk cache cleanup function.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},
@@ -92,6 +149,16 @@ static void LoadInternal(DatabaseInstance &instance) {
 	ScalarFunction get_cache_size_function("cache_httpfs_get_cache_size", /*arguments=*/ {},
 	                                       /*return_type=*/LogicalType::BIGINT, GetOnDiskCacheSize);
 	ExtensionUtil::RegisterFunction(instance, get_cache_size_function);
+
+	// Register profile collector metrics.
+	ScalarFunction get_profile_stats_function("cache_httpfs_get_profile", /*arguments=*/ {},
+	                                          /*return_type=*/LogicalType::VARCHAR, GetProfileStats);
+	ExtensionUtil::RegisterFunction(instance, get_profile_stats_function);
+
+	// Register profile collector metrics reset.
+	ScalarFunction clear_profile_stats_function("cache_httpfs_clear_profile", /*arguments=*/ {},
+	                                            /*return_type=*/LogicalType::BIGINT, ResetProfileStats);
+	ExtensionUtil::RegisterFunction(instance, clear_profile_stats_function);
 }
 
 void ReadCacheFsExtension::Load(DuckDB &db) {

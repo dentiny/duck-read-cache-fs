@@ -25,16 +25,22 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 
 	// Check and update cache type if necessary, only assign if setting valid.
 	FileOpener::TryGetCurrentSetting(opener, "cached_http_type", val);
-	auto type_string = val.ToString();
-	if (type_string == ON_DISK_CACHE_TYPE) {
-		g_cache_type = std::move(type_string);
-	} else if (type_string == IN_MEM_CACHE_TYPE) {
-		g_cache_type = IN_MEM_CACHE_TYPE;
+	auto cache_type_string = val.ToString();
+	if (cache_type_string == ON_DISK_CACHE_TYPE || cache_type_string == IN_MEM_CACHE_TYPE) {
+		g_cache_type = std::move(cache_type_string);
 	}
 
 	// Testing cache type has higher priority than [g_cache_type].
 	if (!g_test_cache_type.empty()) {
 		g_cache_type = g_test_cache_type;
+	}
+
+	// Check and update profile collector type if necessary, only assign if valid.
+	FileOpener::TryGetCurrentSetting(opener, "cached_http_profile_type", val);
+	auto profile_type_string = val.ToString();
+	if (profile_type_string == NOOP_PROFILE_TYPE || profile_type_string == TEMP_PROFILE_TYPE ||
+	    profile_type_string == PERSISTENT_PROFILE_TYPE) {
+		g_profile_type = std::move(profile_type_string);
 	}
 
 	// Check and update configurations for on-disk cache type.
@@ -62,6 +68,7 @@ void ResetGlobalConfig() {
 	g_on_disk_cache_directory = DEFAULT_ON_DISK_CACHE_DIRECTORY;
 	g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
 	g_cache_type = DEFAULT_CACHE_TYPE;
+	g_profile_type = DEFAULT_PROFILE_TYPE;
 }
 
 } // namespace duckdb

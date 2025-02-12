@@ -15,6 +15,7 @@
 #include "disk_cache_filesystem.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
@@ -307,6 +308,37 @@ TEST_CASE("Test on reading non-existent file", "[on-disk cache filesystem test]"
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 	REQUIRE_THROWS(disk_cache_fs->OpenFile("non-existent-file", FileOpenFlags::FILE_FLAGS_READ));
+}
+
+TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
+	g_cache_block_size = 5;
+	SCOPE_EXIT {
+		ResetGlobalConfig();
+	};
+
+	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME,
+	                                        FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
+	const uint64_t start_offset = 0;
+	const uint64_t bytes_to_read = TEST_FILE_SIZE;
+
+	// Spawn multiple threads to read through in-memory cache filesystem.
+	constexpr idx_t THREAD_NUM = 200;
+	vector<thread> reader_threads;
+	reader_threads.reserve(THREAD_NUM);
+	for (idx_t idx = 0; idx < THREAD_NUM; ++idx) {
+		reader_threads.emplace_back([&]() {
+			string content(bytes_to_read, '\0');
+			in_mem_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+			                      start_offset);
+			REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+		});
+	}
+	for (auto &cur_thd : reader_threads) {
+		D_ASSERT(cur_thd.joinable());
+		cur_thd.join();
+	}
 }
 
 int main(int argc, char **argv) {
