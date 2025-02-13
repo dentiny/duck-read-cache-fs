@@ -175,7 +175,7 @@ void ReadCacheFsExtension::Load(DuckDB &db) {
 	LoadInternal(*db.instance);
 }
 std::string ReadCacheFsExtension::Name() {
-	return "cached_httpfs";
+	return "read_cache_fs";
 }
 
 std::string ReadCacheFsExtension::Version() const {

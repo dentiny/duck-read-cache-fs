@@ -27,6 +27,48 @@ The extension is statically linked into the binary, to execute duckdb with exten
 ./build/<debug>/duckdb
 ```
 
+Example usage
+```sql
+-- No need to load httpfs.
+D LOAD read_cache_fs;
+-- Create S3 secret to access objects.
+D CREATE SECRET my_secret (      TYPE S3,      KEY_ID '<key>',      SECRET '<secret>',      REGION 'us-east-1',      ENDPOINT 's3express-use1-az6.us-east-1.amazonaws.com');
+┌─────────┐
+│ Success │
+│ boolean │
+├─────────┤
+│ true    │
+└─────────┘
+-- Set cache type to in-memory.
+D SET cached_http_type='in_mem';
+D SELECT * FROM 's3://s3-bucket-user-2skzy8zuigonczyfiofztl0zbug--use1-az6--x-s3/t.parquet';
+┌───────┬───────┐
+│   i   │   j   │
+│ int64 │ int64 │
+├───────┼───────┤
+│     0 │     1 │
+│     1 │     2 │
+│     2 │     3 │
+│     3 │     4 │
+│     4 │     5 │
+│     5 │     6 │
+│     6 │     7 │
+│     7 │     8 │
+│     8 │     9 │
+│     9 │    10 │
+├───────┴───────┤
+│    10 rows    │
+└───────────────┘
+-- Check cache status.
+D SELECT cache_httpfs_get_cache_size();
+┌───────────────────────────────┐
+│ cache_httpfs_get_cache_size() │
+│             int64             │
+├───────────────────────────────┤
+│             16821             │
+└───────────────────────────────┘
+```
+
 ## Setting and util functions
 
 A rich set of parameters and util functions are provided for the above features, including but not limited to type of caching, IO request size, etc.
