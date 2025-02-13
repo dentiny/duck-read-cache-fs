@@ -36,8 +36,3 @@ SELECT cache_httpfs_get_cache_size();
 -- Clear all local cache files.
 SELECT cache_httpfs_clear_cache();
 ```
-
-## TODO items
-- [ ] Clear specification on compilation/link options, for example, C++ version, warning and error options.
-- [ ] Provide options to configure parameters, for example, block size, total memory consumption for in-memory cache, etc.
-- [ ] Provide an option to profile read cache filesystem and store them in an in-memory duckdb table for later diagnose; key metrics include single IO request latency, request latency distribution, etc.

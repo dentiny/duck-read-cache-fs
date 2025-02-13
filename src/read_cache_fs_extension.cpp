@@ -1,13 +1,14 @@
 #define DUCKDB_EXTENSION_MAIN
 
-#include "read_cache_fs_extension.hpp"
-#include "s3fs.hpp"
-#include "hffs.hpp"
-#include "crypto.hpp"
-#include "duckdb/main/extension_util.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
+#include "crypto.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/main/extension_util.hpp"
+#include "hffs.hpp"
+#include "httpfs_extension.hpp"
+#include "read_cache_fs_extension.hpp"
+#include "s3fs.hpp"
 
 #include <array>
 
@@ -160,10 +161,20 @@ static void LoadInternal(DatabaseInstance &instance) {
 }
 
 void ReadCacheFsExtension::Load(DuckDB &db) {
+	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,
+	// so we load it first.
+	httpfs_extension = make_uniq<HttpfsExtension>();
+	// It's possible httpfs is already loaded beforehand, simply capture exception and proceed.
+	try {
+		httpfs_extension->Load(db);
+	} catch (...) {
+	}
+
+	// Load cached httpfs extension.
 	LoadInternal(*db.instance);
 }
 std::string ReadCacheFsExtension::Name() {
-	return "read_cache_fs";
+	return "cached_httpfs";
 }
 
 std::string ReadCacheFsExtension::Version() const {
