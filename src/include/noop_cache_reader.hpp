@@ -16,6 +16,8 @@ public:
 	}
 	virtual ~NoopCacheReader() = default;
 
+	void ClearCache() override {
+	}
 	void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset, idx_t requested_bytes_to_read,
 	                  idx_t file_size) override;
 

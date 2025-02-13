@@ -4,14 +4,14 @@
 #include "catch.hpp"
 
 #include "cache_filesystem_config.hpp"
-#include "disk_cache_filesystem.hpp"
+#include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "duckdb/main/database.hpp"
 #include "duckdb/main/connection.hpp"
 #include "filesystem_utils.hpp"
-#include "in_memory_cache_filesystem.hpp"
+#include "in_memory_cache_reader.hpp"
 
 using namespace duckdb; // NOLINT
 

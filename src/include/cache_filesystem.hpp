@@ -37,6 +37,8 @@ public:
 	BaseProfileCollector *GetProfileCollector() const {
 		return profile_collector.get();
 	}
+	// Clear all cached content (whether it's in-memory or on-disk).
+	void ClearCache();
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
 	unique_ptr<FileHandle> OpenCompressedFile(unique_ptr<FileHandle> handle, bool write) override {

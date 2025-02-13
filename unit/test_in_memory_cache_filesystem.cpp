@@ -8,7 +8,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
-#include "in_memory_cache_filesystem.hpp"
+#include "in_memory_cache_reader.hpp"
 #include "scope_guard.hpp"
 
 using namespace duckdb; // NOLINT

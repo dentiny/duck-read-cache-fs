@@ -3,13 +3,13 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
+#include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "noop_cache_reader.hpp"
-#include "base_cache_filesystem.hpp"
 #include "scope_guard.hpp"
 
 using namespace duckdb; // NOLINT

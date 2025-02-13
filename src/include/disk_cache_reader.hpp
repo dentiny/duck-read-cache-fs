@@ -2,12 +2,12 @@
 
 #pragma once
 
+#include "base_cache_reader.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
+#include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
-#include "base_cache_reader.hpp"
-#include "base_cache_filesystem.hpp"
 
 namespace duckdb {
 
@@ -20,8 +20,8 @@ public:
 		return "on_disk_cache_reader";
 	}
 
-	// Read from [handle] for an block-size aligned chunk into [start_addr]; cache
-	// to local filesystem and return to user.
+	void ClearCache() override;
+
 	void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset, idx_t requested_bytes_to_read,
 	                  idx_t file_size) override;
 

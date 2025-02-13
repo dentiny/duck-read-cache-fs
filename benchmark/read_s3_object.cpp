@@ -1,7 +1,7 @@
 // This file serves as a benchmark to read a whole S3 objects; it only tests
 // uncached read.
 
-#include "disk_cache_filesystem.hpp"
+#include "disk_cache_reader.hpp"
 #include "duckdb/storage/standard_buffer_manager.hpp"
 #include "duckdb/main/client_context_file_opener.hpp"
 #include "s3fs.hpp"

@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "disk_cache_filesystem.hpp"
+#include "disk_cache_reader.hpp"
 #include "duckdb/common/virtual_file_system.hpp"
 #include "hffs.hpp"
 

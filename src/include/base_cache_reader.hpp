@@ -20,6 +20,9 @@ public:
 	virtual void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
 	                          idx_t requested_bytes_to_read, idx_t file_size) = 0;
 
+	// Clear all cache (in-memory or on-disk).
+	virtual void ClearCache() = 0;
+
 	// Get name for cache reader.
 	virtual std::string GetName() const {
 		throw NotImplementedException("Base cache reader doesn't implement GetName.");

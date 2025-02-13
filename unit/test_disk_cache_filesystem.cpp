@@ -12,7 +12,7 @@
 #include "catch.hpp"
 
 #include "cache_filesystem_config.hpp"
-#include "disk_cache_filesystem.hpp"
+#include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"

@@ -1,5 +1,5 @@
 #include "crypto.hpp"
-#include "disk_cache_filesystem.hpp"
+#include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
@@ -234,6 +234,13 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		D_ASSERT(cur_thd.joinable());
 		cur_thd.join();
 	}
+}
+
+void DiskCacheReader::ClearCache() {
+	auto local_filesystem = LocalFileSystem::CreateLocal();
+	local_filesystem->RemoveDirectory(g_on_disk_cache_directory);
+	// Create an empty directory, otherwise later read access errors.
+	local_filesystem->CreateDirectory(g_on_disk_cache_directory);
 }
 
 } // namespace duckdb

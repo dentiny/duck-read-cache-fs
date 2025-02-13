@@ -5,8 +5,8 @@
 #include "hffs.hpp"
 #include "crypto.hpp"
 #include "duckdb/main/extension_util.hpp"
+#include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
-#include "base_cache_filesystem.hpp"
 #include "duckdb/common/local_file_system.hpp"
 
 #include <array>
@@ -18,11 +18,9 @@ namespace duckdb {
 static vector<CacheFileSystem *> cache_file_systems;
 
 static void ClearOnDiskCache(const DataChunk &args, ExpressionState &state, Vector &result) {
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	local_filesystem->RemoveDirectory(g_on_disk_cache_directory);
-	// Create an empty directory, otherwise later read access errors.
-	local_filesystem->CreateDirectory(g_on_disk_cache_directory);
-
+	for (auto *cur_filesystem : cache_file_systems) {
+		cur_filesystem->ClearCache();
+	}
 	constexpr int32_t SUCCESS = 1;
 	result.Reference(Value(SUCCESS));
 }

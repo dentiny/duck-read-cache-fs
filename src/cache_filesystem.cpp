@@ -1,7 +1,7 @@
-#include "base_cache_filesystem.hpp"
+#include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
-#include "disk_cache_filesystem.hpp"
-#include "in_memory_cache_filesystem.hpp"
+#include "disk_cache_reader.hpp"
+#include "in_memory_cache_reader.hpp"
 #include "noop_cache_reader.hpp"
 #include "temp_profile_collector.hpp"
 
@@ -34,6 +34,18 @@ void CacheFileSystem::SetAndGetCacheReader() {
 		}
 		internal_cache_reader = in_mem_cache_reader.get();
 		return;
+	}
+}
+
+void CacheFileSystem::ClearCache() {
+	if (noop_cache_reader != nullptr) {
+		noop_cache_reader->ClearCache();
+	}
+	if (in_mem_cache_reader != nullptr) {
+		in_mem_cache_reader->ClearCache();
+	}
+	if (on_disk_cache_reader != nullptr) {
+		on_disk_cache_reader->ClearCache();
 	}
 }
 

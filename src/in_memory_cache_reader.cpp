@@ -1,8 +1,8 @@
-#include "in_memory_cache_filesystem.hpp"
 #include "duckdb/common/thread.hpp"
 #include "crypto.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "in_memory_cache_reader.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/filesystem_utils.hpp"
 
@@ -140,6 +140,12 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	for (auto &cur_thd : io_threads) {
 		D_ASSERT(cur_thd.joinable());
 		cur_thd.join();
+	}
+}
+
+void InMemoryCacheReader::ClearCache() {
+	if (cache != nullptr) {
+		cache->Clear();
 	}
 }
 
