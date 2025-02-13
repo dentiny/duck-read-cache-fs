@@ -162,7 +162,8 @@ protected:
 
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
-	// In-memory and on-disk cache reader.
+	// Noop, in-memory and on-disk cache reader.
+	unique_ptr<BaseCacheReader> noop_cache_reader;
 	unique_ptr<BaseCacheReader> in_mem_cache_reader;
 	unique_ptr<BaseCacheReader> on_disk_cache_reader;
 	// Either in-memory or on-disk cache reader, whichever is actively being used, ownership lies the above cache

@@ -13,6 +13,7 @@ namespace duckdb {
 //===--------------------------------------------------------------------===//
 // Config constant
 //===--------------------------------------------------------------------===//
+inline const std::string NOOP_CACHE_TYPE = "noop";
 inline const std::string ON_DISK_CACHE_TYPE = "on_disk";
 inline const std::string IN_MEM_CACHE_TYPE = "in_mem";
 

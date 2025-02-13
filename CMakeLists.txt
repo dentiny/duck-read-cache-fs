@@ -19,6 +19,7 @@ set(EXTENSION_SOURCES
     src/cache_filesystem_config.cpp
     src/disk_cache_filesystem.cpp
     src/in_memory_cache_filesystem.cpp
+    src/noop_cache_reader.cpp
     src/read_cache_fs_extension.cpp
     src/temp_profile_collector.cpp
     src/utils/filesystem_utils.cpp
@@ -46,6 +47,9 @@ install(
 
 # Test cases.
 include_directories(duckdb/third_party/catch)
+
+add_executable(test_noop_cache_reader unit/test_noop_cache_reader.cpp)
+target_link_libraries(test_noop_cache_reader ${EXTENSION_NAME})
 
 add_executable(test_disk_cache_filesystem unit/test_disk_cache_filesystem.cpp)
 target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})

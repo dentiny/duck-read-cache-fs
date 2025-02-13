@@ -1,0 +1,27 @@
+// A noop cache reader, which simply delegates IO request to filesystem API calls.
+// - It provides an option for users to disable caching and parallel reads;
+// - It eases performance comparison benchmarks.
+
+#pragma once
+
+#include "base_cache_reader.hpp"
+#include "base_profile_collector.hpp"
+#include "duckdb/common/file_system.hpp"
+
+namespace duckdb {
+
+class NoopCacheReader : public BaseCacheReader {
+public:
+	explicit NoopCacheReader(FileSystem *internal_filesystem_p) : BaseCacheReader(internal_filesystem_p) {
+	}
+	virtual ~NoopCacheReader() = default;
+
+	void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset, idx_t requested_bytes_to_read,
+	                  idx_t file_size) override;
+
+	virtual std::string GetName() const {
+		return "noop_cache_reader";
+	}
+};
+
+} // namespace duckdb

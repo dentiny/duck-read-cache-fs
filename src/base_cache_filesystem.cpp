@@ -2,6 +2,7 @@
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_filesystem.hpp"
 #include "in_memory_cache_filesystem.hpp"
+#include "noop_cache_reader.hpp"
 #include "temp_profile_collector.hpp"
 
 namespace duckdb {
@@ -12,6 +13,13 @@ CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_fil
 }
 
 void CacheFileSystem::SetAndGetCacheReader() {
+	if (g_cache_type == NOOP_CACHE_TYPE) {
+		if (noop_cache_reader == nullptr) {
+			noop_cache_reader = make_uniq<NoopCacheReader>(internal_filesystem.get());
+		}
+		internal_cache_reader = noop_cache_reader.get();
+	}
+
 	if (g_cache_type == ON_DISK_CACHE_TYPE) {
 		if (on_disk_cache_reader == nullptr) {
 			on_disk_cache_reader = make_uniq<DiskCacheReader>(internal_filesystem.get());
