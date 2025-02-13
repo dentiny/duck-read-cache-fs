@@ -130,7 +130,8 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                          LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT));
 	config.AddExtensionOption("cached_http_type",
 	                          "Type for cached filesystem. Currently there're two types available, one is `in_mem`, "
-	                          "another is `on_disk`. By default we use on-disk cache.",
+	                          "another is `on_disk`. By default we use on-disk cache. Set to `noop` to disable, which "
+	                          "behaves exactly same as httpfs extension.",
 	                          LogicalType::VARCHAR, ON_DISK_CACHE_TYPE);
 	config.AddExtensionOption(
 	    "cached_http_profile_type",
