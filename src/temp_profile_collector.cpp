@@ -3,6 +3,16 @@
 
 namespace duckdb {
 
+namespace {
+// Heuristic estimation of single IO request latency, out of which range are classified as outliers.
+constexpr double kMinLatencyMillisec = 0;
+constexpr double kMaxLatencyMillisec = 1000;
+constexpr int kLatencyNumBkt = 200;
+} // namespace
+
+TempProfileCollector::TempProfileCollector() : histogram(kMinLatencyMillisec, kMaxLatencyMillisec, kLatencyNumBkt) {
+}
+
 void TempProfileCollector::RecordOperationStart(const std::string &oper) {
 	std::lock_guard<std::mutex> lck(stats_mutex);
 	const bool is_new = operation_events
@@ -15,10 +25,14 @@ void TempProfileCollector::RecordOperationStart(const std::string &oper) {
 }
 
 void TempProfileCollector::RecordOperationEnd(const std::string &oper) {
+	const auto now = GetSteadyNowMilliSecSinceEpoch();
+
 	std::lock_guard<std::mutex> lck(stats_mutex);
 	auto iter = operation_events.find(oper);
 	D_ASSERT(iter != operation_events.end());
-	iter->second.end_timestamp = GetSteadyNowMilliSecSinceEpoch();
+	histogram.Add(now - iter->second.start_timestamp);
+	operation_events.erase(iter);
+	latest_timestamp = now;
 }
 
 void TempProfileCollector::RecordCacheAccess(CacheAccess cache_access) {
@@ -29,29 +43,20 @@ void TempProfileCollector::RecordCacheAccess(CacheAccess cache_access) {
 
 void TempProfileCollector::Reset() {
 	std::lock_guard<std::mutex> lck(stats_mutex);
+	histogram.Reset();
 	operation_events.clear();
 	cache_hit_count = 0;
 	cache_miss_count = 0;
+	latest_timestamp = 0;
 }
 
 std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	uint64_t total_time_milli = 0;
-	uint64_t total_io_count = 0;
-	uint64_t latest_timestamp = 0;
-	for (const auto &[_, cur_stat] : operation_events) {
-		// Check operation has finished.
-		D_ASSERT(cur_stat.end_timestamp != 0);
-		total_time_milli += cur_stat.end_timestamp - cur_stat.start_timestamp;
-		++total_io_count;
-		latest_timestamp = MaxValue<uint64_t>(latest_timestamp, cur_stat.end_timestamp);
-	}
-	double avg = static_cast<double>(total_time_milli) / total_io_count;
-	auto stats = StringUtil::Format("for temp profile collector, stats for %s\n"
+	auto stats = StringUtil::Format("For temp profile collector and stats for %s (unit in milliseconds)\n"
 	                                "cache hit count = %d\n"
 	                                "cache miss count = %d\n"
-	                                "remote access takes %lf milliseconds in average",
-	                                cache_reader_type, cache_hit_count, cache_miss_count, avg);
+	                                "IO latency is %s",
+	                                cache_reader_type, cache_hit_count, cache_miss_count, histogram.FormatString());
 	return std::make_pair(std::move(stats), latest_timestamp);
 }
 

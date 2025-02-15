@@ -8,13 +8,20 @@
 
 namespace duckdb {
 
-Histogram::Histogram(double min_val, double max_val, int num_bkt) : min_val_(min_val), max_val_(max_val) {
+Histogram::Histogram(double min_val, double max_val, int num_bkt)
+    : min_val_(min_val), max_val_(max_val), num_bkt_(num_bkt) {
 	D_ASSERT(min_val_ < max_val_);
 	D_ASSERT(num_bkt > 0);
-	hist_.resize(num_bkt);
+	Reset();
+}
 
+void Histogram::Reset() {
 	min_encountered_ = max_val_;
 	max_encountered_ = min_val_;
+	total_counts_ = 0;
+	sum_ = 0;
+	hist_ = std::vector<size_t>(num_bkt_, 0);
+	outliers_.clear();
 }
 
 size_t Histogram::Bucket(double val) const {

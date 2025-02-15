@@ -46,9 +46,13 @@ public:
 	// Display histogram into string format.
 	std::string FormatString() const;
 
+	// Reset histogram.
+	void Reset();
+
 private:
 	const double min_val_;
 	const double max_val_;
+	const int num_bkt_;
 	// Max and min value encountered.
 	double min_encountered_;
 	double max_encountered_;

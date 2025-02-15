@@ -9,8 +9,8 @@ set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 
 project(${TARGET_NAME})
-include_directories(src/include)
 include_directories(src/utils/include)
+include_directories(src/include)
 include_directories(duckdb-httpfs/extension/httpfs/include)
 include_directories(duckdb/third_party/httplib)
 
@@ -19,11 +19,11 @@ set(EXTENSION_SOURCES
     src/cache_filesystem_config.cpp
     src/disk_cache_reader.cpp
     src/in_memory_cache_reader.cpp
+    src/histogram.cpp
     src/noop_cache_reader.cpp
     src/read_cache_fs_extension.cpp
     src/temp_profile_collector.cpp
     src/utils/filesystem_utils.cpp
-    src/utils/histogram.cpp
     src/utils/thread_utils.cpp
     duckdb-httpfs/extension/httpfs/create_secret_functions.cpp
     duckdb-httpfs/extension/httpfs/crypto.cpp

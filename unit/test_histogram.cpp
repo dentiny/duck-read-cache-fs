@@ -15,6 +15,15 @@ TEST_CASE("Histogram test", "[histogram test]") {
 	REQUIRE(hist.max() == 3);
 	REQUIRE(hist.counts() == 2);
 	REQUIRE(hist.mean() == 2);
+
+	// Reset and check again.
+	hist.Reset();
+	hist.Add(1);
+	REQUIRE(hist.outliers().empty());
+	REQUIRE(hist.min() == 1);
+	REQUIRE(hist.max() == 1);
+	REQUIRE(hist.counts() == 1);
+	REQUIRE(hist.mean() == 1);
 }
 
 int main(int argc, char **argv) {
