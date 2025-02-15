@@ -6,6 +6,7 @@
 #include "duckdb/common/profiler.hpp"
 #include "histogram.hpp"
 
+#include <array>
 #include <mutex>
 
 namespace duckdb {
@@ -17,7 +18,7 @@ public:
 
 	void RecordOperationStart(const std::string &oper) override;
 	void RecordOperationEnd(const std::string &oper) override;
-	void RecordCacheAccess(CacheAccess cache_access) override;
+	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override;
 	std::string GetProfilerType() override {
 		return TEMP_PROFILE_TYPE;
 	}
@@ -35,8 +36,7 @@ private:
 	// Only records finished operations.
 	Histogram histogram;
 	// Aggregated cache access condition.
-	uint64_t cache_hit_count = 0;
-	uint64_t cache_miss_count = 0;
+	std::array<uint64_t, 4> cache_access_count {};
 	// Latest access timestamp in milliseconds since unix epoch.
 	uint64_t latest_timestamp = 0;
 

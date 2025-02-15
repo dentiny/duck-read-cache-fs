@@ -35,28 +35,30 @@ void TempProfileCollector::RecordOperationEnd(const std::string &oper) {
 	latest_timestamp = now;
 }
 
-void TempProfileCollector::RecordCacheAccess(CacheAccess cache_access) {
+void TempProfileCollector::RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) {
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	cache_hit_count += cache_access == CacheAccess::kCacheHit;
-	cache_miss_count += cache_access == CacheAccess::kCacheMiss;
+	const size_t arr_idx = static_cast<size_t>(cache_entity) * 2 + static_cast<size_t>(cache_access);
+	++cache_access_count[arr_idx];
 }
 
 void TempProfileCollector::Reset() {
 	std::lock_guard<std::mutex> lck(stats_mutex);
 	histogram.Reset();
 	operation_events.clear();
-	cache_hit_count = 0;
-	cache_miss_count = 0;
+	cache_access_count.fill(0);
 	latest_timestamp = 0;
 }
 
 std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 	std::lock_guard<std::mutex> lck(stats_mutex);
 	auto stats = StringUtil::Format("For temp profile collector and stats for %s (unit in milliseconds)\n"
-	                                "cache hit count = %d\n"
-	                                "cache miss count = %d\n"
+	                                "metadata cache hit count = %d\n"
+	                                "metadata cache miss count = %d\n"
+	                                "data block cache hit count = %d\n"
+	                                "data block cache miss count = %d\n"
 	                                "IO latency is %s",
-	                                cache_reader_type, cache_hit_count, cache_miss_count, histogram.FormatString());
+	                                cache_reader_type, cache_access_count[0], cache_access_count[1],
+	                                cache_access_count[2], cache_access_count[3], histogram.FormatString());
 	return std::make_pair(std::move(stats), latest_timestamp);
 }
 

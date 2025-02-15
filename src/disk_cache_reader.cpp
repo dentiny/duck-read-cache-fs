@@ -191,7 +191,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			// TODO(hjiang): Add documentation and implementation for stale cache eviction policy, before that it's safe
 			// to access cache file directly.
 			if (local_filesystem->FileExists(local_cache_file)) {
-				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheAccess::kCacheHit);
+				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
+				                                     BaseProfileCollector::CacheAccess::kCacheHit);
 				auto file_handle = local_filesystem->OpenFile(local_cache_file, FileOpenFlags::FILE_FLAGS_READ);
 				void *addr = !cache_read_chunk.content.empty() ? const_cast<char *>(cache_read_chunk.content.data())
 				                                               : cache_read_chunk.requested_start_addr;
@@ -211,7 +212,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			}
 
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
-			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheAccess::kCacheMiss);
+			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
+			                                     BaseProfileCollector::CacheAccess::kCacheMiss);
 			if (cache_read_chunk.content.empty()) {
 				cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			}

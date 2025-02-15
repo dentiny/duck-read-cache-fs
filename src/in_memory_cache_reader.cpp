@@ -114,13 +114,15 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			auto cache_block = cache->Get(block_key);
 
 			if (cache_block != nullptr) {
-				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheAccess::kCacheHit);
+				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
+				                                     BaseProfileCollector::CacheAccess::kCacheHit);
 				cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
 				return;
 			}
 
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
-			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheAccess::kCacheMiss);
+			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
+			                                     BaseProfileCollector::CacheAccess::kCacheMiss);
 			auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
 

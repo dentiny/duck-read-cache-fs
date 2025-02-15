@@ -13,6 +13,10 @@ namespace duckdb {
 // filesystem in the extension), profiler collector is used as a data member for cache filesystem.
 class BaseProfileCollector {
 public:
+	enum class CacheEntity {
+		kMetadata, // File metadata.
+		kData,     // File data block.
+	};
 	enum class CacheAccess {
 		kCacheHit,
 		kCacheMiss,
@@ -26,7 +30,7 @@ public:
 	// Record the finish of operation [oper].
 	virtual void RecordOperationEnd(const std::string &oper) = 0;
 	// Record cache access condition.
-	virtual void RecordCacheAccess(CacheAccess cache_access) = 0;
+	virtual void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) = 0;
 	// Get profiler type.
 	virtual std::string GetProfilerType() = 0;
 	// Set cache reader type.
@@ -51,7 +55,7 @@ public:
 	}
 	void RecordOperationEnd(const std::string &oper) override {
 	}
-	void RecordCacheAccess(CacheAccess cache_access) override {
+	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {
 	}
 	std::string GetProfilerType() override {
 		return NOOP_PROFILE_TYPE;

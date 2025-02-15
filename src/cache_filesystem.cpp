@@ -118,13 +118,21 @@ int64_t CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes
 }
 int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-	auto metadata = metadata_cache.GetOrCreate(
-	    disk_cache_handle.internal_file_handle->GetPath(), [this, &disk_cache_handle](const string & /*unused*/) {
-		    const int64_t file_size = internal_filesystem->GetFileSize(*disk_cache_handle.internal_file_handle);
-		    auto file_metadata = make_shared_ptr<FileMetadata>();
-		    file_metadata->file_size = file_size;
-		    return file_metadata;
-	    });
+	bool metadata_cache_hit = true;
+	auto metadata =
+	    metadata_cache.GetOrCreate(disk_cache_handle.internal_file_handle->GetPath(),
+	                               [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
+		                               metadata_cache_hit = false;
+		                               const int64_t file_size =
+		                                   internal_filesystem->GetFileSize(*disk_cache_handle.internal_file_handle);
+		                               auto file_metadata = make_shared_ptr<FileMetadata>();
+		                               file_metadata->file_size = file_size;
+		                               return file_metadata;
+	                               });
+	const BaseProfileCollector::CacheAccess cache_access = metadata_cache_hit
+	                                                           ? BaseProfileCollector::CacheAccess::kCacheHit
+	                                                           : BaseProfileCollector::CacheAccess::kCacheMiss;
+	GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kMetadata, cache_access);
 	return metadata->file_size;
 }
 int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
