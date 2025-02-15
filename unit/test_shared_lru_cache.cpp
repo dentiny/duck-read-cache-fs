@@ -1,7 +1,10 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
+#include <atomic>
+#include <future>
 #include <string>
+#include <thread>
 #include <tuple>
 
 #include "lru_cache.hpp"
@@ -33,13 +36,13 @@ TEST_CASE("PutAndGetSameKey", "[shared lru test]") {
 	REQUIRE(val == nullptr);
 
 	// Check put and get.
-	cache.Put("1", std::make_shared<std::string>("1"));
+	cache.Put("1", make_shared_ptr<std::string>("1"));
 	val = cache.Get("1");
 	REQUIRE(val != nullptr);
 	REQUIRE(*val == "1");
 
 	// Check key eviction.
-	cache.Put("2", std::make_shared<std::string>("2"));
+	cache.Put("2", make_shared_ptr<std::string>("2"));
 	val = cache.Get("1");
 	REQUIRE(val == nullptr);
 	val = cache.Get("2");
@@ -58,7 +61,7 @@ TEST_CASE("CustomizedStruct", "[shared lru test]") {
 	MapKey key;
 	key.fname = "hello";
 	key.off = 10;
-	cache.Put(key, std::make_shared<std::string>("world"));
+	cache.Put(key, make_shared_ptr<std::string>("world"));
 
 	MapKey lookup_key;
 	lookup_key.fname = key.fname;
@@ -66,6 +69,40 @@ TEST_CASE("CustomizedStruct", "[shared lru test]") {
 	auto val = cache.Get(lookup_key);
 	REQUIRE(val != nullptr);
 	REQUIRE(*val == "world");
+}
+
+TEST_CASE("GetOrCreate test", "[shared lru test]") {
+	using CacheType = ThreadSafeSharedLruCache<std::string, std::string>;
+
+	std::atomic<bool> invoked = {false}; // Used to check only invoke once.
+	auto factory = [&invoked](const std::string &key) -> shared_ptr<std::string> {
+		REQUIRE(!invoked.exchange(true));
+		// Sleep for a while so multiple threads could kick in and get blocked.
+		std::this_thread::sleep_for(std::chrono::seconds(3));
+		return make_shared_ptr<std::string>(key);
+	};
+
+	CacheType cache {1};
+
+	constexpr size_t kFutureNum = 100;
+	std::vector<std::future<shared_ptr<std::string>>> futures;
+	futures.reserve(kFutureNum);
+
+	const std::string key = "key";
+	for (size_t idx = 0; idx < kFutureNum; ++idx) {
+		futures.emplace_back(
+		    std::async(std::launch::async, [&cache, &key, &factory]() { return cache.GetOrCreate(key, factory); }));
+	}
+	for (auto &fut : futures) {
+		auto val = fut.get();
+		REQUIRE(val != nullptr);
+		REQUIRE(*val == key);
+	}
+
+	// After we're sure key-value pair exists in cache, make one more call.
+	auto cached_val = cache.GetOrCreate(key, factory);
+	REQUIRE(cached_val != nullptr);
+	REQUIRE(*cached_val == key);
 }
 
 int main(int argc, char **argv) {

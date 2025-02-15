@@ -6,6 +6,7 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "base_cache_reader.hpp"
 #include "base_profile_collector.hpp"
+#include "lru_cache.hpp"
 
 namespace duckdb {
 
@@ -26,7 +27,7 @@ public:
 class CacheFileSystem : public FileSystem {
 public:
 	explicit CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p)
-	    : internal_filesystem(std::move(internal_filesystem_p)) {
+	    : internal_filesystem(std::move(internal_filesystem_p)), metadata_cache(kMaxMetadataEntry) {
 	}
 	~CacheFileSystem() override = default;
 
@@ -39,6 +40,8 @@ public:
 	}
 	// Clear all cached content (whether it's in-memory or on-disk).
 	void ClearCache();
+	// Get file size, which gets cached in-memory.
+	int64_t GetFileSize(FileHandle &handle);
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
 	unique_ptr<FileHandle> OpenCompressedFile(unique_ptr<FileHandle> handle, bool write) override {
@@ -56,10 +59,6 @@ public:
 	bool Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 		return internal_filesystem->Trim(*disk_cache_handle.internal_file_handle, offset_bytes, length_bytes);
-	}
-	int64_t GetFileSize(FileHandle &handle) {
-		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-		return internal_filesystem->GetFileSize(*disk_cache_handle.internal_file_handle);
 	}
 	time_t GetLastModifiedTime(FileHandle &handle) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
@@ -152,6 +151,10 @@ public:
 	}
 
 protected:
+	struct FileMetadata {
+		int64_t file_size = 0;
+	};
+
 	// Read from [location] on [nr_bytes] for the given [handle] into [buffer].
 	// Return the actual number of bytes to read.
 	int64_t ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location);
@@ -173,6 +176,10 @@ protected:
 	BaseCacheReader *internal_cache_reader = nullptr;
 	// Used to profile operations.
 	unique_ptr<BaseProfileCollector> profile_collector;
+	// Max number of cache entries for file metadata cache.
+	static constexpr size_t kMaxMetadataEntry = 125;
+	// Metadata cache, which maps from file name to metadata.
+	ThreadSafeSharedLruConstCache<string, FileMetadata> metadata_cache;
 };
 
 } // namespace duckdb

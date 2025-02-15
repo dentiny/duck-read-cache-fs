@@ -116,8 +116,19 @@ int64_t CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes
 	handle.Seek(handle.SeekPosition() + bytes_read);
 	return bytes_read;
 }
+int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
+	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto metadata = metadata_cache.GetOrCreate(
+	    disk_cache_handle.internal_file_handle->GetPath(), [this, &disk_cache_handle](const string & /*unused*/) {
+		    const int64_t file_size = internal_filesystem->GetFileSize(*disk_cache_handle.internal_file_handle);
+		    auto file_metadata = make_shared_ptr<FileMetadata>();
+		    file_metadata->file_size = file_size;
+		    return file_metadata;
+	    });
+	return metadata->file_size;
+}
 int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
-	const auto file_size = handle.GetFileSize();
+	const auto file_size = GetFileSize(handle);
 
 	// No more bytes to read.
 	if (location == file_size) {

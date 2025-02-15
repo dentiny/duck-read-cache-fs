@@ -134,7 +134,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			cache_read_chunk.CopyBufferToRequestedMemory(content);
 
 			// Attempt to cache file locally.
-			cache->Put(std::move(block_key), std::make_shared<std::string>(std::move(content)));
+			cache->Put(std::move(block_key), make_shared_ptr<std::string>(std::move(content)));
 		});
 	}
 	for (auto &cur_thd : io_threads) {
