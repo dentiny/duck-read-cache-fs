@@ -151,6 +151,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	ExtensionUtil::RegisterFunction(instance, get_cache_size_function);
 
 	// Register profile collector metrics.
+	// A commonly-used SQL is `COPY (SELECT cache_httpfs_get_profile()) TO '/tmp/output.txt';`.
 	ScalarFunction get_profile_stats_function("cache_httpfs_get_profile", /*arguments=*/ {},
 	                                          /*return_type=*/LogicalType::VARCHAR, GetProfileStats);
 	ExtensionUtil::RegisterFunction(instance, get_profile_stats_function);
