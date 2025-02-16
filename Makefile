@@ -10,3 +10,4 @@ include extension-ci-tools/makefiles/duckdb_extension.Makefile
 format-all: format
 	find unit/ -iname *.hpp -o -iname *.cpp | xargs clang-format --sort-includes=0 -style=file -i
 	find benchmark/ -iname *.hpp -o -iname *.cpp | xargs clang-format --sort-includes=0 -style=file -i
+	cmake-format -i CMakeLists.txt
