@@ -71,6 +71,25 @@ TEST_CASE("CustomizedStruct", "[shared lru test]") {
 	REQUIRE(*val == "world");
 }
 
+TEST_CASE("Clear with filter test", "[shared lru test]") {
+	ThreadSafeSharedLruCache<std::string, std::string> cache {3};
+	cache.Put("key1", make_shared_ptr<std::string>("val1"));
+	cache.Put("key2", make_shared_ptr<std::string>("val2"));
+	cache.Put("key3", make_shared_ptr<std::string>("val3"));
+	cache.Clear([](const std::string &key) { return key >= "key2"; });
+
+	// Still valid keys.
+	auto val = cache.Get("key1");
+	REQUIRE(val != nullptr);
+	REQUIRE(*val == "val1");
+
+	// Non-existent keys.
+	val = cache.Get("key2");
+	REQUIRE(val == nullptr);
+	val = cache.Get("key3");
+	REQUIRE(val == nullptr);
+}
+
 TEST_CASE("GetOrCreate test", "[shared lru test]") {
 	using CacheType = ThreadSafeSharedLruCache<std::string, std::string>;
 

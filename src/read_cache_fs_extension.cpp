@@ -18,9 +18,20 @@ namespace duckdb {
 // Lifecycle lies in virtual filesystem and db instance.
 static vector<CacheFileSystem *> cache_file_systems;
 
-static void ClearOnDiskCache(const DataChunk &args, ExpressionState &state, Vector &result) {
+// Clear both in-memory and on-disk data block cache.
+static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
 	for (auto *cur_filesystem : cache_file_systems) {
 		cur_filesystem->ClearCache();
+	}
+	constexpr int32_t SUCCESS = 1;
+	result.Reference(Value(SUCCESS));
+}
+
+static void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
+	D_ASSERT(args.ColumnCount() == 0);
+	const string fname = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
+	for (auto *cur_filesystem : cache_file_systems) {
+		cur_filesystem->ClearCache(fname);
 	}
 	constexpr int32_t SUCCESS = 1;
 	result.Reference(Value(SUCCESS));
@@ -140,10 +151,16 @@ static void LoadInternal(DatabaseInstance &instance) {
 	    "`duckdb` stores the IO operation profiling results into duckdb table, which unblocks advanced analysis.",
 	    LogicalType::VARCHAR, DEFAULT_PROFILE_TYPE);
 
-	// Register on-disk cache cleanup function.
+	// Register cache cleanup function for both in-memory and on-disk cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},
-	                                    /*return_type=*/LogicalType::INTEGER, ClearOnDiskCache);
+	                                    /*return_type=*/LogicalType::INTEGER, ClearAllCache);
 	ExtensionUtil::RegisterFunction(instance, clear_cache_function);
+
+	// Register cache cleanup function for the given filename.
+	ScalarFunction clear_cache_for_file_function("cache_httpfs_clear_cache_for_file",
+	                                             /*arguments=*/ {LogicalType::VARCHAR},
+	                                             /*return_type=*/LogicalType::INTEGER, ClearCacheForFile);
+	ExtensionUtil::RegisterFunction(instance, clear_cache_for_file_function);
 
 	// Register on-disk cache file size stat function.
 	ScalarFunction get_cache_size_function("cache_httpfs_get_cache_size", /*arguments=*/ {},

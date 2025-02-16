@@ -16,6 +16,7 @@
 #include <mutex>
 
 #include "duckdb/common/helper.hpp"
+#include "duckdb/common/vector.hpp"
 #include "map_utils.hpp"
 
 namespace duckdb {
@@ -75,6 +76,20 @@ public:
 	void Clear() {
 		entry_map.clear();
 		lru_list.clear();
+	}
+
+	// Clear cache entry by its key functor.
+	template <typename KeyFilter>
+	void Clear(KeyFilter &&key_filter) {
+		vector<Key> keys_to_delete;
+		for (const auto &key : lru_list) {
+			if (key_filter(key)) {
+				keys_to_delete.emplace_back(key);
+			}
+		}
+		for (const auto &key : keys_to_delete) {
+			Delete(key);
+		}
 	}
 
 	// Accessors for cache parameters.
@@ -147,6 +162,13 @@ public:
 	void Clear() {
 		std::lock_guard<std::mutex> lock(mu);
 		internal_cache.Clear();
+	}
+
+	// Clear cache entry by its key functor.
+	template <typename KeyFilter>
+	void Clear(KeyFilter &&key_filter) {
+		std::lock_guard<std::mutex> lock(mu);
+		internal_cache.Clear(std::forward<KeyFilter>(key_filter));
 	}
 
 	// Accessors for cache parameters.

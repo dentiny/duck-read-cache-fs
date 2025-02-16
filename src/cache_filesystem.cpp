@@ -37,6 +37,18 @@ void CacheFileSystem::SetAndGetCacheReader() {
 	}
 }
 
+void CacheFileSystem::ClearCache(const string &fname) {
+	if (noop_cache_reader != nullptr) {
+		noop_cache_reader->ClearCache(fname);
+	}
+	if (in_mem_cache_reader != nullptr) {
+		in_mem_cache_reader->ClearCache(fname);
+	}
+	if (on_disk_cache_reader != nullptr) {
+		on_disk_cache_reader->ClearCache(fname);
+	}
+}
+
 void CacheFileSystem::ClearCache() {
 	if (noop_cache_reader != nullptr) {
 		noop_cache_reader->ClearCache();

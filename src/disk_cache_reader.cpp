@@ -77,6 +77,16 @@ string GetLocalCacheFile(const string &cache_directory, const string &remote_fil
 	                          bytes_to_read);
 }
 
+// Used to delete on-disk cache files, which returns the file prefix for the given [remote_file].
+string GetLocalCacheFilePrefix(const string &remote_file) {
+	duckdb::hash_bytes remote_file_sha256_val;
+	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
+	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
+
+	const string fname = StringUtil::GetFileName(remote_file);
+	return StringUtil::Format("%s.%s", remote_file_sha256_str, fname);
+}
+
 // Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
 //
 // TODO(hjiang): Document local cache file pattern and its eviction policy.
@@ -131,8 +141,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	// Threads to parallelly perform IO.
 	vector<thread> io_threads;
 
-	// To improve IO performance, we split requested bytes (after alignment) into
-	// multiple chunks and fetch them in parallel.
+	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in
+	// parallel.
 	for (idx_t io_start_offset = aligned_start_offset; io_start_offset <= aligned_last_chunk_offset;
 	     io_start_offset += block_size) {
 		CacheReadChunk cache_read_chunk;
@@ -239,10 +249,19 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 }
 
 void DiskCacheReader::ClearCache() {
-	auto local_filesystem = LocalFileSystem::CreateLocal();
 	local_filesystem->RemoveDirectory(g_on_disk_cache_directory);
 	// Create an empty directory, otherwise later read access errors.
 	local_filesystem->CreateDirectory(g_on_disk_cache_directory);
+}
+
+void DiskCacheReader::ClearCache(const string &fname) {
+	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
+	local_filesystem->ListFiles(g_on_disk_cache_directory, [&](const string &cur_file, bool /*unused*/) {
+		if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {
+			const string filepath = StringUtil::Format("%s/%s", g_on_disk_cache_directory, cur_file);
+			local_filesystem->RemoveFile(filepath);
+		}
+	});
 }
 
 } // namespace duckdb

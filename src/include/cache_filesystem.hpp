@@ -38,6 +38,8 @@ public:
 	BaseProfileCollector *GetProfileCollector() const {
 		return profile_collector.get();
 	}
+	// Clear cached content for the given filename (whether it's in-memory or on-disk).
+	void ClearCache(const string &fname);
 	// Clear all cached content (whether it's in-memory or on-disk).
 	void ClearCache();
 	// Get file size, which gets cached in-memory.

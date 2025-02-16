@@ -151,4 +151,10 @@ void InMemoryCacheReader::ClearCache() {
 	}
 }
 
+void InMemoryCacheReader::ClearCache(const string &fname) {
+	if (cache != nullptr) {
+		cache->Clear([&fname](const InMemCacheBlock &block) { return block.fname == fname; });
+	}
+}
+
 } // namespace duckdb
