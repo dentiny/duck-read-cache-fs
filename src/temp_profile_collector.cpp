@@ -5,12 +5,16 @@ namespace duckdb {
 
 namespace {
 // Heuristic estimation of single IO request latency, out of which range are classified as outliers.
-constexpr double kMinLatencyMillisec = 0;
-constexpr double kMaxLatencyMillisec = 1000;
-constexpr int kLatencyNumBkt = 200;
+constexpr double MIN_LATENCY_MILLISEC = 0;
+constexpr double MAX_LATENCY_MILLISEC = 1000;
+constexpr int LATENCY_NUM_BKT = 200;
+
+const string LATENCY_HISTOGRAM_ITEM = "latency";
+const string LATENCY_HISTOGRAM_UNIT = "millisec";
 } // namespace
 
-TempProfileCollector::TempProfileCollector() : histogram(kMinLatencyMillisec, kMaxLatencyMillisec, kLatencyNumBkt) {
+TempProfileCollector::TempProfileCollector() : histogram(MIN_LATENCY_MILLISEC, MAX_LATENCY_MILLISEC, LATENCY_NUM_BKT) {
+	histogram.SetStatsDistribution(LATENCY_HISTOGRAM_ITEM, LATENCY_HISTOGRAM_UNIT);
 }
 
 void TempProfileCollector::RecordOperationStart(const std::string &oper) {

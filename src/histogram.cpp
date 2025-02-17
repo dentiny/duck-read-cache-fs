@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "duckdb/common/assert.hpp"
+#include "duckdb/common/helper.hpp"
 #include "duckdb/common/string_util.hpp"
 
 namespace duckdb {
@@ -13,6 +14,11 @@ Histogram::Histogram(double min_val, double max_val, int num_bkt)
 	D_ASSERT(min_val_ < max_val_);
 	D_ASSERT(num_bkt > 0);
 	Reset();
+}
+
+void Histogram::SetStatsDistribution(std::string name, std::string unit) {
+	distribution_name_ = std::move(name);
+	distribution_unit_ = std::move(unit);
 }
 
 void Histogram::Reset() {
@@ -26,7 +32,7 @@ void Histogram::Reset() {
 
 size_t Histogram::Bucket(double val) const {
 	D_ASSERT(val >= min_val_);
-	D_ASSERT(val <= max_val_);
+	D_ASSERT(val < max_val_);
 
 	if (val == max_val_) {
 		return hist_.size() - 1;
@@ -36,7 +42,7 @@ size_t Histogram::Bucket(double val) const {
 }
 
 void Histogram::Add(double val) {
-	if (val < min_val_ || val > max_val_) {
+	if (val < min_val_ || val >= max_val_) {
 		outliers_.emplace_back(val);
 		return;
 	}
@@ -54,7 +60,6 @@ double Histogram::mean() const {
 	return sum_ / total_counts_;
 }
 
-// TODO(hjiang): Add buckets into formatted string.
 std::string Histogram::FormatString() const {
 	std::string res;
 
@@ -71,6 +76,20 @@ std::string Histogram::FormatString() const {
 	res += StringUtil::Format("Max = %lf\n", max());
 	res += StringUtil::Format("Min = %lf\n", min());
 	res += StringUtil::Format("Mean = %lf\n", mean());
+
+	// Format stats distribution.
+	const double interval = (max_val_ - min_val_) / num_bkt_;
+	for (size_t idx = 0; idx < hist_.size(); ++idx) {
+		// Skip empty bucket.
+		if (hist_[idx] == 0) {
+			continue;
+		}
+		const double cur_min_val = min_val_ + interval * idx;
+		const double cur_max_val = MinValue<double>(cur_min_val + interval, max_val_);
+		const double percentage = hist_[idx] * 1.0 / total_counts_ * 100;
+		res += StringUtil::Format("Distribution %s [%lf, %lf) %s: %lf %%\n", distribution_name_, cur_min_val,
+		                          cur_max_val, distribution_unit_, percentage);
+	}
 
 	return res;
 }

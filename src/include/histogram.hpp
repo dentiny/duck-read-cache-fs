@@ -13,7 +13,11 @@ namespace duckdb {
 // The reason why outliers are not considered as statistic is they disturb statistical value a lot.
 class Histogram {
 public:
+	// [min_val] is inclusive, and [max_val] is exclusive.
 	Histogram(double min_val, double max_val, int num_bkt);
+
+	// Set the distribution stats name and unit, used for formatting purpose.
+	void SetStatsDistribution(std::string name, std::string unit);
 
 	// Add [val] into the histogram.
 	// Return whether [val] is valid.
@@ -64,6 +68,9 @@ private:
 	std::vector<size_t> hist_;
 	// List of outliers.
 	std::vector<double> outliers_;
+	// Item name and unit for stats distribution.
+	std::string distribution_name_;
+	std::string distribution_unit_;
 };
 
 } // namespace duckdb
