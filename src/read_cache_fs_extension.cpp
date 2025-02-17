@@ -150,6 +150,12 @@ static void LoadInternal(DatabaseInstance &instance) {
 	    "option stores the latest IO operation profiling result, which potentially suffers concurrent updates; "
 	    "`duckdb` stores the IO operation profiling results into duckdb table, which unblocks advanced analysis.",
 	    LogicalType::VARCHAR, DEFAULT_PROFILE_TYPE);
+	config.AddExtensionOption(
+	    "cached_http_max_fanout_subrequest",
+	    "Cached httpfs performs parallel request by splittng them into small request, with request size decided by "
+	    "config [cached_http_cache_block_size]. The setting limits the maximum request to issue for a single "
+	    "filesystem read request. 0 means no limit, by default we set no limit.",
+	    LogicalType::BIGINT, 0);
 
 	// Register cache cleanup function for both in-memory and on-disk cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},

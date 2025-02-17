@@ -30,6 +30,10 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		g_cache_type = std::move(cache_type_string);
 	}
 
+	// Check and update configuration for max subrequest count.
+	FileOpener::TryGetCurrentSetting(opener, "cached_http_max_fanout_subrequest", val);
+	g_max_subrequest_count = val.GetValue<uint64_t>();
+
 	// Testing cache type has higher priority than [g_cache_type].
 	if (!g_test_cache_type.empty()) {
 		g_cache_type = g_test_cache_type;
@@ -69,6 +73,14 @@ void ResetGlobalConfig() {
 	g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
 	g_cache_type = DEFAULT_CACHE_TYPE;
 	g_profile_type = DEFAULT_PROFILE_TYPE;
+	g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
+}
+
+uint64_t GetThreadCountForSubrequests(uint64_t io_request_count) {
+	if (g_max_subrequest_count == 0) {
+		return io_request_count;
+	}
+	return MinValue<uint64_t>(io_request_count, g_max_subrequest_count);
 }
 
 } // namespace duckdb

@@ -5,6 +5,8 @@
 #include "in_memory_cache_reader.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/filesystem_utils.hpp"
+#include "utils/include/thread_pool.hpp"
+#include "utils/include/thread_utils.hpp"
 
 #include <cstdint>
 #include <utility>
@@ -48,13 +50,14 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	const idx_t aligned_start_offset = requested_start_offset / block_size * block_size;
 	const idx_t aligned_last_chunk_offset =
 	    (requested_start_offset + requested_bytes_to_read) / block_size * block_size;
+	const idx_t subrequest_count = (aligned_last_chunk_offset - aligned_start_offset) / block_size + 1;
 
 	// Indicate the meory address to copy to for each IO operation
 	char *addr_to_write = buffer;
 	// Used to calculate bytes to copy for last chunk.
 	idx_t already_read_bytes = 0;
 	// Threads to parallelly perform IO.
-	vector<thread> io_threads;
+	ThreadPool io_threads(GetThreadCountForSubrequests(subrequest_count));
 
 	// To improve IO performance, we split requested bytes (after alignment) into
 	// multiple chunks and fetch them in parallel.
@@ -105,7 +108,9 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
-		io_threads.emplace_back([this, &handle, block_size, cache_read_chunk = std::move(cache_read_chunk)]() mutable {
+		io_threads.Push([this, &handle, block_size, cache_read_chunk = std::move(cache_read_chunk)]() mutable {
+			SetThreadName("RdCachRdThd");
+
 			// Check local cache first, see if we could do a cached read.
 			InMemCacheBlock block_key;
 			block_key.fname = handle.GetPath();
@@ -139,10 +144,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			cache->Put(std::move(block_key), make_shared_ptr<std::string>(std::move(content)));
 		});
 	}
-	for (auto &cur_thd : io_threads) {
-		D_ASSERT(cur_thd.joinable());
-		cur_thd.join();
-	}
+	io_threads.Wait();
 }
 
 void InMemoryCacheReader::ClearCache() {

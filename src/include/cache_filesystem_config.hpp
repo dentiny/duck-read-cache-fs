@@ -45,6 +45,9 @@ inline constexpr idx_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
 // Default option for profile type.
 inline std::string DEFAULT_PROFILE_TYPE = NOOP_PROFILE_TYPE;
 
+// Default max number of parallel subrequest for a single filesystem read request. 0 means no limit.
+inline uint64_t DEFAULT_MAX_SUBREQUEST_COUNT = 0;
+
 //===--------------------------------------------------------------------===//
 // Global configuration
 //===--------------------------------------------------------------------===//
@@ -53,6 +56,7 @@ inline std::string g_on_disk_cache_directory = DEFAULT_ON_DISK_CACHE_DIRECTORY;
 inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
 inline std::string g_cache_type = DEFAULT_CACHE_TYPE;
 inline std::string g_profile_type = DEFAULT_PROFILE_TYPE;
+inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 
 // Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
 // TODO(hjiang): A better is bake configuration into `FileOpener`.
@@ -67,5 +71,8 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener);
 
 // Reset all global cache filesystem configuration.
 void ResetGlobalConfig();
+
+// Get concurrent IO sub-request count.
+uint64_t GetThreadCountForSubrequests(uint64_t io_request_count);
 
 } // namespace duckdb
