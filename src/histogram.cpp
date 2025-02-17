@@ -68,14 +68,14 @@ std::string Histogram::FormatString() const {
 		auto double_to_string = [](double v) -> string {
 			return StringUtil::Format("%lf", v);
 		};
-		res =
-		    StringUtil::Format("Outliers: %s\n", StringUtil::Join(outliers_, outliers_.size(), ", ", double_to_string));
+		res = StringUtil::Format("Outliers %s with unit %s: %s\n", distribution_name_, distribution_unit_,
+		                         StringUtil::Join(outliers_, outliers_.size(), ", ", double_to_string));
 	}
 
 	// Format aggregated stats.
-	res += StringUtil::Format("Max = %lf\n", max());
-	res += StringUtil::Format("Min = %lf\n", min());
-	res += StringUtil::Format("Mean = %lf\n", mean());
+	res += StringUtil::Format("Max %s = %lf %s\n", distribution_name_, max(), distribution_unit_);
+	res += StringUtil::Format("Min %s = %lf %s\n", distribution_name_, min(), distribution_unit_);
+	res += StringUtil::Format("Mean %s = %lf %s\n", distribution_name_, mean(), distribution_unit_);
 
 	// Format stats distribution.
 	const double interval = (max_val_ - min_val_) / num_bkt_;
