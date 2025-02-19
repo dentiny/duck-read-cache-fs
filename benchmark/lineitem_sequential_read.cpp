@@ -27,95 +27,25 @@ void SetSecretConfig(shared_ptr<ClientContext> ctx) {
 	SetConfig(set_vars, "AWS_SECRET_ACCESS_KEY", "s3_secret_access_key");
 }
 
-
-void BaseLineRead() {
-	DuckDB db {};
-	StandardBufferManager buffer_manager {*db.instance, "/tmp/cached_http_fs_benchmark"};
-	auto s3fs = make_uniq<S3FileSystem>(buffer_manager);
-
-	auto client_context = make_shared_ptr<ClientContext>(db.instance);
-    SetSecretConfig(client_context);
-	
-	ClientContextFileOpener file_opener {*client_context};
-	client_context->transaction.BeginTransaction();
-	auto file_handle = s3fs->OpenFile("s3://duckdb-cache-fs/"
-	                                  "lineitem.parquet",
-	                                  FileOpenFlags::FILE_FLAGS_READ, &file_opener);
-	const uint64_t file_size = s3fs->GetFileSize(*file_handle);
-	std::string content(file_size, '\0');
-
-	const auto now = std::chrono::steady_clock::now();
-	s3fs->Read(*file_handle, const_cast<char *>(content.data()), file_size,
-	           /*location=*/0);
-	const auto end = std::chrono::steady_clock::now();
-	const auto duration_sec = std::chrono::duration_cast<std::chrono::duration<double>>(end - now).count();
-	std::cout << "Baseline S3 filesystem reads " << file_size << " bytes takes " << duration_sec << " seconds"
-	          << std::endl;
-}
-
-void ReadUncachedWholeFile() {
-	g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
-	g_cache_type = DEFAULT_ON_DISK_CACHE_DIRECTORY;
-	SCOPE_EXIT {
-		ResetGlobalConfig();
-	};
-
-	DuckDB db {};
-	StandardBufferManager buffer_manager {*db.instance, "/tmp/cached_http_fs_benchmark"};
-	auto s3fs = make_uniq<S3FileSystem>(buffer_manager);
-
-	FileSystem::CreateLocal()->RemoveDirectory(g_on_disk_cache_directory);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(std::move(s3fs));
-
-	auto client_context = make_shared_ptr<ClientContext>(db.instance);
-	SetSecretConfig(client_context);
-	ClientContextFileOpener file_opener {*client_context};
-	client_context->transaction.BeginTransaction();
-	auto file_handle = disk_cache_fs->OpenFile("s3://duckdb-cache-fs/"
-	                                  "lineitem.parquet",
-	                                  FileOpenFlags::FILE_FLAGS_READ, &file_opener);
-
-	const uint64_t file_size = disk_cache_fs->GetFileSize(*file_handle);
-	std::string content(file_size, '\0');
-
-	auto read_whole_file = [&]() {
-		const auto now = std::chrono::steady_clock::now();
-		disk_cache_fs->Read(*file_handle, const_cast<char *>(content.data()), file_size, /*location=*/0);
-		const auto end = std::chrono::steady_clock::now();
-		const auto duration_sec = std::chrono::duration_cast<std::chrono::duration<double>>(end - now).count();
-		std::cout << "Cached http filesystem reads " << file_size << " takes " << duration_sec << " seconds" << std::endl;
-	};
-
-	// Uncached but parallel read.
-	read_whole_file();
-	// Cached and parallel read.
-	read_whole_file();
-}
-
-void ReadSequential16Bytes() {
-    g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
-    g_cache_type = DEFAULT_ON_DISK_CACHE_DIRECTORY;
-    SCOPE_EXIT {
-        ResetGlobalConfig();
-    };
-
+void TestSequentialRead() {	
     DuckDB db {};
     StandardBufferManager buffer_manager {*db.instance, "/tmp/cached_http_fs_benchmark"};
     auto s3fs = make_uniq<S3FileSystem>(buffer_manager);
 
+	std::cout << g_on_disk_cache_directory << std::endl;
     FileSystem::CreateLocal()->RemoveDirectory(g_on_disk_cache_directory);
-    auto disk_cache_fs = make_uniq<CacheFileSystem>(std::move(s3fs));
+    auto cache_fs = make_uniq<CacheFileSystem>(std::move(s3fs));
 
     auto client_context = make_shared_ptr<ClientContext>(db.instance);
     SetSecretConfig(client_context);
     ClientContextFileOpener file_opener {*client_context};
     client_context->transaction.BeginTransaction();
-    auto file_handle = disk_cache_fs->OpenFile("s3://duckdb-cache-fs/"
+    auto file_handle = cache_fs->OpenFile("s3://duckdb-cache-fs/"
                                     "lineitem.parquet",
-                                    FileOpenFlags::FILE_FLAGS_READ, &file_opener);
-
-    const uint64_t file_size = disk_cache_fs->GetFileSize(*file_handle);
-    const size_t chunk_size = 16;
+                                    FileOpenFlags::FILE_FLAGS_READ, &file_opener);	
+    const uint64_t file_size = cache_fs->GetFileSize(*file_handle);
+	
+    const size_t chunk_size = 32_MiB;
     std::string buffer(chunk_size, '\0');
 
     auto read_sequential = [&]() {
@@ -124,7 +54,7 @@ void ReadSequential16Bytes() {
         
         while (bytes_read < file_size) {
             size_t current_chunk = static_cast<size_t>(std::min(static_cast<uint64_t>(chunk_size), file_size - bytes_read));
-            disk_cache_fs->Read(*file_handle, const_cast<char *>(buffer.data()), 
+            cache_fs->Read(*file_handle, const_cast<char *>(buffer.data()), 
                                current_chunk, bytes_read);
             bytes_read += current_chunk;
         }
@@ -136,16 +66,16 @@ void ReadSequential16Bytes() {
                   << " seconds" << std::endl;
     };
 
-    // Uncached sequential read
-    std::cout << "Performing uncached sequential read..." << std::endl;
-    read_sequential();
-    
-    // Cached sequential read
-    std::cout << "Performing cached sequential read..." << std::endl;
-    read_sequential();
+	if(g_test_cache_type == duckdb::NOOP_CACHE_TYPE) {
+		read_sequential();
+		return;
+	} else if (g_test_cache_type == duckdb::ON_DISK_CACHE_TYPE) {
+		std::cout << "--------------------- Performing Uncached Read---------------------" << std::endl;
+		read_sequential();
+		std::cout << "--------------------- Performing cached  Read ---------------------" << std::endl;
+		read_sequential();
+	}
 }
-
-
 
 } // namespace
 
@@ -153,8 +83,17 @@ void ReadSequential16Bytes() {
 
 int main(int argc, char **argv) {
 	std::signal(SIGPIPE, SIG_IGN);
-	// duckdb::BaseLineRead();
-	// duckdb::ReadUncachedWholeFile();
-	duckdb::ReadSequential16Bytes();
+	duckdb::g_test_cache_type = duckdb::NOOP_CACHE_TYPE;
+	duckdb::g_on_disk_cache_directory = "/tmp/benchmark_cache";
+	// Warm Up Read();
+	// duckdb::TestSequentialRead();
+	
+	// Benchmark Noop cache Read();
+	duckdb::TestSequentialRead();
+
+	// Benchmark On Disk cache Read();
+	// It will perform uncached read first, then cached read.
+	duckdb::g_test_cache_type = duckdb::ON_DISK_CACHE_TYPE;
+	duckdb::TestSequentialRead();
 	return 0;
 }
