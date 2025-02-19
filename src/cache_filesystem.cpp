@@ -18,6 +18,7 @@ void CacheFileSystem::SetAndGetCacheReader() {
 			noop_cache_reader = make_uniq<NoopCacheReader>(internal_filesystem.get());
 		}
 		internal_cache_reader = noop_cache_reader.get();
+		return;
 	}
 
 	if (g_cache_type == ON_DISK_CACHE_TYPE) {
