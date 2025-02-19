@@ -87,3 +87,6 @@ target_link_libraries(test_base_cache_filesystem ${EXTENSION_NAME})
 # Benchmark
 add_executable(read_s3_object benchmark/read_s3_object.cpp)
 target_link_libraries(read_s3_object ${EXTENSION_NAME})
+
+add_executable(lineitem_sequential_read benchmark/lineitem_sequential_read.cpp)
+target_link_libraries(lineitem_sequential_read ${EXTENSION_NAME})
