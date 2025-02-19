@@ -230,12 +230,12 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 				cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			}
 			auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-			const string cur_oper = StringUtil::Format("%d", cache_read_chunk.aligned_start_offset);
-			profile_collector->RecordOperationStart(cur_oper);
+			const string oper_id = profile_collector->GetOperId();
+			profile_collector->RecordOperationStart(oper_id);
 			internal_filesystem->Read(*disk_cache_handle.internal_file_handle,
 			                          const_cast<char *>(cache_read_chunk.content.data()),
 			                          cache_read_chunk.content.length(), cache_read_chunk.aligned_start_offset);
-			profile_collector->RecordOperationEnd(cur_oper);
+			profile_collector->RecordOperationEnd(oper_id);
 
 			// Copy to destination buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory();

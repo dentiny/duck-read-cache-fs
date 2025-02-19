@@ -25,6 +25,8 @@ public:
 	BaseProfileCollector() = default;
 	virtual ~BaseProfileCollector() = default;
 
+	// Get an ID which uniquely identifies current operation.
+	virtual std::string GetOperId() const = 0;
 	// Record the start of operation [oper].
 	virtual void RecordOperationStart(const std::string &oper) = 0;
 	// Record the finish of operation [oper].
@@ -51,6 +53,9 @@ public:
 	NoopProfileCollector() = default;
 	~NoopProfileCollector() override = default;
 
+	std::string GetOperId() const override {
+		return "";
+	}
 	void RecordOperationStart(const std::string &oper) override {
 	}
 	void RecordOperationEnd(const std::string &oper) override {

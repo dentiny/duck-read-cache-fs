@@ -16,6 +16,7 @@ public:
 	TempProfileCollector();
 	~TempProfileCollector() override = default;
 
+	std::string GetOperId() const override;
 	void RecordOperationStart(const std::string &oper) override;
 	void RecordOperationEnd(const std::string &oper) override;
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override;

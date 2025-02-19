@@ -1,3 +1,4 @@
+#include "duckdb/common/types/uuid.hpp"
 #include "temp_profile_collector.hpp"
 #include "utils/include/time_utils.hpp"
 
@@ -15,6 +16,10 @@ const string LATENCY_HISTOGRAM_UNIT = "millisec";
 
 TempProfileCollector::TempProfileCollector() : histogram(MIN_LATENCY_MILLISEC, MAX_LATENCY_MILLISEC, LATENCY_NUM_BKT) {
 	histogram.SetStatsDistribution(LATENCY_HISTOGRAM_ITEM, LATENCY_HISTOGRAM_UNIT);
+}
+
+std::string TempProfileCollector::GetOperId() const {
+	return UUID::ToString(UUID::GenerateRandomUUID());
 }
 
 void TempProfileCollector::RecordOperationStart(const std::string &oper) {
