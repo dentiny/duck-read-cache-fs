@@ -26,7 +26,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	// Check and update cache type if necessary, only assign if setting valid.
 	FileOpener::TryGetCurrentSetting(opener, "cached_http_type", val);
 	auto cache_type_string = val.ToString();
-	if (cache_type_string == ON_DISK_CACHE_TYPE || cache_type_string == IN_MEM_CACHE_TYPE) {
+	if (ALL_CACHE_TYPES.find(cache_type_string) != ALL_CACHE_TYPES.end()) {
 		g_cache_type = std::move(cache_type_string);
 	}
 
@@ -42,8 +42,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	// Check and update profile collector type if necessary, only assign if valid.
 	FileOpener::TryGetCurrentSetting(opener, "cached_http_profile_type", val);
 	auto profile_type_string = val.ToString();
-	if (profile_type_string == NOOP_PROFILE_TYPE || profile_type_string == TEMP_PROFILE_TYPE ||
-	    profile_type_string == PERSISTENT_PROFILE_TYPE) {
+	if (ALL_PROFILE_TYPES.find(profile_type_string) != ALL_PROFILE_TYPES.end()) {
 		g_profile_type = std::move(profile_type_string);
 	}
 

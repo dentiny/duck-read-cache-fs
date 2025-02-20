@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <unordered_set>
 
 #include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/typedefs.hpp"
@@ -16,6 +17,7 @@ namespace duckdb {
 inline const std::string NOOP_CACHE_TYPE = "noop";
 inline const std::string ON_DISK_CACHE_TYPE = "on_disk";
 inline const std::string IN_MEM_CACHE_TYPE = "in_mem";
+inline const std::unordered_set<std::string> ALL_CACHE_TYPES = {NOOP_CACHE_TYPE, ON_DISK_CACHE_TYPE, IN_MEM_CACHE_TYPE};
 
 // Default profile option, which performs no-op.
 inline const std::string NOOP_PROFILE_TYPE = "noop";
@@ -23,6 +25,8 @@ inline const std::string NOOP_PROFILE_TYPE = "noop";
 inline const std::string TEMP_PROFILE_TYPE = "temp";
 // Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
 inline const std::string PERSISTENT_PROFILE_TYPE = "duckdb";
+inline const std::unordered_set<std::string> ALL_PROFILE_TYPES = {NOOP_PROFILE_TYPE, TEMP_PROFILE_TYPE,
+                                                                  PERSISTENT_PROFILE_TYPE};
 
 //===--------------------------------------------------------------------===//
 // Default configuration
