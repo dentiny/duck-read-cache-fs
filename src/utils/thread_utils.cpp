@@ -1,6 +1,7 @@
 #include "thread_utils.hpp"
 
 #include <pthread.h>
+#include <thread>
 
 #if defined(__linux__)
 #include <sched.h>
