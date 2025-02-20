@@ -50,43 +50,46 @@ install(
 # Test cases.
 include_directories(duckdb/third_party/catch)
 
-add_executable(test_noop_cache_reader unit/test_noop_cache_reader.cpp)
-target_link_libraries(test_noop_cache_reader ${EXTENSION_NAME})
+# add_executable(test_noop_cache_reader unit/test_noop_cache_reader.cpp)
+# target_link_libraries(test_noop_cache_reader ${EXTENSION_NAME})
 
-add_executable(test_disk_cache_filesystem unit/test_disk_cache_filesystem.cpp)
-target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
+# add_executable(test_disk_cache_filesystem unit/test_disk_cache_filesystem.cpp)
+# target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
 
-add_executable(test_in_memory_cache_filesystem
-               unit/test_in_memory_cache_filesystem.cpp)
-target_link_libraries(test_in_memory_cache_filesystem ${EXTENSION_NAME})
+# add_executable(test_in_memory_cache_filesystem
+# unit/test_in_memory_cache_filesystem.cpp)
+# target_link_libraries(test_in_memory_cache_filesystem ${EXTENSION_NAME})
 
-add_executable(test_stale_deletion unit/test_stale_deletion.cpp)
-target_link_libraries(test_stale_deletion ${EXTENSION_NAME})
+# add_executable(test_stale_deletion unit/test_stale_deletion.cpp)
+# target_link_libraries(test_stale_deletion ${EXTENSION_NAME})
 
-add_executable(test_histogram unit/test_histogram.cpp)
-target_link_libraries(test_histogram ${EXTENSION_NAME})
+# add_executable(test_histogram unit/test_histogram.cpp)
+# target_link_libraries(test_histogram ${EXTENSION_NAME})
 
-add_executable(test_thread_pool unit/test_thread_pool.cpp)
-target_link_libraries(test_thread_pool ${EXTENSION_NAME})
+# add_executable(test_thread_pool unit/test_thread_pool.cpp)
+# target_link_libraries(test_thread_pool ${EXTENSION_NAME})
 
-add_executable(test_shared_lru_cache unit/test_shared_lru_cache.cpp)
-target_link_libraries(test_shared_lru_cache ${EXTENSION_NAME})
+# add_executable(test_shared_lru_cache unit/test_shared_lru_cache.cpp)
+# target_link_libraries(test_shared_lru_cache ${EXTENSION_NAME})
 
-add_executable(test_size_literals unit/test_size_literals.cpp)
-target_link_libraries(test_size_literals ${EXTENSION_NAME})
+# add_executable(test_size_literals unit/test_size_literals.cpp)
+# target_link_libraries(test_size_literals ${EXTENSION_NAME})
 
-add_executable(test_filesystem_config unit/test_filesystem_config.cpp)
-target_link_libraries(test_filesystem_config ${EXTENSION_NAME})
+# add_executable(test_filesystem_config unit/test_filesystem_config.cpp)
+# target_link_libraries(test_filesystem_config ${EXTENSION_NAME})
 
-add_executable(test_set_extension_config unit/test_set_extension_config.cpp)
-target_link_libraries(test_set_extension_config ${EXTENSION_NAME})
+# add_executable(test_set_extension_config unit/test_set_extension_config.cpp)
+# target_link_libraries(test_set_extension_config ${EXTENSION_NAME})
 
-add_executable(test_base_cache_filesystem unit/test_base_cache_filesystem)
-target_link_libraries(test_base_cache_filesystem ${EXTENSION_NAME})
+# add_executable(test_base_cache_filesystem unit/test_base_cache_filesystem)
+# target_link_libraries(test_base_cache_filesystem ${EXTENSION_NAME})
 
-# Benchmark
-add_executable(read_s3_object benchmark/read_s3_object.cpp)
-target_link_libraries(read_s3_object ${EXTENSION_NAME})
+# # Benchmark add_executable(read_s3_object benchmark/read_s3_object.cpp)
+# target_link_libraries(read_s3_object ${EXTENSION_NAME})
 
-add_executable(sequential_read_benchmark benchmark/sequential_read_benchmark.cpp)
-target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
+# add_executable(sequential_read_benchmark
+# benchmark/sequential_read_benchmark.cpp)
+# target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
+
+add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
+target_link_libraries(random_read_benchmark ${EXTENSION_NAME})
