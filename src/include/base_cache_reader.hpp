@@ -36,6 +36,17 @@ public:
 		profile_collector->SetCacheReaderType(GetName());
 	}
 
+	template <class TARGET>
+	TARGET &Cast() {
+		DynamicCastCheck<TARGET>(this);
+		return reinterpret_cast<TARGET &>(*this);
+	}
+	template <class TARGET>
+	const TARGET &Cast() const {
+		DynamicCastCheck<TARGET>(this);
+		return reinterpret_cast<const TARGET &>(*this);
+	}
+
 protected:
 	// Ownership lies in cache filesystem.
 	FileSystem *internal_filesystem = nullptr;
