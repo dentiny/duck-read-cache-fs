@@ -4,7 +4,7 @@
 This benchmark suite evaluates the performance of our DuckDB fs extension compared to the standard DuckDB httpfs. 
 Key aspects measured include:
 
-* Out of box parallel read support ✅
+* Out-of-the-box parallel read support ✅
 * Read performance from cloud storage ✅
 * Compatibility with existing DuckDB httpfs workflows ✅
 * Memory usage and disk utilization ✅
@@ -55,7 +55,7 @@ Run any benchmark binary from the suite:
 ### Environment Setup
 
 #### Location Details
-- **Benchmark Region**: us-west1
+- **Benchmark Machine Region**: us-west1
 - **S3 Storage Bucket Location**: ap-northeast-1
 
 #### Hardware Specifications

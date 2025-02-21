@@ -72,3 +72,5 @@ SELECT * FROM duckdb_functions() WHERE function_name LIKE 'cache_httpfs%';
 ### [More About Benchmark](/benchmark/README.md)
 
 ![sequential-read.cpp](benchmark-graph/seq-performance-barchart.svg)
+
+![random-read.cpp](benchmark-graph/random-performance-barchart.svg)
