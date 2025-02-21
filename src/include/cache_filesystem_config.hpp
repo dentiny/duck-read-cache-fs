@@ -52,6 +52,9 @@ inline std::string DEFAULT_PROFILE_TYPE = NOOP_PROFILE_TYPE;
 // Default max number of parallel subrequest for a single filesystem read request. 0 means no limit.
 inline uint64_t DEFAULT_MAX_SUBREQUEST_COUNT = 0;
 
+// Default enable metadata cache.
+inline bool DEFAULT_ENABLE_METADATA_CACHE = true;
+
 //===--------------------------------------------------------------------===//
 // Global configuration
 //===--------------------------------------------------------------------===//
@@ -61,6 +64,7 @@ inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COU
 inline std::string g_cache_type = DEFAULT_CACHE_TYPE;
 inline std::string g_profile_type = DEFAULT_PROFILE_TYPE;
 inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
+inline bool g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
 
 // Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
 // TODO(hjiang): A better is bake configuration into `FileOpener`.
