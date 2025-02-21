@@ -183,6 +183,9 @@ static void LoadInternal(DatabaseInstance &instance) {
 	ScalarFunction clear_profile_stats_function("cache_httpfs_clear_profile", /*arguments=*/ {},
 	                                            /*return_type=*/LogicalType::BIGINT, ResetProfileStats);
 	ExtensionUtil::RegisterFunction(instance, clear_profile_stats_function);
+
+	// Create default cache directory.
+	LocalFileSystem::CreateLocal()->CreateDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
 }
 
 void ReadCacheFsExtension::Load(DuckDB &db) {
