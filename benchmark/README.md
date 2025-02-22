@@ -3,6 +3,11 @@
 ## Overview
 This benchmark suite evaluates the performance of our DuckDB fs extension compared to the standard DuckDB httpfs. 
 
+The TLDR here is:
+- For request size larger than block size, our extension's performance is much better than httpfs due to parallelism and cache hit
+- For request size smaller than block size, its performance is similar to httpfs but slightly worse, because extension read more bytes due to alignment
+- Overall, the extension provides no worse performance, meanwhile providing a few extra features
+
 ## Configuration
 
 ### AWS Credentials
@@ -14,7 +19,6 @@ export AWS_DEFAULT_REGION='your-region'
 ```
 
 ### Available Benchmark Suites
-Available benchmark suites:
 ```bash
 build/release/extension/read_cache_fs/read_s3_object
 build/release/extension/read_cache_fs/sequential_read_benchmark
@@ -22,43 +26,40 @@ build/release/extension/read_cache_fs/random_read_benchmark
 ```
 
 ## Benchmark Methodology
+
 ### Environment Setup
 
 #### Location Details
-- **Benchmark Machine Region**: us-west1
-- **S3 Storage Bucket Location**: ap-northeast-1
+- Benchmark Machine Region: us-west1
+- S3 Storage Bucket Location: ap-northeast-1
 
 #### Hardware Specifications
 
-**CPU Architecture**
-- Architecture: x86_64
-- Operation Modes: 32-bit, 64-bit
-- Physical/Virtual Address: 46 bits physical, 48 bits virtual
-- Byte Order: Little Endian
-- Total CPUs: 32 (all online, cores 0-31)
+```sh
+ubuntu$ lscpu
+Architecture:            x86_64
+  CPU op-mode(s):        32-bit, 64-bit
+  Address sizes:         46 bits physical, 48 bits virtual
+  Byte Order:            Little Endian
+CPU(s):                  32
+  On-line CPU(s) list:   0-31
+Caches (sum of all):     
+  L1d:                   512 KiB (16 instances)
+  L1i:                   512 KiB (16 instances)
+  L2:                    16 MiB (16 instances)
+  L3:                    35.8 MiB (1 instance)
 
-**Cache Information**
-- L1 Data Cache: 512 KiB (16 instances)
-- L1 Instruction Cache: 512 KiB (16 instances)
-- L2 Cache: 16 MiB (16 instances)
-- L3 Cache: 35.8 MiB (1 instance)
+ubuntu$ lsmem 
+RANGE                                   SIZE  STATE REMOVABLE   BLOCK
+0x0000000000000000-0x00000000bfffffff     3G online       yes    0-23
+0x0000000100000000-0x0000001fe7ffffff 123.6G online       yes 32-1020
 
-**Memory Configuration**
-- Range 1: 0x0000000000000000-0x00000000bfffffff
-  - Size: 3G
-  - State: Online
-  - Removable: Yes
-  - Blocks: 0-23
-
-- Range 2: 0x0000000100000000-0x0000001fe7ffffff
-  - Size: 123.6G
-  - State: Online
-  - Removable: Yes
-  - Blocks: 32-1020
+Memory block size:       128M
+Total online memory:    126.6G
+Total offline memory:      0B
+```
 
 ### Test Categories
 
-- Read Performance
-  - [Sequential read operations](benchmark/sequential_read_benchmark.cpp)
-  - [Random read operations](benchmark/random_read_benchmark.cpp)
-
+- [Sequential read operations](https://github.com/dentiny/duck-read-cache-fs/blob/main/benchmark/random_read_benchmark.cpp)
+- [Random read operations](https://github.com/dentiny/duck-read-cache-fs/blob/main/benchmark/random_read_benchmark.cpp)
