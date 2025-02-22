@@ -36,7 +36,7 @@
         Cache FS Extension
     </text>
     <text x="400" y="335" text-anchor="middle" font-family="Arial" font-size="12">
-        (uncache read)
+        (uncached read)
     </text>
     <text x="400" y="355" text-anchor="middle" font-family="Arial" font-size="12">
         3,934 ms
@@ -48,7 +48,7 @@
         Cache FS Extension
     </text>
     <text x="600" y="335" text-anchor="middle" font-family="Arial" font-size="12">
-        (cache read)
+        (cached read)
     </text>
     <text x="600" y="355" text-anchor="middle" font-family="Arial" font-size="12">
         31 ms
