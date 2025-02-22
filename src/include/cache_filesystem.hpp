@@ -27,7 +27,7 @@ public:
 class CacheFileSystem : public FileSystem {
 public:
 	explicit CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p)
-	    : internal_filesystem(std::move(internal_filesystem_p)), metadata_cache(kMaxMetadataEntry) {
+	    : internal_filesystem(std::move(internal_filesystem_p)) {
 	}
 	~CacheFileSystem() override = default;
 
@@ -37,6 +37,10 @@ public:
 	std::string GetName() const override;
 	BaseProfileCollector *GetProfileCollector() const {
 		return profile_collector.get();
+	}
+	// Expose for testing purpose.
+	BaseCacheReader *GetCacheReader() const {
+		return internal_cache_reader;
 	}
 	// Clear cached content for the given filename (whether it's in-memory or on-disk).
 	void ClearCache(const string &fname);
@@ -167,6 +171,9 @@ protected:
 	// Initialize profile collector data member.
 	void SetProfileCollector();
 
+	// Initialize metadata cache.
+	void SetMetadataCache();
+
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
 	// Noop, in-memory and on-disk cache reader.
@@ -180,8 +187,9 @@ protected:
 	unique_ptr<BaseProfileCollector> profile_collector;
 	// Max number of cache entries for file metadata cache.
 	static constexpr size_t kMaxMetadataEntry = 125;
+	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;
 	// Metadata cache, which maps from file name to metadata.
-	ThreadSafeSharedLruConstCache<string, FileMetadata> metadata_cache;
+	unique_ptr<MetadataCache> metadata_cache;
 };
 
 } // namespace duckdb

@@ -12,6 +12,16 @@ CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_fil
       internal_file_handle(std::move(internal_file_handle_p)) {
 }
 
+void CacheFileSystem::SetMetadataCache() {
+	if (!g_enable_metadata_cache) {
+		metadata_cache = nullptr;
+		return;
+	}
+	if (metadata_cache == nullptr) {
+		metadata_cache = make_uniq<MetadataCache>(kMaxMetadataEntry);
+	}
+}
+
 void CacheFileSystem::SetAndGetCacheReader() {
 	if (g_cache_type == NOOP_CACHE_TYPE) {
 		if (noop_cache_reader == nullptr) {
@@ -113,6 +123,7 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFla
 	SetGlobalConfig(opener);
 	SetProfileCollector();
 	SetAndGetCacheReader();
+	SetMetadataCache();
 	D_ASSERT(profile_collector != nullptr);
 	D_ASSERT(internal_cache_reader != nullptr);
 	internal_cache_reader->SetProfileCollector(profile_collector.get());
@@ -129,19 +140,27 @@ int64_t CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes
 	handle.Seek(handle.SeekPosition() + bytes_read);
 	return bytes_read;
 }
+
 int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+
+	// Stat without cache involved.
+	if (metadata_cache == nullptr) {
+		return internal_filesystem->GetFileSize(*disk_cache_handle.internal_file_handle);
+	}
+
+	// Stat with cache.
 	bool metadata_cache_hit = true;
 	auto metadata =
-	    metadata_cache.GetOrCreate(disk_cache_handle.internal_file_handle->GetPath(),
-	                               [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
-		                               metadata_cache_hit = false;
-		                               const int64_t file_size =
-		                                   internal_filesystem->GetFileSize(*disk_cache_handle.internal_file_handle);
-		                               auto file_metadata = make_shared_ptr<FileMetadata>();
-		                               file_metadata->file_size = file_size;
-		                               return file_metadata;
-	                               });
+	    metadata_cache->GetOrCreate(disk_cache_handle.internal_file_handle->GetPath(),
+	                                [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
+		                                metadata_cache_hit = false;
+		                                const int64_t file_size =
+		                                    internal_filesystem->GetFileSize(*disk_cache_handle.internal_file_handle);
+		                                auto file_metadata = make_shared_ptr<FileMetadata>();
+		                                file_metadata->file_size = file_size;
+		                                return file_metadata;
+	                                });
 	const BaseProfileCollector::CacheAccess cache_access = metadata_cache_hit
 	                                                           ? BaseProfileCollector::CacheAccess::kCacheHit
 	                                                           : BaseProfileCollector::CacheAccess::kCacheMiss;

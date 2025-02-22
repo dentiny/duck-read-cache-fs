@@ -63,6 +63,10 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		FileOpener::TryGetCurrentSetting(opener, "cached_http_max_in_mem_cache_block_count", val);
 		g_max_in_mem_cache_block_count = val.GetValue<uint64_t>();
 	}
+
+	// Check and update configurations for metadata cache enablement.
+	FileOpener::TryGetCurrentSetting(opener, "cached_http_enable_metadata_cache", val);
+	g_enable_metadata_cache = val.GetValue<bool>();
 }
 
 void ResetGlobalConfig() {
@@ -73,6 +77,7 @@ void ResetGlobalConfig() {
 	g_cache_type = DEFAULT_CACHE_TYPE;
 	g_profile_type = DEFAULT_PROFILE_TYPE;
 	g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
+	g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
 }
 
 uint64_t GetThreadCountForSubrequests(uint64_t io_request_count) {

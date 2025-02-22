@@ -156,6 +156,9 @@ static void LoadInternal(DatabaseInstance &instance) {
 	    "config [cached_http_cache_block_size]. The setting limits the maximum request to issue for a single "
 	    "filesystem read request. 0 means no limit, by default we set no limit.",
 	    LogicalType::BIGINT, 0);
+	config.AddExtensionOption("cached_http_enable_metadata_cache",
+	                          "Whether metadata cache is enable for cache filesystem. By default enabled.",
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_METADATA_CACHE);
 
 	// Register cache cleanup function for both in-memory and on-disk cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},
@@ -183,6 +186,9 @@ static void LoadInternal(DatabaseInstance &instance) {
 	ScalarFunction clear_profile_stats_function("cache_httpfs_clear_profile", /*arguments=*/ {},
 	                                            /*return_type=*/LogicalType::BIGINT, ResetProfileStats);
 	ExtensionUtil::RegisterFunction(instance, clear_profile_stats_function);
+
+	// Create default cache directory.
+	LocalFileSystem::CreateLocal()->CreateDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
 }
 
 void ReadCacheFsExtension::Load(DuckDB &db) {

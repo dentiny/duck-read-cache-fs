@@ -36,6 +36,28 @@ const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::Ge
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cached_http_cache";
 } // namespace
 
+// Test default directory works for cached read.
+TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") {
+	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	// Uncached read.
+	{
+		auto handle = disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		const uint64_t start_offset = 1;
+		const uint64_t bytes_to_read = TEST_FILE_SIZE - 2;
+		string content(bytes_to_read, '\0');
+		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                    start_offset);
+		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+	}
+
+	REQUIRE(GetFileCountUnder(DEFAULT_ON_DISK_CACHE_DIRECTORY) > 0);
+
+	// Cleanup default cache directory.
+	LocalFileSystem::CreateLocal()->RemoveDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	LocalFileSystem::CreateLocal()->CreateDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
+}
+
 // One chunk is involved, requested bytes include only "first and last chunk".
 TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhile last chunk",
           "[on-disk cache filesystem test]") {
