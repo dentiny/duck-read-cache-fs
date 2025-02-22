@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.5)
 
+# TODO(hjiang): Upgrade to higher version.
 set(CMAKE_CXX_STANDARD 14)
 
 set(TARGET_NAME read_cache_fs)
 
-# TODO(hjiang): Add compiler version and warning options.
+# Suppress warnings.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings")
+
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 
@@ -33,6 +36,38 @@ set(EXTENSION_SOURCES
     duckdb-httpfs/extension/httpfs/httpfs.cpp
     duckdb-httpfs/extension/httpfs/httpfs_extension.cpp
     duckdb-httpfs/extension/httpfs/s3fs.cpp)
+
+# Avoid building tooling we won't need for release.
+set(BUILD_BENCHMARKS
+    OFF
+    CACHE BOOL "" FORCE)
+set(BUILD_FILTERS
+    OFF
+    CACHE BOOL "" FORCE)
+set(BUILD_GENERATORS
+    OFF
+    CACHE BOOL "" FORCE)
+set(BUILD_TESTING
+    OFF
+    CACHE BOOL "" FORCE)
+set(BUILD_FUZZERS
+    OFF
+    CACHE BOOL "" FORCE)
+set(ENABLE_DOCS
+    OFF
+    CACHE BOOL "" FORCE)
+set(ENABLE_TESTING
+    OFF
+    CACHE BOOL "" FORCE)
+set(ENABLE_LINTING
+    OFF
+    CACHE BOOL "" FORCE)
+set(ENABLE_FORMAT
+    OFF
+    CACHE BOOL "" FORCE)
+
+# Build as shared library.
+set(BUILD_SHARED_LIBS ON)
 
 build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
 build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})

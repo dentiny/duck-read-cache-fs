@@ -60,7 +60,7 @@ A rich set of parameters and util functions are provided for the above features,
 Checkout by
 ```sql
 -- Get all extension configs.
-SELECT * FROM duckdb_settings() WHERE name LIKE 'cached_http%';
+SELECT * FROM duckdb_settings() WHERE name LIKE 'cache_httpfs%';
 -- Get all extension util functions.
 SELECT * FROM duckdb_functions() WHERE function_name LIKE 'cache_httpfs%';
 ```
