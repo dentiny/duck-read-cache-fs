@@ -1,3 +1,7 @@
+// Benchmark setup:
+// - Request number of bytes larger than cache block size;
+// - Sequentially read forward until the end of remote file.
+
 #include "disk_cache_reader.hpp"
 #include "duckdb/storage/standard_buffer_manager.hpp"
 #include "duckdb/main/client_context_file_opener.hpp"

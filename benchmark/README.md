@@ -4,8 +4,8 @@
 This benchmark suite evaluates the performance of our DuckDB fs extension compared to the standard DuckDB httpfs. 
 
 The TLDR here is:
-- For request size larger than block size, our extension's performance is much better than httpfs due to parallelism and cache hit
-- For request size smaller than block size, its performance is similar to httpfs but slightly worse, because extension read more bytes due to alignment
+- If request size larger than request block size, our extension's performance is much better than httpfs due to parallelism and cache hit
+- If request size smaller than request block size, its performance is similar to httpfs but slightly worse, because extension read more bytes due to alignment
 - Overall, the extension provides no worse performance, meanwhile providing a few extra features
 
 ## Configuration

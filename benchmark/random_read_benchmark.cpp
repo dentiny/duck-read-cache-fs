@@ -1,3 +1,5 @@
+// Benchmark setup: start from a random offset, and read 10 bytes every time (which is much less than block size).
+
 #include "disk_cache_reader.hpp"
 #include "duckdb/storage/standard_buffer_manager.hpp"
 #include "duckdb/main/client_context_file_opener.hpp"
