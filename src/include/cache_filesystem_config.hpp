@@ -32,7 +32,7 @@ inline const std::unordered_set<std::string> ALL_PROFILE_TYPES = {NOOP_PROFILE_T
 // Default configuration
 //===--------------------------------------------------------------------===//
 inline const idx_t DEFAULT_CACHE_BLOCK_SIZE = 64_KiB;
-inline const std::string DEFAULT_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_cached_http_cache";
+inline const std::string DEFAULT_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_cache_httpfs_cache";
 
 // Default to use on-disk cache filesystem.
 inline std::string DEFAULT_CACHE_TYPE = ON_DISK_CACHE_TYPE;
@@ -55,6 +55,9 @@ inline uint64_t DEFAULT_MAX_SUBREQUEST_COUNT = 0;
 // Default enable metadata cache.
 inline bool DEFAULT_ENABLE_METADATA_CACHE = true;
 
+// Default not ignore SIGPIPE in the extension.
+inline bool DEFAULT_IGNORE_SIGPIPE = false;
+
 //===--------------------------------------------------------------------===//
 // Global configuration
 //===--------------------------------------------------------------------===//
@@ -65,6 +68,7 @@ inline std::string g_cache_type = DEFAULT_CACHE_TYPE;
 inline std::string g_profile_type = DEFAULT_PROFILE_TYPE;
 inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 inline bool g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
+inline bool g_ignore_sigpipe = DEFAULT_IGNORE_SIGPIPE;
 
 // Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
 // TODO(hjiang): A better is bake configuration into `FileOpener`.

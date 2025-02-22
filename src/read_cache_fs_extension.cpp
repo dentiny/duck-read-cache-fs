@@ -105,9 +105,9 @@ static void LoadInternal(DatabaseInstance &instance) {
 	auto &fs = instance.GetFileSystem();
 
 	cache_file_systems.reserve(3);
-	auto cached_http_filesystem = make_uniq<CacheFileSystem>(make_uniq<HTTPFileSystem>());
-	cache_file_systems.emplace_back(cached_http_filesystem.get());
-	fs.RegisterSubSystem(std::move(cached_http_filesystem));
+	auto cache_httpfs_filesystem = make_uniq<CacheFileSystem>(make_uniq<HTTPFileSystem>());
+	cache_file_systems.emplace_back(cache_httpfs_filesystem.get());
+	fs.RegisterSubSystem(std::move(cache_httpfs_filesystem));
 
 	auto cached_hf_filesystem = make_uniq<CacheFileSystem>(make_uniq<HuggingFaceFileSystem>());
 	cache_file_systems.emplace_back(cached_hf_filesystem.get());
@@ -128,37 +128,41 @@ static void LoadInternal(DatabaseInstance &instance) {
 
 	// Register extension configuration.
 	auto &config = DBConfig::GetConfig(instance);
-	config.AddExtensionOption("cached_http_cache_directory", "The disk cache directory that stores cached data",
+	config.AddExtensionOption("cache_httpfs_cache_directory", "The disk cache directory that stores cached data",
 	                          LogicalType::VARCHAR, DEFAULT_ON_DISK_CACHE_DIRECTORY);
 	config.AddExtensionOption(
-	    "cached_http_cache_block_size",
+	    "cache_httpfs_cache_block_size",
 	    "Block size for cache, applies to both in-memory cache filesystem and on-disk cache filesystem. It's worth "
 	    "noting for on-disk filesystem, all existing cache files are invalidated after config update.",
 	    LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_CACHE_BLOCK_SIZE));
-	config.AddExtensionOption("cached_http_max_in_mem_cache_block_count",
+	config.AddExtensionOption("cache_httpfs_max_in_mem_cache_block_count",
 	                          "Max in-memory cache block count for in-memory cache filesystem. It's worth noting it "
 	                          "should be set only once before all filesystem access, otherwise there's no affect.",
 	                          LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT));
-	config.AddExtensionOption("cached_http_type",
+	config.AddExtensionOption("cache_httpfs_type",
 	                          "Type for cached filesystem. Currently there're two types available, one is `in_mem`, "
 	                          "another is `on_disk`. By default we use on-disk cache. Set to `noop` to disable, which "
 	                          "behaves exactly same as httpfs extension.",
 	                          LogicalType::VARCHAR, ON_DISK_CACHE_TYPE);
 	config.AddExtensionOption(
-	    "cached_http_profile_type",
+	    "cache_httpfs_profile_type",
 	    "Profiling type for cached filesystem. There're three options available: `noop`, `temp`, and `duckdb`. `temp` "
 	    "option stores the latest IO operation profiling result, which potentially suffers concurrent updates; "
 	    "`duckdb` stores the IO operation profiling results into duckdb table, which unblocks advanced analysis.",
 	    LogicalType::VARCHAR, DEFAULT_PROFILE_TYPE);
 	config.AddExtensionOption(
-	    "cached_http_max_fanout_subrequest",
+	    "cache_httpfs_max_fanout_subrequest",
 	    "Cached httpfs performs parallel request by splittng them into small request, with request size decided by "
-	    "config [cached_http_cache_block_size]. The setting limits the maximum request to issue for a single "
+	    "config [cache_httpfs_cache_block_size]. The setting limits the maximum request to issue for a single "
 	    "filesystem read request. 0 means no limit, by default we set no limit.",
 	    LogicalType::BIGINT, 0);
-	config.AddExtensionOption("cached_http_enable_metadata_cache",
+	config.AddExtensionOption("cache_httpfs_enable_metadata_cache",
 	                          "Whether metadata cache is enable for cache filesystem. By default enabled.",
 	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_METADATA_CACHE);
+	config.AddExtensionOption(
+	    "cache_httpfs_ignore_sigpipe",
+	    "Whether to ignore SIGPIPE for the extension. By default not ignored. Once ignored, it cannot be reverted.",
+	    LogicalTypeId::BOOLEAN, DEFAULT_IGNORE_SIGPIPE);
 
 	// Register cache cleanup function for both in-memory and on-disk cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},

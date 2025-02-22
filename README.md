@@ -15,7 +15,7 @@ Key features:
   + duckdb (under work), stats are stored in duckdb so we could leverage its rich feature for analysis purpose (i.e. use histogram to understant latency distribution)
   + profiling is by default disabled
 - Compatibility with duckdb `httpfs`
-  + Extension is built upon `httpfs` extension and load it beforehand, so it's fully compatible with it; we provide option `SET cached_http_type='noop';` to fallback to no cache and parallel IO version, which fallbacks to and behaves exactly as httpfs.
+  + Extension is built upon `httpfs` extension and load it beforehand, so it's fully compatible with it; we provide option `SET cache_httpfs_type='noop';` to fallback to no cache and parallel IO version, which fallbacks to and behaves exactly as httpfs.
 
 ## Example usage
 ```sql
@@ -30,7 +30,7 @@ D CREATE SECRET my_secret (      TYPE S3,      KEY_ID '<key>',      SECRET '<sec
 │ true    │
 └─────────┘
 -- Set cache type to in-memory.
-D SET cached_http_type='in_mem';
+D SET cache_httpfs_type='in_mem';
 D SELECT * FROM 's3://s3-bucket-user-2skzy8zuigonczyfiofztl0zbug--use1-az6--x-s3/t.parquet';
 ┌───────┬───────┐
 │   i   │   j   │

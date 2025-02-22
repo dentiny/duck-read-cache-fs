@@ -42,15 +42,15 @@ void SetOpenerConfig(shared_ptr<ClientContext> ctx, const BenchmarkSetup &benchm
 	SetConfig(set_vars, "AWS_DEFAULT_REGION", "s3_region");
 	SetConfig(set_vars, "AWS_ACCESS_KEY_ID", "s3_access_key_id");
 	SetConfig(set_vars, "AWS_SECRET_ACCESS_KEY", "s3_secret_access_key");
-	set_vars["cached_http_profile_type"] = Value(benchmark_setup.profile_type);
-	set_vars["cached_http_type"] = Value(benchmark_setup.cache_type);
-	set_vars["cached_http_cache_directory"] = Value(benchmark_setup.disk_cache_directory);
-	set_vars["cached_http_cache_block_size"] = Value::UBIGINT(benchmark_setup.block_size);
+	set_vars["cache_httpfs_profile_type"] = Value(benchmark_setup.profile_type);
+	set_vars["cache_httpfs_type"] = Value(benchmark_setup.cache_type);
+	set_vars["cache_httpfs_cache_directory"] = Value(benchmark_setup.disk_cache_directory);
+	set_vars["cache_httpfs_cache_block_size"] = Value::UBIGINT(benchmark_setup.block_size);
 }
 
 void TestSequentialRead(const BenchmarkSetup &benchmark_setup) {
 	DuckDB db {};
-	StandardBufferManager buffer_manager {*db.instance, "/tmp/cached_http_fs_benchmark"};
+	StandardBufferManager buffer_manager {*db.instance, "/tmp/cache_httpfs_fs_benchmark"};
 	auto s3fs = make_uniq<S3FileSystem>(buffer_manager);
 	auto cache_fs = make_uniq<CacheFileSystem>(std::move(s3fs));
 	auto client_context = make_shared_ptr<ClientContext>(db.instance);

@@ -28,7 +28,7 @@ void SetConfig(case_insensitive_map_t<Value> &setting, char *env_key, char *secr
 // caching.
 void BaseLineRead() {
 	DuckDB db {};
-	StandardBufferManager buffer_manager {*db.instance, "/tmp/cached_http_fs_benchmark"};
+	StandardBufferManager buffer_manager {*db.instance, "/tmp/cache_httpfs_fs_benchmark"};
 	auto s3fs = make_uniq<S3FileSystem>(buffer_manager);
 
 	auto client_context = make_shared_ptr<ClientContext>(db.instance);
@@ -63,7 +63,7 @@ void ReadUncachedWholeFile(uint64_t block_size) {
 	};
 
 	DuckDB db {};
-	StandardBufferManager buffer_manager {*db.instance, "/tmp/cached_http_fs_benchmark"};
+	StandardBufferManager buffer_manager {*db.instance, "/tmp/cache_httpfs_fs_benchmark"};
 	auto s3fs = make_uniq<S3FileSystem>(buffer_manager);
 
 	FileSystem::CreateLocal()->RemoveDirectory(g_on_disk_cache_directory);

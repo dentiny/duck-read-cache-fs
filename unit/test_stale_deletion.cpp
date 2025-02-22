@@ -12,7 +12,7 @@
 using namespace duckdb; // NOLINT
 
 namespace {
-const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cached_http_cache";
+const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 } // namespace
 
 TEST_CASE("Stale file deletion", "[utils test]") {

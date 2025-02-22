@@ -33,7 +33,7 @@ const auto TEST_FILE_CONTENT = []() {
 	return content;
 }();
 const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
-const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cached_http_cache";
+const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 } // namespace
 
 // Test default directory works for cached read.

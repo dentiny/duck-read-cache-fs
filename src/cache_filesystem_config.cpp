@@ -1,6 +1,7 @@
 #include "cache_filesystem_config.hpp"
 
 #include <cstdint>
+#include <csignal>
 #include <utility>
 
 #include "duckdb/common/local_file_system.hpp"
@@ -20,18 +21,18 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	Value val;
 
 	// Check and update cache block size if necessary.
-	FileOpener::TryGetCurrentSetting(opener, "cached_http_cache_block_size", val);
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_cache_block_size", val);
 	g_cache_block_size = val.GetValue<uint64_t>();
 
 	// Check and update cache type if necessary, only assign if setting valid.
-	FileOpener::TryGetCurrentSetting(opener, "cached_http_type", val);
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_type", val);
 	auto cache_type_string = val.ToString();
 	if (ALL_CACHE_TYPES.find(cache_type_string) != ALL_CACHE_TYPES.end()) {
 		g_cache_type = std::move(cache_type_string);
 	}
 
 	// Check and update configuration for max subrequest count.
-	FileOpener::TryGetCurrentSetting(opener, "cached_http_max_fanout_subrequest", val);
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_max_fanout_subrequest", val);
 	g_max_subrequest_count = val.GetValue<uint64_t>();
 
 	// Testing cache type has higher priority than [g_cache_type].
@@ -40,7 +41,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	}
 
 	// Check and update profile collector type if necessary, only assign if valid.
-	FileOpener::TryGetCurrentSetting(opener, "cached_http_profile_type", val);
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_profile_type", val);
 	auto profile_type_string = val.ToString();
 	if (ALL_PROFILE_TYPES.find(profile_type_string) != ALL_PROFILE_TYPES.end()) {
 		g_profile_type = std::move(profile_type_string);
@@ -49,7 +50,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	// Check and update configurations for on-disk cache type.
 	if (g_cache_type == ON_DISK_CACHE_TYPE) {
 		// Check and update cache directory if necessary.
-		FileOpener::TryGetCurrentSetting(opener, "cached_http_cache_directory", val);
+		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_cache_directory", val);
 		auto new_on_disk_cache_directory = val.ToString();
 		if (new_on_disk_cache_directory != g_on_disk_cache_directory) {
 			g_on_disk_cache_directory = std::move(new_on_disk_cache_directory);
@@ -60,17 +61,26 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	// Check and update configurations for in-memory cache type.
 	if (g_cache_type == IN_MEM_CACHE_TYPE) {
 		// Check and update max cache block count.
-		FileOpener::TryGetCurrentSetting(opener, "cached_http_max_in_mem_cache_block_count", val);
+		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_max_in_mem_cache_block_count", val);
 		g_max_in_mem_cache_block_count = val.GetValue<uint64_t>();
 	}
 
 	// Check and update configurations for metadata cache enablement.
-	FileOpener::TryGetCurrentSetting(opener, "cached_http_enable_metadata_cache", val);
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_enable_metadata_cache", val);
 	g_enable_metadata_cache = val.GetValue<bool>();
+
+	// Check and update configurations to ignore SIGPIPE if necessary.
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_ignore_sigpipe", val);
+	const bool ignore_sigpipe = val.GetValue<bool>();
+	if (!g_ignore_sigpipe && ignore_sigpipe) {
+		g_ignore_sigpipe = true;
+		// Ignore SIGPIPE, reference: https://blog.erratasec.com/2018/10/tcpip-sockets-and-sigpipe.html
+		std::signal(SIGPIPE, SIG_IGN);
+	}
 }
 
 void ResetGlobalConfig() {
-	// Intentionally not set [g_test_cache_type].
+	// Intentionally not set [g_test_cache_type] and [g_ignore_sigpipe].
 	g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
 	g_on_disk_cache_directory = DEFAULT_ON_DISK_CACHE_DIRECTORY;
 	g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
