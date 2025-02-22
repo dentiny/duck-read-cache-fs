@@ -4,15 +4,6 @@
 This benchmark suite evaluates the performance of our DuckDB fs extension compared to the standard DuckDB httpfs. 
 Key aspects measured include:
 
-* Out-of-the-box parallel read support ✅
-* Read performance from cloud storage ✅
-* Compatibility with existing DuckDB httpfs workflows ✅
-* Memory usage and disk utilization ✅
-* End-to-end query execution time with cached vs. non-cached data (work in progress) 
-
-> **Note**
-> Our goal is to provide a more efficient alternative to DuckDB's httpfs extension while maintaining full compatibility. By caching the data locally, you not only get a performance boost but also save network costs from object storage.
-
 
 ## Installation
 1. Build all release binaries:
