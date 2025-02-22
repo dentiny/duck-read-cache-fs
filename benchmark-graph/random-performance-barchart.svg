@@ -21,7 +21,7 @@
     <!-- Native httpfs -->
     <rect x="200" y="100" width="150" height="200" fill="#1f77b4" opacity="0.8"/>
     <text x="275" y="320" text-anchor="middle" font-family="Arial" font-size="12">
-        DuckDB native
+        DuckDB Native
     </text>
     <text x="275" y="335" text-anchor="middle" font-family="Arial" font-size="12">
         httpfs
