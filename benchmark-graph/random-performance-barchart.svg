@@ -36,7 +36,7 @@
         Cache FS Extension
     </text>
     <text x="525" y="335" text-anchor="middle" font-family="Arial" font-size="12">
-        (Disk Cache)
+        (uncached read)
     </text>
     <text x="525" y="355" text-anchor="middle" font-family="Arial" font-size="12">
         3,602 ms

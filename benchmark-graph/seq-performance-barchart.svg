@@ -21,7 +21,7 @@
     <!-- Native httpfs -->
     <rect x="150" y="80" width="100" height="220" fill="#1f77b4" opacity="0.8"/>
     <text x="200" y="320" text-anchor="middle" font-family="Arial" font-size="12">
-        DuckDB native
+        DuckDB Native
     </text>
     <text x="200" y="335" text-anchor="middle" font-family="Arial" font-size="12">
         httpfs
@@ -36,7 +36,7 @@
         Cache FS Extension
     </text>
     <text x="400" y="335" text-anchor="middle" font-family="Arial" font-size="12">
-        (First Read)
+        (uncache read)
     </text>
     <text x="400" y="355" text-anchor="middle" font-family="Arial" font-size="12">
         3,934 ms
@@ -48,7 +48,7 @@
         Cache FS Extension
     </text>
     <text x="600" y="335" text-anchor="middle" font-family="Arial" font-size="12">
-        (Cache Hit)
+        (cache read)
     </text>
     <text x="600" y="355" text-anchor="middle" font-family="Arial" font-size="12">
         31 ms

@@ -2,18 +2,10 @@
 
 ## Overview
 This benchmark suite evaluates the performance of our DuckDB fs extension compared to the standard DuckDB httpfs. 
-Key aspects measured include:
 
-
-## Installation
-1. Build all release binaries:
-```bash
-CMAKE_BUILD_PARALLEL_LEVE=<how-many-thread-you-have>  make 
-```
 ## Configuration
 
 ### AWS Credentials
-
 Set up your AWS credentials in your environment:
 ```bash
 export AWS_ACCESS_KEY_ID='your-key-id'
@@ -22,24 +14,11 @@ export AWS_DEFAULT_REGION='your-region'
 ```
 
 ### Available Benchmark Suites
-
-The compiled benchmarks are located in:
-```bash
-build/release/extension/read_cache_fs/
-```
-
 Available benchmark suites:
 ```bash
 build/release/extension/read_cache_fs/read_s3_object
 build/release/extension/read_cache_fs/sequential_read_benchmark
 build/release/extension/read_cache_fs/random_read_benchmark
-```
-
-### Executing a Benchmark
-
-Run any benchmark binary from the suite:
-```bash
-./build/release/extension/read_cache_fs/<benchmark-name>
 ```
 
 ## Benchmark Methodology
@@ -80,6 +59,6 @@ Run any benchmark binary from the suite:
 ### Test Categories
 
 - Read Performance
-  - Sequential read operations
-  - Random read operations
+  - [Sequential read operations](benchmark/sequential_read_benchmark.cpp)
+  - [Random read operations](benchmark/random_read_benchmark.cpp)
 
