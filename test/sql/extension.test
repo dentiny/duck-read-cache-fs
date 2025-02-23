@@ -9,6 +9,9 @@ Catalog Error: Scalar Function with name cache_httpfs_get_cache_size does not ex
 
 require read_cache_fs
 
+statement ok
+SELECT cache_httpfs_clear_cache();
+
 query I
 SELECT cache_httpfs_get_cache_size();
 ----

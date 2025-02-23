@@ -20,10 +20,13 @@ static vector<CacheFileSystem *> cache_file_systems;
 
 // Clear both in-memory and on-disk data block cache.
 static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
+	// Clear local disk cache.
+	LocalFileSystem::CreateLocal()->RemoveDirectory(g_on_disk_cache_directory);
+
 	for (auto *cur_filesystem : cache_file_systems) {
 		cur_filesystem->ClearCache();
 	}
-	constexpr int32_t SUCCESS = 1;
+	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
 
@@ -33,7 +36,7 @@ static void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vec
 	for (auto *cur_filesystem : cache_file_systems) {
 		cur_filesystem->ClearCache(fname);
 	}
-	constexpr int32_t SUCCESS = 1;
+	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
 
@@ -166,13 +169,13 @@ static void LoadInternal(DatabaseInstance &instance) {
 
 	// Register cache cleanup function for both in-memory and on-disk cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},
-	                                    /*return_type=*/LogicalType::INTEGER, ClearAllCache);
+	                                    /*return_type=*/LogicalType::BOOLEAN, ClearAllCache);
 	ExtensionUtil::RegisterFunction(instance, clear_cache_function);
 
 	// Register cache cleanup function for the given filename.
 	ScalarFunction clear_cache_for_file_function("cache_httpfs_clear_cache_for_file",
 	                                             /*arguments=*/ {LogicalType::VARCHAR},
-	                                             /*return_type=*/LogicalType::INTEGER, ClearCacheForFile);
+	                                             /*return_type=*/LogicalType::BOOLEAN, ClearCacheForFile);
 	ExtensionUtil::RegisterFunction(instance, clear_cache_for_file_function);
 
 	// Register on-disk cache file size stat function.
