@@ -1,0 +1,15 @@
+# name: test/sql/extension.test
+# description: test cached_fs extension loading
+# group: [cached_fs]
+
+statement error
+SELECT cache_httpfs_get_cache_size();
+----
+Catalog Error: Scalar Function with name cache_httpfs_get_cache_size does not exist!
+
+require read_cache_fs
+
+query I
+SELECT cache_httpfs_get_cache_size();
+----
+0
