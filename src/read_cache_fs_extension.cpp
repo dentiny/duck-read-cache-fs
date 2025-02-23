@@ -21,7 +21,9 @@ static vector<CacheFileSystem *> cache_file_systems;
 // Clear both in-memory and on-disk data block cache.
 static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
 	// Clear local disk cache.
-	LocalFileSystem::CreateLocal()->RemoveDirectory(g_on_disk_cache_directory);
+	auto local_filesystem = LocalFileSystem::CreateLocal();
+	local_filesystem->RemoveDirectory(g_on_disk_cache_directory);
+	local_filesystem->CreateDirectory(g_on_disk_cache_directory);
 
 	for (auto *cur_filesystem : cache_file_systems) {
 		cur_filesystem->ClearCache();

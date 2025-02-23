@@ -57,6 +57,22 @@ TEST_CASE("Test on noop cache filesystem", "[noop cache filesystem test]") {
 	}
 }
 
+TEST_CASE("Test noop read whole file", "[noop cache filesystem test]") {
+	g_cache_block_size = TEST_FILE_SIZE;
+	SCOPE_EXIT {
+		ResetGlobalConfig();
+	};
+
+	auto noop_filesystem = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	auto handle = noop_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+	const uint64_t start_offset = 0;
+	const uint64_t bytes_to_read = TEST_FILE_SIZE;
+	string content(bytes_to_read, '\0');
+	noop_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+	                      start_offset);
+	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+}
+
 int main(int argc, char **argv) {
 	// Set global cache type for testing.
 	g_test_cache_type = NOOP_CACHE_TYPE;

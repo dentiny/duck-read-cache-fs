@@ -6,11 +6,11 @@ namespace duckdb {
 void NoopCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                    idx_t requested_bytes_to_read, idx_t file_size) {
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-	const string cur_oper = StringUtil::Format("%d", requested_start_offset);
-	profile_collector->RecordOperationStart(cur_oper);
+	const string oper_id = profile_collector->GetOperId();
+	profile_collector->RecordOperationStart(oper_id);
 	internal_filesystem->Read(*disk_cache_handle.internal_file_handle, buffer, requested_bytes_to_read,
 	                          requested_start_offset);
-	profile_collector->RecordOperationEnd(cur_oper);
+	profile_collector->RecordOperationEnd(oper_id);
 }
 
 } // namespace duckdb
