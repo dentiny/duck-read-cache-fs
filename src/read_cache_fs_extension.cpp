@@ -104,6 +104,10 @@ static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vec
 // 2. If uncached filesystem is registered later somehow, cached version is set mutual set so it has higher priority
 // than uncached version.
 static void LoadInternal(DatabaseInstance &instance) {
+	// It's legal to reset database and reload extension, reset all global variable at load.
+	cache_file_systems.clear();
+	ResetGlobalConfig();
+
 	// Register filesystem instance to instance.
 	// Here we register both in-memory filesystem and on-disk filesystem, and leverage global configuration to decide
 	// which one to use.
