@@ -156,7 +156,7 @@ public:
 		internal_filesystem->SetDisabledFileSystems(names);
 	}
 
-protected:
+private:
 	struct FileMetadata {
 		int64_t file_size = 0;
 	};
@@ -186,7 +186,7 @@ protected:
 	// Used to profile operations.
 	unique_ptr<BaseProfileCollector> profile_collector;
 	// Max number of cache entries for file metadata cache.
-	static constexpr size_t kMaxMetadataEntry = 125;
+	inline static constexpr size_t MAX_METADATA_ENTRY = 125;
 	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;
 	// Metadata cache, which maps from file name to metadata.
 	unique_ptr<MetadataCache> metadata_cache;

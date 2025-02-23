@@ -18,7 +18,7 @@ void CacheFileSystem::SetMetadataCache() {
 		return;
 	}
 	if (metadata_cache == nullptr) {
-		metadata_cache = make_uniq<MetadataCache>(kMaxMetadataEntry);
+		metadata_cache = make_uniq<MetadataCache>(MAX_METADATA_ENTRY);
 	}
 }
 
@@ -137,7 +137,6 @@ void CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, i
 }
 int64_t CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes) {
 	const int64_t bytes_read = ReadImpl(handle, buffer, nr_bytes, handle.SeekPosition());
-	handle.Seek(handle.SeekPosition() + bytes_read);
 	return bytes_read;
 }
 
@@ -171,12 +170,29 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	const auto file_size = GetFileSize(handle);
 
 	// No more bytes to read.
-	if (location == file_size) {
+	if (location >= static_cast<idx_t>(file_size)) {
 		return 0;
 	}
 
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
 	internal_cache_reader->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read, file_size);
+
+// Check actually read content with bytes read from internal filesystem. Only enabled in DEBUG build.
+#if defined(DEBUG)
+	string check_buffer(bytes_to_read, '\0');
+	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	internal_filesystem->Read(*disk_cache_handle.internal_file_handle, const_cast<char *>(check_buffer.data()),
+	                          bytes_to_read, location);
+	D_ASSERT(check_buffer == string(const_cast<char *>(check_buffer.data()), bytes_to_read));
+#endif
+
+	// TODO(hjiang): there're some unresolved problems with duckdb's filesystem, for example, it's not clear on `Read`
+	// and `PRead`'s behavior. Related issue:
+	// - https://github.com/duckdb/duckdb/issues/16362
+	// - https://github.com/duckdb/duckdb-httpfs/issues/16
+	//
+	// Here we adhere to httpfs's behavior.
+	Seek(handle, location + bytes_to_read);
 
 	return bytes_to_read;
 }

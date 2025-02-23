@@ -17,8 +17,7 @@ namespace duckdb {
 namespace {
 
 // All read requests are split into chunks, and executed in parallel.
-// A [CacheReadChunk] represents a chunked IO request and its corresponding
-// partial IO request.
+// A [CacheReadChunk] represents a chunked IO request and its corresponding partial IO request.
 struct CacheReadChunk {
 	// Requested memory address and file offset to read from for current chunk.
 	char *requested_start_addr = nullptr;
@@ -26,8 +25,7 @@ struct CacheReadChunk {
 	// Block size aligned [requested_start_offset].
 	idx_t aligned_start_offset = 0;
 
-	// Number of bytes for the chunk for IO operations, apart from the last chunk
-	// it's always cache block size.
+	// Number of bytes for the chunk for IO operations, apart from the last chunk it's always cache block size.
 	idx_t chunk_size = 0;
 
 	// Number of bytes to copy from [content] to requested memory address.
@@ -68,15 +66,12 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		cache_read_chunk.aligned_start_offset = io_start_offset;
 		cache_read_chunk.requested_start_offset = requested_start_offset;
 
-		// Implementation-wise, middle chunks are easy to handle -- read in
-		// [block_size], and copy the whole chunk to the requested memory address;
-		// but the first and last chunk require special handling.
-		// For first chunk, requested start offset might not be aligned with block
-		// size; for the last chunk, we might not need to copy the whole
-		// [block_size] of memory.
+		// Implementation-wise, middle chunks are easy to handle -- read in [block_size], and copy the whole chunk to
+		// the requested memory address; but the first and last chunk require special handling.
+		// For first chunk, requested start offset might not be aligned with block size; for the last chunk, we might
+		// not need to copy the whole [block_size] of memory.
 		//
-		// Case-1: If there's only one chunk, which serves as both the first chunk
-		// and the last one.
+		// Case-1: If there's only one chunk, which serves as both the first chunk and the last one.
 		if (io_start_offset == aligned_start_offset && io_start_offset == aligned_last_chunk_offset) {
 			cache_read_chunk.chunk_size = MinValue<idx_t>(block_size, file_size - io_start_offset);
 			cache_read_chunk.bytes_to_copy = requested_bytes_to_read;
