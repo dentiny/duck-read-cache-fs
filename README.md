@@ -70,3 +70,9 @@ SELECT * FROM duckdb_functions() WHERE function_name LIKE 'cache_httpfs%';
 ![sequential-read.cpp](benchmark-graph/seq-performance-barchart.svg)
 
 ![random-read.cpp](benchmark-graph/random-performance-barchart.svg)
+
+## Development
+
+For development, the extension requires [CMake](https://cmake.org), and a `C++14` compliant compiler. Run `make` in the root directory to compile the sources. For development, use `make debug` to build a non-optimized debug version. You should run `make unit`.
+
+Please also refer to our [Contribution Guide](https://github.com/dentiny/duck-read-cache-fs/blob/main/CONTRIBUTING.md).

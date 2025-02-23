@@ -24,7 +24,12 @@
 
 ## Building
 
+* To pull latest dependencies, run `git submodule update --init --recursive`.
 * To build the project, run `CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) make <debug>`.
+
+## Testing
+
+* To run all the SQL tests, run `make test` (or `make test_debug` for debug build binaries).
 
 ## Formatting
 
