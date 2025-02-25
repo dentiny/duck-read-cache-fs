@@ -14,6 +14,8 @@ public:
 	BaseCacheReader(FileSystem *internal_filesystem_p) : internal_filesystem(internal_filesystem_p) {
 	}
 	virtual ~BaseCacheReader() = default;
+	BaseCacheReader(const BaseCacheReader &) = delete;
+	BaseCacheReader &operator=(const BaseCacheReader &) = delete;
 
 	// Read from [handle] for an block-size aligned chunk into [start_addr]; cache
 	// to local filesystem and return to user.

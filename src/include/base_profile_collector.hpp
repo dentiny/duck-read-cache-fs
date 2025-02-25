@@ -24,6 +24,8 @@ public:
 
 	BaseProfileCollector() = default;
 	virtual ~BaseProfileCollector() = default;
+	BaseProfileCollector(const BaseProfileCollector &) = delete;
+	BaseProfileCollector &operator=(const BaseProfileCollector &) = delete;
 
 	// Get an ID which uniquely identifies current operation.
 	virtual std::string GetOperId() const = 0;
