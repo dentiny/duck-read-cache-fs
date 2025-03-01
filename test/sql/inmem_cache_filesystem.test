@@ -2,7 +2,7 @@
 # description: test cached_fs in-memory read and cache
 # group: [cached_fs]
 
-require read_cache_fs
+require cache_httpfs
 
 statement ok
 SET cache_httpfs_type='in_mem';

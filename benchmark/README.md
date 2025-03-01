@@ -20,9 +20,9 @@ export AWS_DEFAULT_REGION='your-region'
 
 ### Available Benchmark Suites
 ```bash
-build/release/extension/read_cache_fs/read_s3_object
-build/release/extension/read_cache_fs/sequential_read_benchmark
-build/release/extension/read_cache_fs/random_read_benchmark
+build/release/extension/cache_httpfs/read_s3_object
+build/release/extension/cache_httpfs/sequential_read_benchmark
+build/release/extension/cache_httpfs/random_read_benchmark
 ```
 
 ## Benchmark Methodology

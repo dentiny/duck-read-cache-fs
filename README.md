@@ -20,7 +20,7 @@ Key features:
 ## Example usage
 ```sql
 -- No need to load httpfs.
-D LOAD read_cache_fs;
+D LOAD cache_httpfs;
 -- Create S3 secret to access objects.
 D CREATE SECRET my_secret (      TYPE S3,      KEY_ID '<key>',      SECRET '<secret>',      REGION 'us-east-1',      ENDPOINT 's3express-use1-az6.us-east-1.amazonaws.com');
 ┌─────────┐

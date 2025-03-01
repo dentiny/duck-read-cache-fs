@@ -7,7 +7,7 @@
 #include "duckdb/main/extension_util.hpp"
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
-#include "read_cache_fs_extension.hpp"
+#include "cache_httpfs_extension.hpp"
 #include "s3fs.hpp"
 
 #include <array>
@@ -204,7 +204,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	LocalFileSystem::CreateLocal()->CreateDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
 }
 
-void ReadCacheFsExtension::Load(DuckDB &db) {
+void CacheHttpfsExtension::Load(DuckDB &db) {
 	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,
 	// so we load it first.
 	httpfs_extension = make_uniq<HttpfsExtension>();
@@ -217,13 +217,13 @@ void ReadCacheFsExtension::Load(DuckDB &db) {
 	// Load cached httpfs extension.
 	LoadInternal(*db.instance);
 }
-std::string ReadCacheFsExtension::Name() {
-	return "read_cache_fs";
+std::string CacheHttpfsExtension::Name() {
+	return "cache_httpfs";
 }
 
-std::string ReadCacheFsExtension::Version() const {
-#ifdef EXT_VERSION_READ_CACHE_FS
-	return EXT_VERSION_READ_CACHE_FS;
+std::string CacheHttpfsExtension::Version() const {
+#ifdef EXT_VERSION_CACHE_HTTPFS
+	return EXT_VERSION_CACHE_HTTPFS;
 #else
 	return "";
 #endif
@@ -233,12 +233,12 @@ std::string ReadCacheFsExtension::Version() const {
 
 extern "C" {
 
-DUCKDB_EXTENSION_API void read_cache_fs_init(duckdb::DatabaseInstance &db) {
+DUCKDB_EXTENSION_API void cache_httpfs_init(duckdb::DatabaseInstance &db) {
 	duckdb::DuckDB db_wrapper(db);
-	db_wrapper.LoadExtension<duckdb::ReadCacheFsExtension>();
+	db_wrapper.LoadExtension<duckdb::CacheHttpfsExtension>();
 }
 
-DUCKDB_EXTENSION_API const char *read_cache_fs_version() {
+DUCKDB_EXTENSION_API const char *cache_httpfs_version() {
 	return duckdb::DuckDB::LibraryVersion();
 }
 }

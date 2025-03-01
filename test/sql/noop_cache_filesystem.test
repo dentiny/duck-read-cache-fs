@@ -2,7 +2,7 @@
 # description: test cached_fs noop read, which is exactly the same as native duckdb httpfs
 # group: [cached_fs]
 
-require read_cache_fs
+require cache_httpfs
 
 statement ok
 SET cache_httpfs_type='noop';

@@ -7,7 +7,7 @@ SELECT cache_httpfs_get_cache_size();
 ----
 Catalog Error: Scalar Function with name cache_httpfs_get_cache_size does not exist!
 
-require read_cache_fs
+require cache_httpfs
 
 statement ok
 SELECT cache_httpfs_clear_cache();

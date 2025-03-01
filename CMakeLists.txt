@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.5)
 # TODO(hjiang): Upgrade to higher version.
 set(CMAKE_CXX_STANDARD 14)
 
-set(TARGET_NAME read_cache_fs)
+set(TARGET_NAME cache_httpfs)
 
 # Suppress warnings.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings")
@@ -24,7 +24,7 @@ set(EXTENSION_SOURCES
     src/in_memory_cache_reader.cpp
     src/histogram.cpp
     src/noop_cache_reader.cpp
-    src/read_cache_fs_extension.cpp
+    src/cache_httpfs_extension.cpp
     src/temp_profile_collector.cpp
     src/utils/filesystem_utils.cpp
     src/utils/thread_pool.cpp
