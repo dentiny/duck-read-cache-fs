@@ -246,3 +246,7 @@ bazel-*
 
 # Added by cargo
 /target
+
+# From duckdb community extensions.
+downloads-last-week.json
+*.db
