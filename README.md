@@ -76,3 +76,8 @@ SELECT * FROM duckdb_functions() WHERE function_name LIKE 'cache_httpfs%';
 For development, the extension requires [CMake](https://cmake.org), and a `C++14` compliant compiler. Run `make` in the root directory to compile the sources. For development, use `make debug` to build a non-optimized debug version. You should run `make unit`.
 
 Please also refer to our [Contribution Guide](https://github.com/dentiny/duck-read-cache-fs/blob/main/CONTRIBUTING.md).
+
+## FAQ
+1. What is the difference between this extension and DuckDB's [native external file cache](https://github.com/duckdb/duckdb/pull/16463)?
+
+While DuckDB supports external file caching, it currently focuses primarily on Parquet file caching. Our extension supports all file formats and implements chunk-based caching, which differs significantly from DuckDB's native mechanism. You can even tune the chunk size for your specific workload. 
