@@ -25,11 +25,11 @@ Key features:
   + duckdb (under work), stats are stored in duckdb so we could leverage its rich feature for analysis purpose (i.e. use histogram to understant latency distribution)
   + profiling is by default disabled
 - 100% Compatibility with duckdb `httpfs`
-  + Extension is built upon `httpfs` extension and automatically load it beforehand, so it's fully compatible with it; we provide option `SET cache_httpfs_type='noop';` to fallback to no cache and parallel IO version, which fallbacks to and behaves exactly as httpfs.
+  + Extension is built upon `httpfs` extension and automatically load it beforehand, so it's fully compatible with it; we provide option `SET cache_httpfs_type='noop';` to fallback to and behave exactly as httpfs.
 
 Caveat:
-- The extension is implemented for object storage, which is expected to be read-heavy workload and (mostly) immutable, so it only supports read cache, cache won't be cleared on write operation for the same object.
-  We provide workaround for overwrite -- user could `cache_httpfs_clear_cache` to delete all cache content, and `cache_httpfs_clear_cache_for_file` for a certain object.
+- The extension is implemented for object storage, which is expected to be read-heavy workload and (mostly) immutable, so it only supports read cache (at the moment), cache won't be cleared on write operation for the same object.
+  We provide workaround for overwrite -- user could call `cache_httpfs_clear_cache` to delete all cache content, and `cache_httpfs_clear_cache_for_file` for a certain object.
 - Filesystem requests are split into multiple sub-requests and aligned with block size for parallel IO requests and cache efficiency, so for small requests (i.e. read 1 byte) could suffer read amplification.
   A workaround for reducing amplification is to tune down block size via `cache_httpfs_cache_block_size` or fallback to native httpfs.
 

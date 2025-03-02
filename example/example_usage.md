@@ -1,6 +1,6 @@
 ### Example usage for cache httpfs.
 
-- Cache httpfs is 100% compatible with native httpfs; we provide an option to fallback httpfs extension.
+- Cache httpfs is 100% compatible with native httpfs; we provide an option to fallback to httpfs extension.
 ```sql
 -- Later access won't be cached, but existing cache (whether it's in-memory or on-disk) will be kept.
 D SET cache_httpfs_profile_type='noop';
