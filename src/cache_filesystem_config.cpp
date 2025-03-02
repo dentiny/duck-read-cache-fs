@@ -36,10 +36,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 
 	// Check and update configuration for max subrequest count.
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_max_fanout_subrequest", val);
-	const auto max_subrequest_count_value = val.GetValue<uint64_t>();
-	if (max_subrequest_count_value >= 0) {
-		g_max_subrequest_count = max_subrequest_count_value;
-	}
+	g_max_subrequest_count = val.GetValue<uint64_t>();
 
 	// Testing cache type has higher priority than [g_cache_type].
 	if (!g_test_cache_type.empty()) {
