@@ -14,8 +14,14 @@ Key features:
   + temp, all access stats are stored in memory, which could be retrieved via `SELECT cache_httpfs_get_profile();`
   + duckdb (under work), stats are stored in duckdb so we could leverage its rich feature for analysis purpose (i.e. use histogram to understant latency distribution)
   + profiling is by default disabled
-- Compatibility with duckdb `httpfs`
-  + Extension is built upon `httpfs` extension and load it beforehand, so it's fully compatible with it; we provide option `SET cache_httpfs_type='noop';` to fallback to no cache and parallel IO version, which fallbacks to and behaves exactly as httpfs.
+- 100% Compatibility with duckdb `httpfs`
+  + Extension is built upon `httpfs` extension and automatically load it beforehand, so it's fully compatible with it; we provide option `SET cache_httpfs_type='noop';` to fallback to no cache and parallel IO version, which fallbacks to and behaves exactly as httpfs.
+
+Caveat:
+- The extension is implemented for object storage, which is expected to be read-heavy workload and (mostly) immutable, so it only supports read cache, cache won't be cleared on write operation for the same object.
+  We provide workaround for overwrite -- user could `cache_httpfs_clear_cache` to delete all cache content, and `cache_httpfs_clear_cache_for_file` for a certain object.
+- Filesystem requests are split into multiple sub-requests and aligned with block size for parallel IO requests and cache efficiency, so for small requests (i.e. read 1 byte) could suffer read amplification.
+  A workaround for reducing amplification is to tune down block size via `cache_httpfs_cache_block_size` or fallback to native httpfs.
 
 ## Example usage
 ```sql
@@ -29,8 +35,11 @@ D CREATE SECRET my_secret (      TYPE S3,      KEY_ID '<key>',      SECRET '<sec
 ├─────────┤
 │ true    │
 └─────────┘
+
 -- Set cache type to in-memory.
 D SET cache_httpfs_type='in_mem';
+
+-- Access remote file.
 D SELECT * FROM 's3://s3-bucket-user-2skzy8zuigonczyfiofztl0zbug--use1-az6--x-s3/t.parquet';
 ┌───────┬───────┐
 │   i   │   j   │
@@ -44,26 +53,17 @@ D SELECT * FROM 's3://s3-bucket-user-2skzy8zuigonczyfiofztl0zbug--use1-az6--x-s3
 ├───────┴───────┤
 │    5 rows     │
 └───────────────┘
--- Check cache status.
-D SELECT cache_httpfs_get_cache_size();
-┌───────────────────────────────┐
-│ cache_httpfs_get_cache_size() │
-│             int64             │
-├───────────────────────────────┤
-│             16821             │
-└───────────────────────────────┘
 ```
 
-## Setting and util functions
+For more example usage, checkout [example usage](/example/example_usage.md)
 
-A rich set of parameters and util functions are provided for the above features, including but not limited to type of caching, IO request size, etc.
-Checkout by
+## Loading cache httpfs
+Since DuckDB v1.0.0, cache httpfs can be loaded as a community extension without requiring the `unsigned` flag. From any DuckDB instance, the following two commands will allow you to install and load the extension:
 ```sql
--- Get all extension configs.
-SELECT * FROM duckdb_settings() WHERE name LIKE 'cache_httpfs%';
--- Get all extension util functions.
-SELECT * FROM duckdb_functions() WHERE function_name LIKE 'cache_httpfs%';
+INSTALL cache_httpfs from community;
+LOAD cache_httpfs;
 ```
+See the [DuckPGQ community extension page](https://community-extensions.duckdb.org/extensions/cache_httpfs.html) for more information.
 
 ## [More About Benchmark](/benchmark/README.md)
 

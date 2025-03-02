@@ -30,6 +30,7 @@
 ## Testing
 
 * To run all the SQL tests, run `make test` (or `make test_debug` for debug build binaries).
+* To run all C++ tests, run `make test_unit` (or `test_debug_unit` for debug build binaries).
 
 ## Formatting
 
