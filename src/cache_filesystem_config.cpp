@@ -22,7 +22,10 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 
 	// Check and update cache block size if necessary.
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_cache_block_size", val);
-	g_cache_block_size = val.GetValue<uint64_t>();
+	const auto cache_block_size = val.GetValue<uint64_t>();
+	if (cache_block_size > 0) {
+		g_cache_block_size = cache_block_size;
+	}
 
 	// Check and update cache type if necessary, only assign if setting valid.
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_type", val);
@@ -65,7 +68,10 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	if (g_cache_type == IN_MEM_CACHE_TYPE) {
 		// Check and update max cache block count.
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_max_in_mem_cache_block_count", val);
-		g_max_in_mem_cache_block_count = val.GetValue<uint64_t>();
+		const auto in_mem_block_count = val.GetValue<uint64_t>();
+		if (in_mem_block_count > 0) {
+			g_max_in_mem_cache_block_count = in_mem_block_count;
+		}
 	}
 
 	// Check and update configurations for metadata cache enablement.

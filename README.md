@@ -1,5 +1,15 @@
 # duck-read-cache-fs
 
+A DuckDB extension for remote filesystem access cache.
+
+## Loading cache httpfs
+Since DuckDB v1.0.0, cache httpfs can be loaded as a community extension without requiring the `unsigned` flag. From any DuckDB instance, the following two commands will allow you to install and load the extension:
+```sql
+INSTALL cache_httpfs from community;
+LOAD cache_httpfs;
+```
+See the [cache httpfs community extension page](https://community-extensions.duckdb.org/extensions/cache_httpfs.html) for more information.
+
 ## Introduction
 
 This repository is made as read-only filesystem for remote access, which serves as cache layer above duckdb [httpfs](https://github.com/duckdb/duckdb-httpfs).
@@ -56,14 +66,6 @@ D SELECT * FROM 's3://s3-bucket-user-2skzy8zuigonczyfiofztl0zbug--use1-az6--x-s3
 ```
 
 For more example usage, checkout [example usage](/example/example_usage.md)
-
-## Loading cache httpfs
-Since DuckDB v1.0.0, cache httpfs can be loaded as a community extension without requiring the `unsigned` flag. From any DuckDB instance, the following two commands will allow you to install and load the extension:
-```sql
-INSTALL cache_httpfs from community;
-LOAD cache_httpfs;
-```
-See the [DuckPGQ community extension page](https://community-extensions.duckdb.org/extensions/cache_httpfs.html) for more information.
 
 ## [More About Benchmark](/benchmark/README.md)
 
