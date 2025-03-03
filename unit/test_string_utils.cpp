@@ -11,7 +11,7 @@ constexpr std::size_t kBufSize = 10;
 
 TEST_CASE("StringUtilsTest", "ImmutableBuffer") {
     ImmutableBuffer buffer(kBufSize);
-    std::memmove(/*dst=*/const_cast<char*>(buffer.Data()), /*src=*/"helloworld", kBufSize);
+    std::memmove(/*dst=*/const_cast<char*>(buffer.data()), /*src=*/"helloworld", kBufSize);
 
     // Inequal case.
     const std::string content1 = "hello world";

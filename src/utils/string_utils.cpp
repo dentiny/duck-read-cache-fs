@@ -5,11 +5,11 @@
 namespace duckdb {
 
 bool operator==(const ImmutableBuffer &buffer1, const std::string &buffer2) {
-	if (buffer1.Size() != buffer2.length()) {
+	if (buffer1.size() != buffer2.length()) {
 		return false;
 	}
-	for (size_t idx = 0; idx < buffer1.Size(); ++idx) {
-		if (buffer1.Data()[idx] != buffer2[idx]) {
+	for (size_t idx = 0; idx < buffer1.size(); ++idx) {
+		if (buffer1.data()[idx] != buffer2[idx]) {
 			return false;
 		}
 	}

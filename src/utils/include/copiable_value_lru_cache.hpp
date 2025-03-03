@@ -1,7 +1,10 @@
-// SharedLruCache is a LRU cache, with all entries shared, which allows each key value pair could be read from multiple
-// requests.
+// CopiableValueLruCache is a LRU cache, which allows each key value pair could be read from multiple requests.
 //
-// It's made for values which are expensive to copy, so we use shared pointer wrapper for all values.
+// Value is stored in natively (aka, without shared pointer wrapper as `CopiableValueLruCache`). It's made for values
+// which are cheap to copy, which happens when internal data structure resizes and key-value pair gets requested.
+//
+// TODO(hjiang): The extension is compiled and linked with C++14 so we don't have `std::optional`;
+// as a workaround we return default value if the requested key doesn't exist in cache.
 
 #pragma once
 
@@ -10,7 +13,6 @@
 #include <functional>
 #include <list>
 #include <memory>
-#include <optional>
 #include <unordered_map>
 #include <string>
 #include <utility>
@@ -24,7 +26,7 @@
 namespace duckdb {
 
 template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
-class SharedLruCache {
+class CopiableValueLruCache {
 public:
 	using key_type = Key;
 	using mapped_type = Val;
@@ -32,17 +34,17 @@ public:
 	using key_equal = KeyEqual;
 
 	// A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
-	explicit SharedLruCache(size_t max_entries_p) : max_entries(max_entries_p) {
+	explicit CopiableValueLruCache(size_t max_entries_p) : max_entries(max_entries_p) {
 	}
 
 	// Disable copy and move.
-	SharedLruCache(const SharedLruCache &) = delete;
-	SharedLruCache &operator=(const SharedLruCache &) = delete;
+	CopiableValueLruCache(const CopiableValueLruCache &) = delete;
+	CopiableValueLruCache &operator=(const CopiableValueLruCache &) = delete;
 
-	~SharedLruCache() = default;
+	~CopiableValueLruCache() = default;
 
 	// Insert `value` with key `key`. This will replace any previous entry with the same key.
-	void Put(Key key, shared_ptr<Val> value) {
+	void Put(Key key, Val value) {
 		lru_list.emplace_front(key);
 		Entry new_entry {std::move(value), lru_list.begin()};
 		auto key_cref = std::cref(lru_list.front());
@@ -68,11 +70,11 @@ public:
 	}
 
 	// Look up the entry with key `key`.
-	// Return nullptr if `key` doesn't exist in cache.
-	shared_ptr<Val> Get(const Key &key) {
+	// Return the default value (with `empty() == true`) if `key` doesn't exist in cache.
+	Val Get(const Key &key) {
 		const auto entry_map_iter = entry_map.find(key);
 		if (entry_map_iter == entry_map.end()) {
-			return nullptr;
+			return Val {};
 		}
 		lru_list.splice(lru_list.begin(), lru_list, entry_map_iter->second.lru_iterator);
 		return entry_map_iter->second.value;
@@ -106,7 +108,7 @@ public:
 private:
 	struct Entry {
 		// The entry's value.
-		shared_ptr<Val> value;
+		Val value;
 
 		// A list iterator pointing to the entry's position in the LRU list.
 		typename std::list<Key>::iterator lru_iterator;
@@ -125,13 +127,13 @@ private:
 	std::list<Key> lru_list;
 };
 
-// Same interfaces as `SharedLruCache`, but all cached values are `const` specified to avoid concurrent updates.
+// Same interfaces as `CopiableValueLruCache`, but all cached values are `const` specified to avoid concurrent updates.
 template <typename K, typename V, typename KeyHash = std::hash<K>, typename KeyEqual = std::equal_to<K>>
-using SharedLruConstCache = SharedLruCache<K, const V, KeyHash, KeyEqual>;
+using CopiableValueLruConstCache = CopiableValueLruCache<K, const V, KeyHash, KeyEqual>;
 
 // Thread-safe implementation.
 template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
-class ThreadSafeSharedLruCache {
+class ThreadSafeCopiableValLruCache {
 public:
 	using key_type = Key;
 	using mapped_type = Val;
@@ -139,17 +141,17 @@ public:
 	using key_equal = KeyEqual;
 
 	// A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
-	explicit ThreadSafeSharedLruCache(size_t max_entries) : internal_cache(max_entries) {
+	explicit ThreadSafeCopiableValLruCache(size_t max_entries) : internal_cache(max_entries) {
 	}
 
 	// Disable copy and move.
-	ThreadSafeSharedLruCache(const ThreadSafeSharedLruCache &) = delete;
-	ThreadSafeSharedLruCache &operator=(const ThreadSafeSharedLruCache &) = delete;
+	ThreadSafeCopiableValLruCache(const ThreadSafeCopiableValLruCache &) = delete;
+	ThreadSafeCopiableValLruCache &operator=(const ThreadSafeCopiableValLruCache &) = delete;
 
-	~ThreadSafeSharedLruCache() = default;
+	~ThreadSafeCopiableValLruCache() = default;
 
 	// Insert `value` with key `key`. This will replace any previous entry with the same key.
-	void Put(Key key, shared_ptr<Val> value) {
+	void Put(Key key, Val value) {
 		std::lock_guard<std::mutex> lock(mu);
 		internal_cache.Put(std::move(key), std::move(value));
 	}
@@ -162,8 +164,8 @@ public:
 	}
 
 	// Look up the entry with key `key`.
-	// Return nullptr if `key` doesn't exist in cache.
-	shared_ptr<Val> Get(const Key &key) {
+	// Return a default value (with `empty() == true`) if `key` doesn't exist in cache.
+	Val Get(const Key &key) {
 		std::unique_lock<std::mutex> lock(mu);
 		return internal_cache.Get(key);
 	}
@@ -186,16 +188,16 @@ public:
 		return internal_cache.MaxEntries();
 	}
 
-	// Get or creation for cached key-value pairs.
+	// Get or creation for cached key-value pairs, and return the value.
 	//
 	// WARNING: Currently factory cannot have exception thrown.
-	shared_ptr<Val> GetOrCreate(const Key &key, std::function<shared_ptr<Val>(const Key &)> factory) {
+	Val GetOrCreate(const Key &key, std::function<Val(const Key &)> factory) {
 		shared_ptr<CreationToken> creation_token;
 
 		{
 			std::unique_lock<std::mutex> lck(mu);
 			auto cached_val = internal_cache.Get(key);
-			if (cached_val != nullptr) {
+			if (!cached_val.empty()) {
 				return cached_val;
 			}
 
@@ -206,7 +208,7 @@ public:
 				creation_token = creation_iter->second;
 				++creation_token->count;
 				creation_token->cv.wait(
-				    lck, [creation_token = creation_token.get()]() { return creation_token->val != nullptr; });
+				    lck, [creation_token = creation_token.get()]() { return creation_token->has_value; });
 
 				// Creation finished.
 				--creation_token->count;
@@ -224,12 +226,13 @@ public:
 		}
 
 		// Place factory out of critical section.
-		shared_ptr<Val> val = factory(key);
+		Val val = factory(key);
 
 		{
 			std::lock_guard<std::mutex> lck(mu);
 			internal_cache.Put(key, val);
 			creation_token->val = val;
+			creation_token->has_value = true;
 			creation_token->cv.notify_all();
 			int new_count = --creation_token->count;
 			if (new_count == 0) {
@@ -244,20 +247,20 @@ public:
 private:
 	struct CreationToken {
 		std::condition_variable cv;
-		// Nullptr indicate creation unfinished.
-		shared_ptr<Val> val;
+		Val val;
+		bool has_value = false;
 		// Counter for ongoing creation.
 		int count = 0;
 	};
 
 	std::mutex mu;
-	SharedLruCache<Key, Val, KeyHash, KeyEqual> internal_cache;
+	CopiableValueLruCache<Key, Val, KeyHash, KeyEqual> internal_cache;
 	// Ongoing creation.
 	std::unordered_map<Key, shared_ptr<CreationToken>, KeyHash, KeyEqual> ongoing_creation;
 };
 
-// Same interfaces as `SharedLruCache`, but all cached values are `const` specified to avoid concurrent updates.
+// Same interfaces as `CopiableValueLruCache`, but all cached values are `const` specified to avoid concurrent updates.
 template <typename K, typename V, typename KeyHash = std::hash<K>, typename KeyEqual = std::equal_to<K>>
-using ThreadSafeSharedLruConstCache = ThreadSafeSharedLruCache<K, const V, KeyHash, KeyEqual>;
+using ThreadSafeCopiableValLruConstCache = ThreadSafeCopiableValLruCache<K, const V, KeyHash, KeyEqual>;
 
 } // namespace duckdb

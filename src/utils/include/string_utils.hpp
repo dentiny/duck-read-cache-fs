@@ -20,12 +20,16 @@ struct ImmutableBuffer {
 	}
 
 	// Get pointer to content.
-	const char *Data() const {
+	const char *data() const {
 		return buffer.get();
 	}
 	// Get size of the buffer.
-	std::size_t Size() const {
+	std::size_t size() const {
 		return buf_size;
+	}
+	// Whether the buffer is empty.
+	bool empty() const {
+		return buf_size == 0;
 	}
 };
 
