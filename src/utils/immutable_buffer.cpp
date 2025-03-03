@@ -1,4 +1,4 @@
-#include "string_utils.hpp"
+#include "immutable_buffer.hpp"
 
 #include "duckdb/common/helper.hpp"
 

@@ -27,7 +27,7 @@ set(EXTENSION_SOURCES
     src/cache_httpfs_extension.cpp
     src/temp_profile_collector.cpp
     src/utils/filesystem_utils.cpp
-    src/utils/string_utils.cpp
+    src/utils/immutable_buffer.cpp
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
     duckdb-httpfs/extension/httpfs/create_secret_functions.cpp

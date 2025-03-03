@@ -5,12 +5,13 @@
 #include "base_cache_reader.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
+#include "copiable_value_lru_cache.hpp"
 #include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
+#include "immutable_buffer.hpp"
 #include "in_mem_cache_block.hpp"
-#include "lru_cache.hpp"
 
 namespace duckdb {
 
@@ -30,7 +31,8 @@ public:
 	                  uint64_t requested_bytes_to_read, uint64_t file_size) override;
 
 private:
-	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
+	using InMemCache =
+	    ThreadSafeCopiableValLruCache<InMemCacheBlock, ImmutableBuffer, InMemCacheBlockHash, InMemCacheBlockEqual>;
 
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;

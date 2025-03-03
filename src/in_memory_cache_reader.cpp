@@ -32,9 +32,9 @@ struct CacheReadChunk {
 	idx_t bytes_to_copy = 0;
 
 	// Copy from [content] to application-provided buffer.
-	void CopyBufferToRequestedMemory(const std::string &content) {
+	void CopyBufferToRequestedMemory(const ImmutableBuffer &buffer) {
 		const idx_t delta_offset = requested_start_offset - aligned_start_offset;
-		std::memmove(requested_start_addr, const_cast<char *>(content.data()) + delta_offset, bytes_to_copy);
+		std::memmove(requested_start_addr, const_cast<char *>(buffer.data()) + delta_offset, bytes_to_copy);
 	}
 };
 
@@ -113,30 +113,30 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			block_key.blk_size = cache_read_chunk.chunk_size;
 			auto cache_block = cache->Get(block_key);
 
-			if (cache_block != nullptr) {
+			if (!cache_block.empty()) {
 				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 				                                     BaseProfileCollector::CacheAccess::kCacheHit);
-				cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
+				cache_read_chunk.CopyBufferToRequestedMemory(cache_block);
 				return;
 			}
 
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
 			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 			                                     BaseProfileCollector::CacheAccess::kCacheMiss);
-			auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
+			ImmutableBuffer content {cache_read_chunk.chunk_size};
 			auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
 
 			const string oper_id = profile_collector->GetOperId();
 			profile_collector->RecordOperationStart(oper_id);
 			internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, const_cast<char *>(content.data()),
-			                          content.length(), cache_read_chunk.aligned_start_offset);
+			                          content.size(), cache_read_chunk.aligned_start_offset);
 			profile_collector->RecordOperationEnd(oper_id);
 
 			// Copy to destination buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory(content);
 
 			// Attempt to cache file locally.
-			cache->Put(std::move(block_key), make_shared_ptr<std::string>(std::move(content)));
+			cache->Put(std::move(block_key), std::move(content));
 		});
 	}
 	io_threads.Wait();

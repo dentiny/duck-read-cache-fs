@@ -1,7 +1,7 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
-#include "string_utils.hpp"
+#include "immutable_buffer.hpp"
 
 using namespace duckdb;  // NOLINT
 

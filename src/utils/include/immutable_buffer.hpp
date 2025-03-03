@@ -1,14 +1,16 @@
 // Data structure used for immutable buffer.
-// Compared with other buffer representations like `std::vector<char>` and `std::string` it has a few advantages:
+// Compared with other buffer representations like `std::vector<char>`, `std::string` and `std::shared_ptr<std::string>`
+// it has a few advantages:
 // - It supports creation with no initialization (aka, no `memset`).
 // - It's cheap to copy and move.
 // - One pointer indirection to actual content.
+// - One heap allocation.
 
 #pragma once
 
 #include <cstddef>
-#include <string>
 #include <memory>
+#include <string>
 
 namespace duckdb {
 
@@ -16,8 +18,15 @@ struct ImmutableBuffer {
 	std::shared_ptr<char[]> buffer;
 	std::size_t buf_size;
 
+	ImmutableBuffer() : buffer(nullptr), buf_size(0) {
+	}
 	ImmutableBuffer(std::size_t size) : buffer(new char[size]), buf_size(size) {
 	}
+
+	ImmutableBuffer(const ImmutableBuffer &) = default;
+	ImmutableBuffer &operator=(const ImmutableBuffer &) = default;
+	ImmutableBuffer(ImmutableBuffer &&) = default;
+	ImmutableBuffer &operator=(ImmutableBuffer &&) = default;
 
 	// Get pointer to content.
 	const char *data() const {
