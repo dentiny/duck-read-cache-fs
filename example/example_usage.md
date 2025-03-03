@@ -37,7 +37,17 @@ D COPY (SELECT cache_httpfs_get_profile()) TO '/tmp/output.txt';
 Checkout by
 ```sql
 -- Get all extension configs.
-SELECT * FROM duckdb_settings() WHERE name LIKE 'cache_httpfs%';
+D SELECT * FROM duckdb_settings() WHERE name LIKE 'cache_httpfs%';
 -- Get all extension util functions.
-SELECT * FROM duckdb_functions() WHERE function_name LIKE 'cache_httpfs%';
+D SELECT * FROM duckdb_functions() WHERE function_name LIKE 'cache_httpfs%';
 ```
+
+- Users could clear cache, whether it's in-memory or on-disk with
+```sql
+D SELECT cache_httpfs_clear_cache();
+```
+or clear cache for a particular file with
+```sql
+D SELECT cache_httpfs_clear_cache_for_file('filename');
+```
+Notice the query could be slow.
