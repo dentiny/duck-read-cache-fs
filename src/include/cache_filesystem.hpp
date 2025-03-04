@@ -8,6 +8,8 @@
 #include "base_profile_collector.hpp"
 #include "lru_cache.hpp"
 
+#include <mutex>
+
 namespace duckdb {
 
 // Forward declaration.
@@ -174,6 +176,8 @@ private:
 	// Initialize metadata cache.
 	void SetMetadataCache();
 
+	// Mutex to protect concurrent access.
+	std::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
 	// Noop, in-memory and on-disk cache reader.

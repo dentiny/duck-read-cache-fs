@@ -77,12 +77,15 @@ void CacheFileSystem::SetProfileCollector() {
 		if (profile_collector == nullptr || profile_collector->GetProfilerType() != NOOP_PROFILE_TYPE) {
 			profile_collector = make_uniq<NoopProfileCollector>();
 		}
+		return;
 	}
 	if (g_profile_type == TEMP_PROFILE_TYPE) {
 		if (profile_collector == nullptr || profile_collector->GetProfilerType() != TEMP_PROFILE_TYPE) {
 			profile_collector = make_uniq<TempProfileCollector>();
 		}
+		return;
 	}
+	D_ASSERT(false); // Unreachable;
 }
 
 bool CacheFileSystem::CanHandleFile(const string &fpath) {
@@ -120,13 +123,19 @@ std::string CacheFileSystem::GetName() const {
 
 unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                  optional_ptr<FileOpener> opener) {
-	SetGlobalConfig(opener);
-	SetProfileCollector();
-	SetAndGetCacheReader();
-	SetMetadataCache();
-	D_ASSERT(profile_collector != nullptr);
-	D_ASSERT(internal_cache_reader != nullptr);
-	internal_cache_reader->SetProfileCollector(profile_collector.get());
+	// Initialize cache reader with mutex guard against concurrent access.
+	// For duckdb, read operation happens after successful file open, at which point we won't have new configs and read
+	// operation happening concurrently.
+	{
+		std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
+		SetGlobalConfig(opener);
+		SetProfileCollector();
+		SetAndGetCacheReader();
+		SetMetadataCache();
+		D_ASSERT(profile_collector != nullptr);
+		D_ASSERT(internal_cache_reader != nullptr);
+		internal_cache_reader->SetProfileCollector(profile_collector.get());
+	}
 
 	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
