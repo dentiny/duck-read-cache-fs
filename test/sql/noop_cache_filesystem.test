@@ -4,6 +4,8 @@
 
 require cache_httpfs
 
+require parquet
+
 statement ok
 SET cache_httpfs_type='noop';
 
@@ -537,6 +539,12 @@ query I
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
 ----
 251
+
+# Query parquet file.
+query I
+SELECT COUNT(*) FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.parquet');
+----
+7433139
 
 # Test cases when cache block size and IO request size is smaller than file size.
 statement ok

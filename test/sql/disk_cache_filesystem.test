@@ -4,6 +4,8 @@
 
 require cache_httpfs
 
+require parquet
+
 statement ok
 SET cache_httpfs_type='on_disk';
 
@@ -544,6 +546,12 @@ query I
 SELECT COUNT(*) FROM glob('/tmp/duckdb_cache_httpfs_cache/*');
 ----
 1
+
+# Query parquet file.
+query I
+SELECT COUNT(*) FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.parquet');
+----
+7433139
 
 # Test cases when cache block size and IO request size is smaller than file size.
 statement ok
