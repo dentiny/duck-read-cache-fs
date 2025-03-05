@@ -165,6 +165,12 @@ static void LoadInternal(DatabaseInstance &instance) {
 	    "config [cache_httpfs_cache_block_size]. The setting limits the maximum request to issue for a single "
 	    "filesystem read request. 0 means no limit, by default we set no limit.",
 	    LogicalType::BIGINT, 0);
+	config.AddExtensionOption("cache_httpfs_min_disk_bytes_for_cache",
+	                          "Min number of bytes on disk for the cache filesystem to enable on-disk cache; if left "
+	                          "bytes is less than the threshold, LRU based cache file eviction will be performed."
+	                          "By default, 5% disk space will be reserved for other usage. When min disk bytes "
+	                          "specified with a positive value, the default value will be overriden.",
+	                          LogicalType::UBIGINT, 0);
 	config.AddExtensionOption("cache_httpfs_enable_metadata_cache",
 	                          "Whether metadata cache is enable for cache filesystem. By default enabled.",
 	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_METADATA_CACHE);

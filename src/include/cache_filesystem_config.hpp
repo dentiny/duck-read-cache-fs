@@ -37,8 +37,9 @@ inline const std::string DEFAULT_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_cache_ht
 // Default to use on-disk cache filesystem.
 inline std::string DEFAULT_CACHE_TYPE = ON_DISK_CACHE_TYPE;
 
-// To prevent go out of disk space, we set a threshold to disable local caching if insufficient.
-inline const idx_t MIN_DISK_SPACE_FOR_CACHE = 1_MiB;
+// To prevent go out of disk space, we set a threshold to disallow local caching if insufficient. It applies to all
+// filesystems. The value here is the decimal representation for percentage value; for example, 0.05 means 5%.
+inline const double MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE = 0.05;
 
 // Maximum in-memory cache block number, which caps the overall memory consumption as (block size * max block count).
 inline const idx_t DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT = 256;
@@ -58,6 +59,10 @@ inline bool DEFAULT_ENABLE_METADATA_CACHE = true;
 // Default not ignore SIGPIPE in the extension.
 inline bool DEFAULT_IGNORE_SIGPIPE = false;
 
+// Default min disk bytes required for on-disk cache; by default 0 which user doesn't specify and override, and default
+// value will be considered.
+inline idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE = 0;
+
 //===--------------------------------------------------------------------===//
 // Global configuration
 //===--------------------------------------------------------------------===//
@@ -69,10 +74,14 @@ inline std::string g_profile_type = DEFAULT_PROFILE_TYPE;
 inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 inline bool g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
 inline bool g_ignore_sigpipe = DEFAULT_IGNORE_SIGPIPE;
+inline idx_t g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 
 // Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
 // TODO(hjiang): A better is bake configuration into `FileOpener`.
 inline std::string g_test_cache_type = "";
+
+// Used for testing purpose, which disable on-disk cache if true.
+inline bool g_test_insufficient_disk_space = false;
 
 //===--------------------------------------------------------------------===//
 // Util function for filesystem configurations.

@@ -83,6 +83,10 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		// Ignore SIGPIPE, reference: https://blog.erratasec.com/2018/10/tcpip-sockets-and-sigpipe.html
 		std::signal(SIGPIPE, SIG_IGN);
 	}
+
+	// Check and update configurations for min disk bytes reserved to enable on-disk cache.
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_enable_metadata_cache", val);
+	g_min_disk_bytes_for_cache = val.GetValue<uint64_t>();
 }
 
 void ResetGlobalConfig() {
@@ -94,6 +98,10 @@ void ResetGlobalConfig() {
 	g_profile_type = DEFAULT_PROFILE_TYPE;
 	g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 	g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
+	g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
+
+	// Reset testing options.
+	g_test_insufficient_disk_space = false;
 }
 
 uint64_t GetThreadCountForSubrequests(uint64_t io_request_count) {

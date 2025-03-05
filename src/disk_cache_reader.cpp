@@ -97,8 +97,9 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
 	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
 	// cache chunk size.
-	auto disk_space = local_filesystem.GetAvailableDiskSpace(cache_directory);
-	if (!disk_space.IsValid() || disk_space.GetIndex() < MIN_DISK_SPACE_FOR_CACHE) {
+	if (!CanCacheOnDisk(cache_directory)) {
+		// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
+		// because on unix platform files are only deleted when their last reference count goes away.
 		EvictStaleCacheFiles(local_filesystem, cache_directory);
 		return;
 	}

@@ -4,10 +4,13 @@
 #include "catch.hpp"
 
 #include "duckdb/common/local_file_system.hpp"
-#include "filesystem_utils.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "cache_filesystem_config.hpp"
+#include "filesystem_utils.hpp"
 
 #include <utime.h>
+
+#include <iostream>
 
 using namespace duckdb; // NOLINT
 
@@ -44,6 +47,14 @@ TEST_CASE("Stale file deletion", "[utils test]") {
 		    fresh_files.emplace_back(StringUtil::Format("%s/%s", TEST_ON_DISK_CACHE_DIRECTORY, fname));
 	    }));
 	REQUIRE(fresh_files == vector<string> {fname1});
+}
+
+// TODO(hjiang): Here we simply manually check the output, but it's not a good unit test, in theory we should mimic gtest and capture the output of `df` and compare.
+// Reference:
+// - https://github.com/google/googletest/blob/e88cb95b92acbdce9b058dd894a68e1281b38495/googletest/include/gtest/internal/gtest-port.h#L241-L247
+// - df -h /tmp/duckdb_cache_httpfs_cache | awk 'NR==2 {print $2}'
+TEST_CASE("Get total filesystem size", "[utils test]") {
+	std::cout << GetOverallFileSystemDiskSpace(DEFAULT_ON_DISK_CACHE_DIRECTORY) << std::endl;
 }
 
 int main(int argc, char **argv) {
