@@ -99,7 +99,7 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 	// cache chunk size.
 	if (!CanCacheOnDisk(cache_directory)) {
 		// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
-		// because on unix platform files are only deleted when their last reference count goes away.
+		// because on unix platform files are only deleted physically when their last reference count goes away.
 		EvictStaleCacheFiles(local_filesystem, cache_directory);
 		return;
 	}

@@ -65,7 +65,7 @@ D SELECT * FROM 's3://s3-bucket-user-2skzy8zuigonczyfiofztl0zbug--use1-az6--x-s3
 └───────────────┘
 ```
 
-For more example usage, checkout [example usage](/example/example_usage.md)
+For more example usage, checkout [example usage](/doc/example_usage.md)
 
 ## [More About Benchmark](/benchmark/README.md)
 
