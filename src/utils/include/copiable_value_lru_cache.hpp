@@ -105,6 +105,18 @@ public:
 		return max_entries;
 	}
 
+	// Get all keys inside of the cache; the order of keys returned is not deterministic.
+	vector<Key> Keys() const {
+		vector<Key> keys;
+		keys.reserve(entry_map.size());
+
+		// Iterate on map because list iteration hurts cache locality thus bad performance.
+		for (const auto &[key_ref, _] : entry_map) {
+			keys.emplace_back(key_ref.get());
+		}
+		return keys;
+	}
+
 private:
 	struct Entry {
 		// The entry's value.
@@ -185,7 +197,14 @@ public:
 
 	// Accessors for cache parameters.
 	size_t MaxEntries() const {
+		std::lock_guard<std::mutex> lock(mu);
 		return internal_cache.MaxEntries();
+	}
+
+	// Get all keys inside of the cache; the order of keys returned is not deterministic.
+	vector<Key> Keys() const {
+		std::lock_guard<std::mutex> lock(mu);
+		return internal_cache.Keys();
 	}
 
 	// Get or creation for cached key-value pairs, and return the value.
@@ -253,7 +272,7 @@ private:
 		int count = 0;
 	};
 
-	std::mutex mu;
+	mutable std::mutex mu;
 	CopiableValueLruCache<Key, Val, KeyHash, KeyEqual> internal_cache;
 	// Ongoing creation.
 	std::unordered_map<Key, shared_ptr<CreationToken>, KeyHash, KeyEqual> ongoing_creation;

@@ -23,6 +23,10 @@ public:
 	void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset, idx_t requested_bytes_to_read,
 	                  idx_t file_size) override;
 
+	vector<CacheEntryInfo> GetCacheEntriesInfo() const override {
+		return {};
+	}
+
 	virtual std::string GetName() const {
 		return "noop_cache_reader";
 	}

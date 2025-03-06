@@ -12,6 +12,17 @@ CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_fil
       internal_file_handle(std::move(internal_file_handle_p)) {
 }
 
+vector<BaseCacheReader *> CacheFileSystem::GetCacheReaders() const {
+	vector<BaseCacheReader *> cache_readers;
+	if (in_mem_cache_reader != nullptr) {
+		cache_readers.emplace_back(in_mem_cache_reader.get());
+	}
+	if (on_disk_cache_reader != nullptr) {
+		cache_readers.emplace_back(on_disk_cache_reader.get());
+	}
+	return cache_readers;
+}
+
 void CacheFileSystem::SetMetadataCache() {
 	if (!g_enable_metadata_cache) {
 		metadata_cache = nullptr;

@@ -529,6 +529,11 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 250	Africa	Zimbabwe	Victoria Falls Stock Exchange	NULL	2020-11-01
 251	Asia	China	Beijing Stock Exchange	NULL	2021-12-27
 
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
+----
+(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem
+
 statement ok
 SELECT cache_httpfs_clear_cache();
 
@@ -542,6 +547,13 @@ query I
 SELECT COUNT(*) FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.parquet');
 ----
 7433139
+
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
+----
+(no disk cache)	https://blobs.duckdb.org/data/taxi_2019_04.parquet	126000000	127000000	in-mem
+(no disk cache)	https://blobs.duckdb.org/data/taxi_2019_04.parquet	127000000	127056503	in-mem
+(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem
 
 # Test cases when cache block size and IO request size is smaller than file size.
 statement ok

@@ -18,8 +18,11 @@ include_directories(duckdb-httpfs/extension/httpfs/include)
 include_directories(duckdb/third_party/httplib)
 
 set(EXTENSION_SOURCES
+    src/cache_entry_info.cpp
     src/cache_filesystem.cpp
     src/cache_filesystem_config.cpp
+    src/cache_filesystem_ref_registry.cpp
+    src/cache_status_query_function.cpp
     src/disk_cache_reader.cpp
     src/in_memory_cache_reader.cpp
     src/histogram.cpp

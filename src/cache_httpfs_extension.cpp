@@ -1,22 +1,23 @@
+// TODO(hjiang): Disk cache reader should be initialized at the extension load, otherwise a lot of util functions
+// doesn't know what's inside of the cache.
+
 #define DUCKDB_EXTENSION_MAIN
 
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_filesystem_ref_registry.hpp"
+#include "cache_httpfs_extension.hpp"
+#include "cache_status_query_function.hpp"
 #include "crypto.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/main/extension_util.hpp"
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
-#include "cache_httpfs_extension.hpp"
 #include "s3fs.hpp"
 
 #include <array>
 
 namespace duckdb {
-
-// Store all cache filesystems to access their profile collector.
-// Lifecycle lies in virtual filesystem and db instance.
-static vector<CacheFileSystem *> cache_file_systems;
 
 // Clear both in-memory and on-disk data block cache.
 static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
@@ -25,6 +26,7 @@ static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector 
 	local_filesystem->RemoveDirectory(g_on_disk_cache_directory);
 	local_filesystem->CreateDirectory(g_on_disk_cache_directory);
 
+	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
 		cur_filesystem->ClearCache();
 	}
@@ -35,6 +37,8 @@ static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector 
 static void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
 	D_ASSERT(args.ColumnCount() == 0);
 	const string fname = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
+
+	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
 		cur_filesystem->ClearCache(fname);
 	}
@@ -58,6 +62,7 @@ static void GetOnDiskCacheSize(const DataChunk &args, ExpressionState &state, Ve
 static void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	string latest_stat;
 	uint64_t latest_timestamp = 0;
+	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
 		auto *profile_collector = cur_filesystem->GetProfileCollector();
 		// Profile collector is only initialized after cache filesystem access.
@@ -83,6 +88,7 @@ static void GetProfileStats(const DataChunk &args, ExpressionState &state, Vecto
 }
 
 static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
+	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
 		auto *profile_collector = cur_filesystem->GetProfileCollector();
 		// Profile collector is only initialized after cache filesystem access.
@@ -92,7 +98,7 @@ static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vec
 		profile_collector->Reset();
 	}
 
-	constexpr int32_t SUCCESS = 1;
+	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
 
@@ -105,7 +111,7 @@ static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vec
 // than uncached version.
 static void LoadInternal(DatabaseInstance &instance) {
 	// It's legal to reset database and reload extension, reset all global variable at load.
-	cache_file_systems.clear();
+	CacheFsRefRegistry::Get().Reset();
 	ResetGlobalConfig();
 
 	// Register filesystem instance to instance.
@@ -113,18 +119,17 @@ static void LoadInternal(DatabaseInstance &instance) {
 	// which one to use.
 	auto &fs = instance.GetFileSystem();
 
-	cache_file_systems.reserve(3);
 	auto cache_httpfs_filesystem = make_uniq<CacheFileSystem>(make_uniq<HTTPFileSystem>());
-	cache_file_systems.emplace_back(cache_httpfs_filesystem.get());
+	CacheFsRefRegistry::Get().Register(cache_httpfs_filesystem.get());
 	fs.RegisterSubSystem(std::move(cache_httpfs_filesystem));
 
 	auto cached_hf_filesystem = make_uniq<CacheFileSystem>(make_uniq<HuggingFaceFileSystem>());
-	cache_file_systems.emplace_back(cached_hf_filesystem.get());
+	CacheFsRefRegistry::Get().Register(cached_hf_filesystem.get());
 	fs.RegisterSubSystem(std::move(cached_hf_filesystem));
 
 	auto cached_s3_filesystem =
 	    make_uniq<CacheFileSystem>(make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance)));
-	cache_file_systems.emplace_back(cached_s3_filesystem.get());
+	CacheFsRefRegistry::Get().Register(cached_s3_filesystem.get());
 	fs.RegisterSubSystem(std::move(cached_s3_filesystem));
 
 	const std::array<string, 3> httpfs_names {"HTTPFileSystem", "S3FileSystem", "HuggingFaceFileSystem"};
@@ -195,6 +200,9 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                                       /*return_type=*/LogicalType::BIGINT, GetOnDiskCacheSize);
 	ExtensionUtil::RegisterFunction(instance, get_cache_size_function);
 
+	// Register on-disk cache file display.
+	ExtensionUtil::RegisterFunction(instance, GetCacheStatusQueryFunc());
+
 	// Register profile collector metrics.
 	// A commonly-used SQL is `COPY (SELECT cache_httpfs_get_profile()) TO '/tmp/output.txt';`.
 	ScalarFunction get_profile_stats_function("cache_httpfs_get_profile", /*arguments=*/ {},
@@ -203,7 +211,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 
 	// Register profile collector metrics reset.
 	ScalarFunction clear_profile_stats_function("cache_httpfs_clear_profile", /*arguments=*/ {},
-	                                            /*return_type=*/LogicalType::BIGINT, ResetProfileStats);
+	                                            /*return_type=*/LogicalType::BOOLEAN, ResetProfileStats);
 	ExtensionUtil::RegisterFunction(instance, clear_profile_stats_function);
 
 	// Create default cache directory.

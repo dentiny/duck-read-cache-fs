@@ -142,6 +142,26 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	io_threads.Wait();
 }
 
+vector<CacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
+	if (cache == nullptr) {
+		return {};
+	}
+
+	auto keys = cache->Keys();
+	vector<CacheEntryInfo> cache_entries_info;
+	cache_entries_info.reserve(keys.size());
+	for (auto &cur_key : keys) {
+		cache_entries_info.emplace_back(CacheEntryInfo {
+		    .cache_filepath = "(no disk cache)",
+		    .remote_filename = std::move(cur_key.fname),
+		    .start_offset = cur_key.start_off,
+		    .end_offset = cur_key.start_off + cur_key.blk_size,
+		    .cache_type = "in-mem",
+		});
+	}
+	return cache_entries_info;
+}
+
 void InMemoryCacheReader::ClearCache() {
 	if (cache != nullptr) {
 		cache->Clear();

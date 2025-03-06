@@ -40,10 +40,11 @@ public:
 	BaseProfileCollector *GetProfileCollector() const {
 		return profile_collector.get();
 	}
-	// Expose for testing purpose.
 	BaseCacheReader *GetCacheReader() const {
 		return internal_cache_reader;
 	}
+	// Get all cache readers which have been initialized.
+	vector<BaseCacheReader *> GetCacheReaders() const;
 	// Clear cached content for the given filename (whether it's in-memory or on-disk).
 	void ClearCache(const string &fname);
 	// Clear all cached content (whether it's in-memory or on-disk).

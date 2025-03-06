@@ -4,8 +4,10 @@
 
 #include "base_cache_reader.hpp"
 #include "base_profile_collector.hpp"
+#include "cache_entry_info.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/vector.hpp"
 
 namespace duckdb {
 
@@ -17,10 +19,14 @@ public:
 	BaseCacheReader(const BaseCacheReader &) = delete;
 	BaseCacheReader &operator=(const BaseCacheReader &) = delete;
 
-	// Read from [handle] for an block-size aligned chunk into [start_addr]; cache
-	// to local filesystem and return to user.
+	// Read from [handle] for an block-size aligned chunk into [start_addr]; cache to local filesystem and return to
+	// user.
 	virtual void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
 	                          idx_t requested_bytes_to_read, idx_t file_size) = 0;
+
+	// Get status information for all cache entries for the current cache reader. Entries are returned in a random
+	// order.
+	virtual vector<CacheEntryInfo> GetCacheEntriesInfo() const = 0;
 
 	// Clear all cache.
 	virtual void ClearCache() = 0;

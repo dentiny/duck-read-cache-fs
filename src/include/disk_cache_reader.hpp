@@ -26,6 +26,12 @@ public:
 	void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset, idx_t requested_bytes_to_read,
 	                  idx_t file_size) override;
 
+	// TODO(hjiang): Implement getting cache entries for disk cache reader, which should've been initialized at
+	// extension load.
+	vector<CacheEntryInfo> GetCacheEntriesInfo() const override {
+		return {};
+	}
+
 private:
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
