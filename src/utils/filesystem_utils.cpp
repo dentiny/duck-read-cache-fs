@@ -71,6 +71,11 @@ bool CanCacheOnDisk(const std::string &path) {
 		return false;
 	}
 
+	// If the left disk space is smaller than a cache block, there's no need to do on-disk cache.
+	if (avai_fs_bytes.GetIndex() <= g_cache_block_size) {
+		return false;
+	}
+
 	// Check user override configurations if specified.
 	if (g_min_disk_bytes_for_cache != DEFAULT_MIN_DISK_BYTES_FOR_CACHE) {
 		return g_min_disk_bytes_for_cache <= avai_fs_bytes.GetIndex();
