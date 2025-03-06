@@ -49,9 +49,10 @@ TEST_CASE("Stale file deletion", "[utils test]") {
 	REQUIRE(fresh_files == vector<string> {fname1});
 }
 
-// TODO(hjiang): Here we simply manually check the output, but it's not a good unit test, in theory we should mimic gtest and capture the output of `df` and compare.
-// Reference:
-// - https://github.com/google/googletest/blob/e88cb95b92acbdce9b058dd894a68e1281b38495/googletest/include/gtest/internal/gtest-port.h#L241-L247
+// TODO(hjiang): Here we simply manually check the output, but it's not a good unit test, in theory we should mimic
+// gtest and capture the output of `df` and compare. Reference:
+// -
+// https://github.com/google/googletest/blob/e88cb95b92acbdce9b058dd894a68e1281b38495/googletest/include/gtest/internal/gtest-port.h#L241-L247
 // - df -h /tmp/duckdb_cache_httpfs_cache | awk 'NR==2 {print $2}'
 TEST_CASE("Get total filesystem size", "[utils test]") {
 	std::cout << GetOverallFileSystemDiskSpace(DEFAULT_ON_DISK_CACHE_DIRECTORY) << std::endl;

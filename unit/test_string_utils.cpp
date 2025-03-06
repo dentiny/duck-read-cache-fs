@@ -3,25 +3,25 @@
 
 #include "immutable_buffer.hpp"
 
-using namespace duckdb;  // NOLINT
+using namespace duckdb; // NOLINT
 
 namespace {
 constexpr std::size_t kBufSize = 10;
-}  // namespace
+} // namespace
 
 TEST_CASE("StringUtilsTest", "ImmutableBuffer") {
-    ImmutableBuffer buffer(kBufSize);
-    std::memmove(/*dst=*/const_cast<char*>(buffer.data()), /*src=*/"helloworld", kBufSize);
+	ImmutableBuffer buffer(kBufSize);
+	std::memmove(/*dst=*/const_cast<char *>(buffer.data()), /*src=*/"helloworld", kBufSize);
 
-    // Inequal case.
-    const std::string content1 = "hello world";
-    REQUIRE(buffer != content1);
-    REQUIRE(content1 != buffer);
+	// Inequal case.
+	const std::string content1 = "hello world";
+	REQUIRE(buffer != content1);
+	REQUIRE(content1 != buffer);
 
-    // Equal case.
-    const std::string content2 = "helloworld";
-    REQUIRE(buffer == content2);
-    REQUIRE(content2 == buffer);
+	// Equal case.
+	const std::string content2 = "helloworld";
+	REQUIRE(buffer == content2);
+	REQUIRE(content2 == buffer);
 }
 
 int main(int argc, char **argv) {

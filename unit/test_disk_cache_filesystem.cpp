@@ -20,6 +20,8 @@
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
 
+#include <utime.h>
+
 using namespace duckdb; // NOLINT
 
 namespace {
@@ -338,10 +340,10 @@ TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
 		ResetGlobalConfig();
 	};
 
-	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 
-	auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME,
-	                                        FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
+	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
+	                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
 	const uint64_t start_offset = 0;
 	const uint64_t bytes_to_read = TEST_FILE_SIZE;
 
@@ -352,8 +354,8 @@ TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
 	for (idx_t idx = 0; idx < THREAD_NUM; ++idx) {
 		reader_threads.emplace_back([&]() {
 			string content(bytes_to_read, '\0');
-			in_mem_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-			                      start_offset);
+			on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
+			                       bytes_to_read, start_offset);
 			REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 		});
 	}
@@ -361,6 +363,51 @@ TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
 		D_ASSERT(cur_thd.joinable());
 		cur_thd.join();
 	}
+}
+
+TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") {
+	SCOPE_EXIT {
+		ResetGlobalConfig();
+	};
+	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+
+	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
+	                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
+	const uint64_t start_offset = 0;
+	const uint64_t bytes_to_read = TEST_FILE_SIZE;
+
+	// Create stale files, which should be deleted when insufficient disk space detected.
+	const string old_cache_file = StringUtil::Format("%s/file1", TEST_ON_DISK_CACHE_DIRECTORY);
+	{
+		auto file_handle = LocalFileSystem::CreateLocal()->OpenFile(
+		    old_cache_file, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+	}
+	const time_t now = std::time(nullptr);
+	const time_t one_day_ago = now - 48 * 60 * 60; // two days ago
+	struct utimbuf updated_time;
+	updated_time.actime = one_day_ago;
+	updated_time.modtime = one_day_ago;
+	REQUIRE(utime(old_cache_file.data(), &updated_time) == 0);
+
+	// Pretend there's no sufficient disk space, so cache file eviction is triggered.
+	g_test_insufficient_disk_space = true;
+	string content(bytes_to_read, '\0');
+	on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+	                       start_offset);
+	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+
+	// At this point, stale cache file has already been deleted.
+	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 0);
+	REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(old_cache_file));
+
+	// Second access is uncached read.
+	g_test_insufficient_disk_space = false;
+	on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+	                       start_offset);
+	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
 }
 
 int main(int argc, char **argv) {
