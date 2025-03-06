@@ -385,10 +385,10 @@ TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") 
 		    old_cache_file, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 	}
 	const time_t now = std::time(nullptr);
-	const time_t one_day_ago = now - 48 * 60 * 60; // two days ago
+	const time_t two_day_ago = now - 48 * 60 * 60; // two days ago
 	struct utimbuf updated_time;
-	updated_time.actime = one_day_ago;
-	updated_time.modtime = one_day_ago;
+	updated_time.actime = two_day_ago;
+	updated_time.modtime = two_day_ago;
 	REQUIRE(utime(old_cache_file.data(), &updated_time) == 0);
 
 	// Pretend there's no sufficient disk space, so cache file eviction is triggered.

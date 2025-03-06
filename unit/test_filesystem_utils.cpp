@@ -34,10 +34,10 @@ TEST_CASE("Stale file deletion", "[utils test]") {
 	}
 
 	const time_t now = std::time(nullptr);
-	const time_t one_day_ago = now - 24 * 60 * 60;
+	const time_t two_day_ago = now - 48 * 60 * 60;
 	struct utimbuf updated_time;
-	updated_time.actime = one_day_ago;
-	updated_time.modtime = one_day_ago;
+	updated_time.actime = two_day_ago;
+	updated_time.modtime = two_day_ago;
 	REQUIRE(utime(fname2.data(), &updated_time) == 0);
 
 	EvictStaleCacheFiles(*local_filesystem, TEST_ON_DISK_CACHE_DIRECTORY);
@@ -60,6 +60,7 @@ TEST_CASE("Get total filesystem size", "[utils test]") {
 
 int main(int argc, char **argv) {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
+	local_filesystem->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 	local_filesystem->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 	int result = Catch::Session().run(argc, argv);
 	local_filesystem->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
