@@ -1,6 +1,3 @@
-// TODO(hjiang): Disk cache reader should be initialized at the extension load, otherwise a lot of util functions
-// doesn't know what's inside of the cache.
-
 #define DUCKDB_EXTENSION_MAIN
 
 #include "cache_filesystem.hpp"

@@ -10,8 +10,14 @@
 #include "utils/include/thread_utils.hpp"
 
 #include <cstdint>
+#include <tuple>
 #include <utility>
 #include <utime.h>
+
+
+#include <fstream>
+
+
 
 namespace duckdb {
 
@@ -74,7 +80,7 @@ string GetLocalCacheFile(const string &cache_directory, const string &remote_fil
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
 
 	const string fname = StringUtil::GetFileName(remote_file);
-	return StringUtil::Format("%s/%s.%s-%llu-%llu", cache_directory, remote_file_sha256_str, fname, start_offset,
+	return StringUtil::Format("%s/%s-%s-%llu-%llu", cache_directory, remote_file_sha256_str, fname, start_offset,
 	                          bytes_to_read);
 }
 
@@ -123,10 +129,46 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 	                          /*target=*/local_cache_file);
 }
 
+// Get remote file information from the given local cache [fname].
+std::tuple<std::string /*remote_filename*/, uint64_t /*start_offset*/, uint64_t /*end_offset*/> GetRemoteFileInfo(const std::string& fname) {
+	// [fname] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
+	const vector<string> tokens = StringUtil::Split(fname, "-");
+	D_ASSERT(tokens.size() >= 4);
+	const string& start_offset_str = tokens[tokens.size() - 2];
+	const string& end_offset_str = tokens[tokens.size() - 1];
+
+	{
+		std::fstream f("/tmp/debug-disk-parse.log", std::ios::app | std::ios::out);
+		f << "cache file = " << fname << std::endl;
+		f << "remote = " << tokens[0] << std::endl;
+		f << "start = " << start_offset_str << std::endl;
+		f << "end = " << end_offset_str << std::endl;
+		f.flush();
+		f.close();
+	}
+
+	return std::make_tuple(tokens[0], StringUtil::ToUnsigned(start_offset_str), StringUtil::ToUnsigned(end_offset_str));
+}
+
 } // namespace
 
 DiskCacheReader::DiskCacheReader(FileSystem *internal_filesystem_p)
     : BaseCacheReader(internal_filesystem_p), local_filesystem(LocalFileSystem::CreateLocal()) {
+}
+
+vector<CacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
+	vector<CacheEntryInfo> cache_entries_info;
+	local_filesystem->ListFiles(g_on_disk_cache_directory, [&cache_entries_info](const std::string& fname, bool /*unused*/) {
+		auto remote_file_info = GetRemoteFileInfo(fname);
+		cache_entries_info.emplace_back(CacheEntryInfo {
+			.cache_filepath = StringUtil::Format("%s/%s", g_on_disk_cache_directory, fname),
+			.remote_filename = std::get<0>(remote_file_info),
+			.start_offset = std::get<1>(remote_file_info),
+			.end_offset  = std::get<2>(remote_file_info),
+			.cache_type = "on-disk",
+		});
+	});
+	return cache_entries_info;
 }
 
 void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,

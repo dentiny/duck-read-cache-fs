@@ -44,7 +44,8 @@ public:
 		return internal_cache_reader;
 	}
 	// Get all cache readers which have been initialized.
-	vector<BaseCacheReader *> GetCacheReaders() const;
+	// @param init_disk_cache_reader: disk cache access functions require reader; if true, initialize disk cache reader if it's uninitialized.
+	vector<BaseCacheReader *> GetCacheReaders(bool init_disk_cache_reader);
 	// Clear cached content for the given filename (whether it's in-memory or on-disk).
 	void ClearCache(const string &fname);
 	// Clear all cached content (whether it's in-memory or on-disk).

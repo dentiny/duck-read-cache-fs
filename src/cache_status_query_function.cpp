@@ -60,9 +60,9 @@ unique_ptr<GlobalTableFunctionState> CacheStatusQueryFuncInit(ClientContext &con
 	auto &entries_info = result->cache_entries_info;
 
 	// Get cache entries information from all cache filesystems and all initialized cache readers.
-	const auto &all_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
-	for (const auto *cur_fs : all_file_systems) {
-		auto cache_readers = cur_fs->GetCacheReaders();
+	auto &all_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
+	for (auto *cur_fs : all_file_systems) {
+		auto cache_readers = cur_fs->GetCacheReaders(/*init_disk_cache_reader=*/true);
 		for (auto *cur_cache_reader : cache_readers) {
 			auto cache_entries_info = cur_cache_reader->GetCacheEntriesInfo();
 			entries_info.reserve(entries_info.size() + cache_entries_info.size());

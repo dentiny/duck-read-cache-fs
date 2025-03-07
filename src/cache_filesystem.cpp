@@ -12,10 +12,13 @@ CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_fil
       internal_file_handle(std::move(internal_file_handle_p)) {
 }
 
-vector<BaseCacheReader *> CacheFileSystem::GetCacheReaders() const {
+vector<BaseCacheReader *> CacheFileSystem::GetCacheReaders(bool init_disk_cache_reader) {
 	vector<BaseCacheReader *> cache_readers;
 	if (in_mem_cache_reader != nullptr) {
 		cache_readers.emplace_back(in_mem_cache_reader.get());
+	}
+	if (on_disk_cache_reader == nullptr && init_disk_cache_reader) {
+		on_disk_cache_reader = make_uniq<DiskCacheReader>(internal_filesystem.get());
 	}
 	if (on_disk_cache_reader != nullptr) {
 		cache_readers.emplace_back(on_disk_cache_reader.get());
