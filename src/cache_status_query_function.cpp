@@ -60,14 +60,18 @@ unique_ptr<GlobalTableFunctionState> CacheStatusQueryFuncInit(ClientContext &con
 	auto result = make_uniq<CacheStatusData>();
 	auto &entries_info = result->cache_entries_info;
 
+	// Initialize disk cache reader to access on-disk cache file, even if it's not initialized before.
+	auto &cache_reader_manager = CacheReaderManager::Get();
+	cache_reader_manager.InitializeDiskCacheReader();
+
 	// Get cache entries information from all cache filesystems and all initialized cache readers.
-	auto cache_readers = CacheReaderManager::Get().GetCacheReaders();
+	auto cache_readers = cache_reader_manager.GetCacheReaders();
 	for (auto *cur_cache_reader : cache_readers) {
 		auto cache_entries_info = cur_cache_reader->GetCacheEntriesInfo();
 		entries_info.reserve(entries_info.size() + cache_entries_info.size());
 
 		for (auto &cur_cache_info : cache_entries_info) {
-			entries_info.emplace_back(cur_cache_info);
+			entries_info.emplace_back(std::move(cur_cache_info));
 		}
 	}
 

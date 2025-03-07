@@ -10,8 +10,11 @@
 #include "utils/include/thread_utils.hpp"
 
 #include <cstdint>
+#include <tuple>
 #include <utility>
 #include <utime.h>
+
+#include <iostream>
 
 namespace duckdb {
 
@@ -74,8 +77,32 @@ string GetLocalCacheFile(const string &cache_directory, const string &remote_fil
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
 
 	const string fname = StringUtil::GetFileName(remote_file);
-	return StringUtil::Format("%s/%s.%s-%llu-%llu", cache_directory, remote_file_sha256_str, fname, start_offset,
+	return StringUtil::Format("%s/%s-%s-%llu-%llu", cache_directory, remote_file_sha256_str, fname, start_offset,
 	                          bytes_to_read);
+}
+
+// Get remote file information from the given local cache [fname].
+std::tuple<std::string /*remote_filename*/, uint64_t /*start_offset*/, uint64_t /*end_offset*/>
+GetRemoteFileInfo(const std::string &fname) {
+	// [fname] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
+	vector<string> tokens = StringUtil::Split(fname, "-");
+	D_ASSERT(tokens.size() >= 4);
+
+	// Get tokens for remote paths.
+	vector<string> remote_path_tokens;
+	remote_path_tokens.reserve(tokens.size() - 3);
+
+	for (idx_t idx = 1; idx < tokens.size() - 2; ++idx) {
+		remote_path_tokens.emplace_back(std::move(tokens[idx]));
+	}
+	string remote_filename = StringUtil::Join(remote_path_tokens, "/");
+
+	const string &start_offset_str = tokens[tokens.size() - 2];
+	const string &block_size_str = tokens[tokens.size() - 1];
+	const idx_t start_offset = StringUtil::ToUnsigned(start_offset_str);
+	const idx_t block_size = StringUtil::ToUnsigned(block_size_str);
+
+	return std::make_tuple(std::move(remote_filename), start_offset, start_offset + block_size);
 }
 
 // Used to delete on-disk cache files, which returns the file prefix for the given [remote_file].
@@ -117,8 +144,7 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 		file_handle->Sync();
 	}
 
-	// Then atomically move to the target postion to prevent data corruption due
-	// to concurrent write.
+	// Then atomically move to the target postion to prevent data corruption due to concurrent write.
 	local_filesystem.MoveFile(/*source=*/local_temp_file,
 	                          /*target=*/local_cache_file);
 }
@@ -126,6 +152,22 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 } // namespace
 
 DiskCacheReader::DiskCacheReader() : local_filesystem(LocalFileSystem::CreateLocal()) {
+}
+
+vector<CacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
+	vector<CacheEntryInfo> cache_entries_info;
+	local_filesystem->ListFiles(g_on_disk_cache_directory,
+	                            [&cache_entries_info](const std::string &fname, bool /*unused*/) {
+		                            auto remote_file_info = GetRemoteFileInfo(fname);
+		                            cache_entries_info.emplace_back(CacheEntryInfo {
+		                                .cache_filepath = StringUtil::Format("%s/%s", g_on_disk_cache_directory, fname),
+		                                .remote_filename = std::get<0>(remote_file_info),
+		                                .start_offset = std::get<1>(remote_file_info),
+		                                .end_offset = std::get<2>(remote_file_info),
+		                                .cache_type = "on-disk",
+		                            });
+	                            });
+	return cache_entries_info;
 }
 
 void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,

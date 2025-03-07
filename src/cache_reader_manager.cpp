@@ -11,6 +11,12 @@ namespace duckdb {
 	return cache_reader_manager;
 }
 
+void CacheReaderManager::InitializeDiskCacheReader() {
+	if (on_disk_cache_reader == nullptr) {
+		on_disk_cache_reader = make_uniq<DiskCacheReader>();
+	}
+}
+
 void CacheReaderManager::SetCacheReader() {
 	if (g_cache_type == NOOP_CACHE_TYPE) {
 		if (noop_cache_reader == nullptr) {

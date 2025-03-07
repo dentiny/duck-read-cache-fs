@@ -23,6 +23,9 @@ public:
 	// Get all cache readers if they're initialized.
 	vector<BaseCacheReader *> GetCacheReaders() const;
 
+	// Initialize disk cache reader if uninitialized.
+	void InitializeDiskCacheReader();
+
 	// Clear cache for all cache readers.
 	void ClearCache();
 
