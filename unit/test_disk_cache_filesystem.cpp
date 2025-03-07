@@ -40,6 +40,8 @@ const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 
 // Test default directory works for cached read.
 TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") {
+	// Cleanup default cache directory before test.
+	LocalFileSystem::CreateLocal()->RemoveDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
 	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 
 	// Uncached read.

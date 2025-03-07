@@ -7,6 +7,7 @@
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_ref_registry.hpp"
 #include "cache_httpfs_extension.hpp"
+#include "cache_reader_manager.hpp"
 #include "cache_status_query_function.hpp"
 #include "crypto.hpp"
 #include "duckdb/common/local_file_system.hpp"
@@ -21,15 +22,14 @@ namespace duckdb {
 
 // Clear both in-memory and on-disk data block cache.
 static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
-	// Clear local disk cache.
+	// Special handle local disk cache clear, since it's possible disk cache reader hasn't been initialized.
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	local_filesystem->RemoveDirectory(g_on_disk_cache_directory);
 	local_filesystem->CreateDirectory(g_on_disk_cache_directory);
 
-	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
-	for (auto *cur_filesystem : cache_file_systems) {
-		cur_filesystem->ClearCache();
-	}
+	// Clear cache for all initialized cache readers.
+	CacheReaderManager::Get().ClearCache();
+
 	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
@@ -38,10 +38,9 @@ static void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vec
 	D_ASSERT(args.ColumnCount() == 0);
 	const string fname = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
-	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
-	for (auto *cur_filesystem : cache_file_systems) {
-		cur_filesystem->ClearCache(fname);
-	}
+	// Clear cache on the given [fname] for all initialized filesystems.
+	CacheReaderManager::Get().ClearCache(fname);
+
 	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
@@ -112,6 +111,7 @@ static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vec
 static void LoadInternal(DatabaseInstance &instance) {
 	// It's legal to reset database and reload extension, reset all global variable at load.
 	CacheFsRefRegistry::Get().Reset();
+	CacheReaderManager::Get().Reset();
 	ResetGlobalConfig();
 
 	// Register filesystem instance to instance.
@@ -150,7 +150,8 @@ static void LoadInternal(DatabaseInstance &instance) {
 	    "noting for on-disk filesystem, all existing cache files are invalidated after config update.",
 	    LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_CACHE_BLOCK_SIZE));
 	config.AddExtensionOption("cache_httpfs_max_in_mem_cache_block_count",
-	                          "Max in-memory cache block count for in-memory cache filesystem. It's worth noting it "
+	                          "Max in-memory cache block count for in-memory caches for all cache filesystems, so "
+	                          "users are able to configure the maximum memory consumption. It's worth noting it "
 	                          "should be set only once before all filesystem access, otherwise there's no affect.",
 	                          LogicalType::UBIGINT, Value::UBIGINT(DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT));
 	config.AddExtensionOption("cache_httpfs_type",

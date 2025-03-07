@@ -54,7 +54,7 @@ idx_t GetOverallFileSystemDiskSpace(const std::string &path) {
 	struct statvfs vfs;
 
 	const auto ret = statvfs(path.c_str(), &vfs);
-	D_ASSERT(ret > 0);
+	D_ASSERT(ret == 0);
 
 	auto total_blocks = vfs.f_blocks;
 	auto block_size = vfs.f_frsize;

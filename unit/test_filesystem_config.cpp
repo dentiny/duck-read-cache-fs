@@ -4,6 +4,7 @@
 #include "base_profile_collector.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_reader_manager.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/types/uuid.hpp"
@@ -33,13 +34,14 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 	StandardBufferManager buffer_manager {*db.instance, "/tmp/cache_httpfs_fs_benchmark"};
 	auto cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 	auto client_context = make_shared_ptr<ClientContext>(db.instance);
+	auto &cache_reader_manager = CacheReaderManager::Get();
 
 	// Check noop cache reader.
 	{
 		client_context->config.set_variables["cache_httpfs_type"] = Value(NOOP_CACHE_TYPE);
 		ClientContextFileOpener file_opener {*client_context};
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ, &file_opener);
-		auto *cache_reader = cache_fs->GetCacheReader();
+		auto *cache_reader = cache_reader_manager.GetCacheReader();
 		[[maybe_unused]] auto &noop_handle = cache_reader->Cast<NoopCacheReader>();
 	}
 
@@ -48,7 +50,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		client_context->config.set_variables["cache_httpfs_type"] = Value(IN_MEM_CACHE_TYPE);
 		ClientContextFileOpener file_opener {*client_context};
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ, &file_opener);
-		auto *cache_reader = cache_fs->GetCacheReader();
+		auto *cache_reader = cache_reader_manager.GetCacheReader();
 		[[maybe_unused]] auto &noop_handle = cache_reader->Cast<InMemoryCacheReader>();
 	}
 
@@ -57,7 +59,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		client_context->config.set_variables["cache_httpfs_type"] = Value(ON_DISK_CACHE_TYPE);
 		ClientContextFileOpener file_opener {*client_context};
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ, &file_opener);
-		auto *cache_reader = cache_fs->GetCacheReader();
+		auto *cache_reader = cache_reader_manager.GetCacheReader();
 		[[maybe_unused]] auto &noop_handle = cache_reader->Cast<DiskCacheReader>();
 	}
 }

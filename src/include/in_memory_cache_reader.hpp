@@ -17,8 +17,7 @@ namespace duckdb {
 
 class InMemoryCacheReader final : public BaseCacheReader {
 public:
-	explicit InMemoryCacheReader(FileSystem *internal_filesystem_p) : BaseCacheReader(internal_filesystem_p) {
-	}
+	InMemoryCacheReader() = default;
 	~InMemoryCacheReader() override = default;
 
 	std::string GetName() const override {

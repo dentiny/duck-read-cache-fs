@@ -4,6 +4,7 @@
 
 #include "base_cache_reader.hpp"
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/helper.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "cache_filesystem.hpp"
@@ -13,7 +14,7 @@ namespace duckdb {
 
 class DiskCacheReader final : public BaseCacheReader {
 public:
-	explicit DiskCacheReader(FileSystem *internal_filesystem_p);
+	DiskCacheReader();
 	~DiskCacheReader() override = default;
 
 	std::string GetName() const override {

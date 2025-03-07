@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "duckdb/common/file_system.hpp"
-#include "duckdb/common/unique_ptr.hpp"
 #include "base_cache_reader.hpp"
 #include "base_profile_collector.hpp"
+#include "cache_reader_manager.hpp"
+#include "duckdb/common/file_system.hpp"
+#include "duckdb/common/unique_ptr.hpp"
 #include "lru_cache.hpp"
 
 #include <mutex>
@@ -21,7 +22,10 @@ public:
 	CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs);
 	~CacheFileSystemHandle() override = default;
 	void Close() override {
+		internal_file_handle->Close();
 	}
+	// Get internal filesystem for cache filesystem.
+	FileSystem *GetInternalFileSystem() const;
 
 	unique_ptr<FileHandle> internal_file_handle;
 };
@@ -29,7 +33,7 @@ public:
 class CacheFileSystem : public FileSystem {
 public:
 	explicit CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p)
-	    : internal_filesystem(std::move(internal_filesystem_p)) {
+	    : internal_filesystem(std::move(internal_filesystem_p)), cache_reader_manager(CacheReaderManager::Get()) {
 	}
 	~CacheFileSystem() override = default;
 
@@ -40,17 +44,14 @@ public:
 	BaseProfileCollector *GetProfileCollector() const {
 		return profile_collector.get();
 	}
-	BaseCacheReader *GetCacheReader() const {
-		return internal_cache_reader;
-	}
-	// Get all cache readers which have been initialized.
-	vector<BaseCacheReader *> GetCacheReaders() const;
-	// Clear cached content for the given filename (whether it's in-memory or on-disk).
-	void ClearCache(const string &fname);
-	// Clear all cached content (whether it's in-memory or on-disk).
-	void ClearCache();
 	// Get file size, which gets cached in-memory.
 	int64_t GetFileSize(FileHandle &handle);
+	// Get cache reader manager.
+	shared_ptr<CacheReaderManager> GetCacheReaderManager();
+	// Get the internal filesystem for cache filesystem.
+	FileSystem *GetInternalFileSystem() const {
+		return internal_filesystem.get();
+	}
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
 	unique_ptr<FileHandle> OpenCompressedFile(unique_ptr<FileHandle> handle, bool write) override {
@@ -181,13 +182,8 @@ private:
 	std::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
-	// Noop, in-memory and on-disk cache reader.
-	unique_ptr<BaseCacheReader> noop_cache_reader;
-	unique_ptr<BaseCacheReader> in_mem_cache_reader;
-	unique_ptr<BaseCacheReader> on_disk_cache_reader;
-	// Either in-memory or on-disk cache reader, whichever is actively being used, ownership lies the above cache
-	// reader.
-	BaseCacheReader *internal_cache_reader = nullptr;
+	// A global cache reader manager.
+	CacheReaderManager &cache_reader_manager;
 	// Used to profile operations.
 	unique_ptr<BaseProfileCollector> profile_collector;
 	// Max number of cache entries for file metadata cache.

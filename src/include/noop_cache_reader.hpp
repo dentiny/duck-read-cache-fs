@@ -12,8 +12,7 @@ namespace duckdb {
 
 class NoopCacheReader : public BaseCacheReader {
 public:
-	explicit NoopCacheReader(FileSystem *internal_filesystem_p) : BaseCacheReader(internal_filesystem_p) {
-	}
+	NoopCacheReader() = default;
 	virtual ~NoopCacheReader() = default;
 
 	void ClearCache() override {

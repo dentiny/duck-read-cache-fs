@@ -1,4 +1,7 @@
 // This class is the base class for reader implementation.
+//
+// All cache-related resource and operations are delegated to the corresponding cache reader.
+// For example, access local cache files should go through on-disk cache reader.
 
 #pragma once
 
@@ -13,8 +16,7 @@ namespace duckdb {
 
 class BaseCacheReader {
 public:
-	BaseCacheReader(FileSystem *internal_filesystem_p) : internal_filesystem(internal_filesystem_p) {
-	}
+	BaseCacheReader() = default;
 	virtual ~BaseCacheReader() = default;
 	BaseCacheReader(const BaseCacheReader &) = delete;
 	BaseCacheReader &operator=(const BaseCacheReader &) = delete;
@@ -56,8 +58,6 @@ public:
 	}
 
 protected:
-	// Ownership lies in cache filesystem.
-	FileSystem *internal_filesystem = nullptr;
 	// Ownership lies in cache filesystem.
 	BaseProfileCollector *profile_collector = nullptr;
 };

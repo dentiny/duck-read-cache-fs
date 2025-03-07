@@ -125,6 +125,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			                                     BaseProfileCollector::CacheAccess::kCacheMiss);
 			ImmutableBuffer content {cache_read_chunk.chunk_size};
 			auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
+			auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
 
 			const string oper_id = profile_collector->GetOperId();
 			profile_collector->RecordOperationStart(oper_id);

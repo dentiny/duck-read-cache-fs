@@ -12,15 +12,9 @@ CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_fil
       internal_file_handle(std::move(internal_file_handle_p)) {
 }
 
-vector<BaseCacheReader *> CacheFileSystem::GetCacheReaders() const {
-	vector<BaseCacheReader *> cache_readers;
-	if (in_mem_cache_reader != nullptr) {
-		cache_readers.emplace_back(in_mem_cache_reader.get());
-	}
-	if (on_disk_cache_reader != nullptr) {
-		cache_readers.emplace_back(on_disk_cache_reader.get());
-	}
-	return cache_readers;
+FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
+	auto &cache_filesystem = file_system.Cast<CacheFileSystem>();
+	return cache_filesystem.GetInternalFileSystem();
 }
 
 void CacheFileSystem::SetMetadataCache() {
@@ -30,56 +24,6 @@ void CacheFileSystem::SetMetadataCache() {
 	}
 	if (metadata_cache == nullptr) {
 		metadata_cache = make_uniq<MetadataCache>(MAX_METADATA_ENTRY);
-	}
-}
-
-void CacheFileSystem::SetAndGetCacheReader() {
-	if (g_cache_type == NOOP_CACHE_TYPE) {
-		if (noop_cache_reader == nullptr) {
-			noop_cache_reader = make_uniq<NoopCacheReader>(internal_filesystem.get());
-		}
-		internal_cache_reader = noop_cache_reader.get();
-		return;
-	}
-
-	if (g_cache_type == ON_DISK_CACHE_TYPE) {
-		if (on_disk_cache_reader == nullptr) {
-			on_disk_cache_reader = make_uniq<DiskCacheReader>(internal_filesystem.get());
-		}
-		internal_cache_reader = on_disk_cache_reader.get();
-		return;
-	}
-
-	if (g_cache_type == IN_MEM_CACHE_TYPE) {
-		if (in_mem_cache_reader == nullptr) {
-			in_mem_cache_reader = make_uniq<InMemoryCacheReader>(internal_filesystem.get());
-		}
-		internal_cache_reader = in_mem_cache_reader.get();
-		return;
-	}
-}
-
-void CacheFileSystem::ClearCache(const string &fname) {
-	if (noop_cache_reader != nullptr) {
-		noop_cache_reader->ClearCache(fname);
-	}
-	if (in_mem_cache_reader != nullptr) {
-		in_mem_cache_reader->ClearCache(fname);
-	}
-	if (on_disk_cache_reader != nullptr) {
-		on_disk_cache_reader->ClearCache(fname);
-	}
-}
-
-void CacheFileSystem::ClearCache() {
-	if (noop_cache_reader != nullptr) {
-		noop_cache_reader->ClearCache();
-	}
-	if (in_mem_cache_reader != nullptr) {
-		in_mem_cache_reader->ClearCache();
-	}
-	if (on_disk_cache_reader != nullptr) {
-		on_disk_cache_reader->ClearCache();
 	}
 }
 
@@ -141,11 +85,10 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFla
 		std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
 		SetGlobalConfig(opener);
 		SetProfileCollector();
-		SetAndGetCacheReader();
+		cache_reader_manager.SetCacheReader();
 		SetMetadataCache();
 		D_ASSERT(profile_collector != nullptr);
-		D_ASSERT(internal_cache_reader != nullptr);
-		internal_cache_reader->SetProfileCollector(profile_collector.get());
+		cache_reader_manager.GetCacheReader()->SetProfileCollector(profile_collector.get());
 	}
 
 	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
@@ -195,13 +138,15 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	}
 
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
-	internal_cache_reader->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read, file_size);
+	cache_reader_manager.GetCacheReader()->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read,
+	                                                    file_size);
 
 // Check actually read content with bytes read from internal filesystem. Only enabled in DEBUG build.
 #if defined(DEBUG)
 	string check_buffer(bytes_to_read, '\0');
-	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-	internal_filesystem->Read(*disk_cache_handle.internal_file_handle, const_cast<char *>(check_buffer.data()),
+	auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto *internal_filesystem = cache_handle.GetInternalFileSystem();
+	internal_filesystem->Read(*cache_handle.internal_file_handle, const_cast<char *>(check_buffer.data()),
 	                          bytes_to_read, location);
 	D_ASSERT(check_buffer == string(const_cast<char *>(check_buffer.data()), bytes_to_read));
 #endif
