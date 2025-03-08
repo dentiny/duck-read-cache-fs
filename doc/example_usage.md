@@ -51,3 +51,8 @@ or clear cache for a particular file with
 D SELECT cache_httpfs_clear_cache_for_file('filename');
 ```
 Notice the query could be slow.
+
+- The extension supports not only httpfs, but also ALL filesystems compatible with duckdb.
+```sql
+D SELECT cache_httpfs_wrap_cache_filesystem('filesystem-name');
+```
