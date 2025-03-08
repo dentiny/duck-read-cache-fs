@@ -1,6 +1,6 @@
 # name: test/sql/noop_cache_filesystem.test
 # description: test cached_fs noop read, which is exactly the same as native duckdb httpfs
-# group: [cached_fs]
+# group: [cache_httpfs]
 
 require cache_httpfs
 

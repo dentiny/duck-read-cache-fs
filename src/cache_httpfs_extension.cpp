@@ -7,8 +7,11 @@
 #include "cache_reader_manager.hpp"
 #include "cache_status_query_function.hpp"
 #include "crypto.hpp"
+#include "duckdb/common/exception.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/opener_file_system.hpp"
 #include "duckdb/main/extension_util.hpp"
+#include "fake_filesystem.hpp"
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
@@ -16,6 +19,9 @@
 #include <array>
 
 namespace duckdb {
+
+// Current duckdb instance; store globally to retrieve filesystem instance inside of it.
+static shared_ptr<DatabaseInstance> duckdb_instance;
 
 // Clear both in-memory and on-disk data block cache.
 static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
@@ -32,7 +38,7 @@ static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector 
 }
 
 static void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
-	D_ASSERT(args.ColumnCount() == 0);
+	D_ASSERT(args.ColumnCount() == 1);
 	const string fname = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
 	// Clear cache on the given [fname] for all initialized filesystems.
@@ -98,6 +104,25 @@ static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vec
 	result.Reference(Value(SUCCESS));
 }
 
+// Wrap the filesystem with extension cache filesystem.
+// Throw exception if the requested filesystem hasn't been registered into duckdb instance.
+static void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &result) {
+	D_ASSERT(args.ColumnCount() == 1);
+	const string filesystem_name = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
+
+	// duckdb instance has a opener filesystem, which is a wrapper around virtual filesystem.
+	auto &opener_filesystem = duckdb_instance->GetFileSystem().Cast<OpenerFileSystem>();
+	auto &vfs = opener_filesystem.GetFileSystem();
+	auto internal_filesystem = vfs.ExtractSubSystem(filesystem_name);
+	if (internal_filesystem == nullptr) {
+		throw InvalidInputException("Filesystem %s hasn't been registered yet!", filesystem_name);
+	}
+	vfs.RegisterSubSystem(make_uniq<CacheFileSystem>(std::move(internal_filesystem)));
+
+	constexpr bool SUCCESS = true;
+	result.Reference(Value(SUCCESS));
+}
+
 // Cached httpfs cannot co-exist with non-cached version, because duckdb virtual filesystem doesn't provide a native fs
 // wrapper nor priority system, so co-existence doesn't guarantee cached version is actually used.
 //
@@ -115,6 +140,11 @@ static void LoadInternal(DatabaseInstance &instance) {
 	// Here we register both in-memory filesystem and on-disk filesystem, and leverage global configuration to decide
 	// which one to use.
 	auto &fs = instance.GetFileSystem();
+
+	// TODO(hjiang): Register a fake filesystem at extension load for testing purpose. This is not ideal since
+	// additional necessary instance is shipped in the extension. Local filesystem is not viable because it's not
+	// registered in virtual filesystem. A better approach is find another filesystem not in httpfs extension.
+	fs.RegisterSubSystem(make_uniq<CacheHttpfsFakeFileSystem>());
 
 	auto cache_httpfs_filesystem = make_uniq<CacheFileSystem>(make_uniq<HTTPFileSystem>());
 	CacheFsRefRegistry::Get().Register(cache_httpfs_filesystem.get());
@@ -193,6 +223,18 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                                             /*return_type=*/LogicalType::BOOLEAN, ClearCacheForFile);
 	ExtensionUtil::RegisterFunction(instance, clear_cache_for_file_function);
 
+	// Register a function to wrap all duckdb-vfs-compatible filesystems. By default only httpfs filesystem instances
+	// are wrapped. Usage for the target filesystem can be used as normal.
+	//
+	// Example usage:
+	// D. LOAD azure;
+	// -- Wrap filesystem with its name.
+	// D. SELECT cache_httpfs_wrap_cache_filesystem('AzureBlobStorageFileSystem');
+	ScalarFunction wrap_cache_filesystem_function("cache_httpfs_wrap_cache_filesystem",
+	                                              /*arguments=*/ {LogicalTypeId::VARCHAR},
+	                                              /*return_type=*/LogicalTypeId::BOOLEAN, WrapCacheFileSystem);
+	ExtensionUtil::RegisterFunction(instance, wrap_cache_filesystem_function);
+
 	// Register on-disk cache file size stat function.
 	ScalarFunction get_cache_size_function("cache_httpfs_get_cache_size", /*arguments=*/ {},
 	                                       /*return_type=*/LogicalType::BIGINT, GetOnDiskCacheSize);
@@ -227,6 +269,7 @@ void CacheHttpfsExtension::Load(DuckDB &db) {
 	}
 
 	// Load cached httpfs extension.
+	duckdb_instance = db.instance;
 	LoadInternal(*db.instance);
 }
 std::string CacheHttpfsExtension::Name() {

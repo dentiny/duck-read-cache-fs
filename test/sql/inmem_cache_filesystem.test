@@ -1,6 +1,6 @@
 # name: test/sql/inmem_cache_filesystem.test
 # description: test cached_fs in-memory read and cache
-# group: [cached_fs]
+# group: [cache_httpfs]
 
 require cache_httpfs
 
@@ -548,11 +548,14 @@ SELECT COUNT(*) FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.pa
 ----
 7433139
 
-query IIIII
-SELECT * FROM cache_httpfs_cache_status_query();
+query I
+SELECT COUNT(*) FROM cache_httpfs_cache_status_query() WHERE remote_filename = 'https://blobs.duckdb.org/data/taxi_2019_04.parquet';
 ----
-(no disk cache)	https://blobs.duckdb.org/data/taxi_2019_04.parquet	126000000	127000000	in-mem
-(no disk cache)	https://blobs.duckdb.org/data/taxi_2019_04.parquet	127000000	127056503	in-mem
+117
+
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query() WHERE remote_filename = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv';
+----
 (no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem
 
 # Test cases when cache block size and IO request size is smaller than file size.
