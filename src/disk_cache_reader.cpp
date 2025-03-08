@@ -14,8 +14,6 @@
 #include <utility>
 #include <utime.h>
 
-#include <fstream>
-
 namespace duckdb {
 
 namespace {
@@ -142,13 +140,6 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 		                       /*nr_bytes=*/chunk.content.length(),
 		                       /*location=*/0);
 		file_handle->Sync();
-	}
-
-	{
-		std::fstream f {"/tmp/debug-dup-file.log", std::ios::out | std::ios::app};
-		f << "move " << local_temp_file << " to " << local_cache_file << std::endl;
-		f.flush();
-		f.close();
 	}
 
 	// Then atomically move to the target postion to prevent data corruption due to concurrent write.

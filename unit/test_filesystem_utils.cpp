@@ -10,8 +10,6 @@
 
 #include <utime.h>
 
-#include <iostream>
-
 using namespace duckdb; // NOLINT
 
 namespace {
