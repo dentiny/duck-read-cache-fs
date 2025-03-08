@@ -11,3 +11,29 @@ Invalid Input Error: Filesystem unregistered_filesystem hasn't been registered y
 
 statement ok
 SELECT cache_httpfs_wrap_cache_filesystem('cache_httpfs_fake_filesystem');
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+# Check read through fake filesystem works fine.
+statement ok
+COPY (SELECT * FROM read_csv('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv')) TO '/tmp/cache_httpfs_fake_filesystem/stock-exchanges.csv';
+
+# Clear cache after COPY, because reading from httfs already leads to local cache files.
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+query I
+SELECT COUNT(*) FROM read_csv('/tmp/cache_httpfs_fake_filesystem/stock-exchanges.csv');
+----
+251
+
+# Check local cache files.
+# File count = 16KiB / 64KiB = 1
+query I
+SELECT COUNT(*) FROM glob('/tmp/duckdb_cache_httpfs_cache/*');
+----
+1
+
+statement ok
+SELECT cache_httpfs_clear_cache();
