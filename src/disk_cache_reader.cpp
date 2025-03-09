@@ -1,3 +1,9 @@
+// Design notes on concurrent access for local cache files:
+// - There could be multiple threads accessing one local cache file, some of them try to open and read, while others
+// trying to delete if the file is stale;
+// - To avoid data race (open the file after deletion), read threads should open the file directly, instead of check
+// existence and open, which guarantees even the file get deleted due to staleness, read threads still get a snapshot.
+
 #include "crypto.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
@@ -114,8 +120,6 @@ string GetLocalCacheFilePrefix(const string &remote_file) {
 }
 
 // Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
-//
-// TODO(hjiang): Document local cache file pattern and its eviction policy.
 void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const FileHandle &handle,
                 const string &cache_directory, const string &local_cache_file) {
 	// Skip local cache if insufficient disk space.
@@ -240,20 +244,21 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			    GetLocalCacheFile(g_on_disk_cache_directory, handle.GetPath(), cache_read_chunk.aligned_start_offset,
 			                      cache_read_chunk.chunk_size);
 
-			if (local_filesystem->FileExists(local_cache_file)) {
+			// Attempt to open the file directly, so a successfully opened file handle won't be deleted by cleanup
+			// thread and lead to data race.
+			auto file_handle = local_filesystem->OpenFile(
+			    local_cache_file, FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+			if (file_handle != nullptr) {
 				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 				                                     BaseProfileCollector::CacheAccess::kCacheHit);
-				auto file_handle = local_filesystem->OpenFile(local_cache_file, FileOpenFlags::FILE_FLAGS_READ);
 				void *addr = !cache_read_chunk.content.empty() ? const_cast<char *>(cache_read_chunk.content.data())
 				                                               : cache_read_chunk.requested_start_addr;
 				local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
 				cache_read_chunk.CopyBufferToRequestedMemory();
 
-				// Update access and modification timestamp for the cache file, so it
-				// won't get evicted.
-				if (utime(local_cache_file.data(), /*times*/ nullptr) < 0) {
-					throw IOException("Fails to update %s's access and modification "
-					                  "timestamp because %s",
+				// Update access and modification timestamp for the cache file, so it won't get evicted.
+				if (utime(local_cache_file.data(), /*times=*/nullptr) < 0) {
+					throw IOException("Fails to update %s's access and modification timestamp because %s",
 					                  local_cache_file, strerror(errno));
 				}
 

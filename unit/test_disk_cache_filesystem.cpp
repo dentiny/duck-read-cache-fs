@@ -38,7 +38,7 @@ const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::Ge
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 } // namespace
 
-// Test default directory works for cached read.
+// Test default directory works for uncached read.
 TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") {
 	// Cleanup default cache directory before test.
 	LocalFileSystem::CreateLocal()->RemoveDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
@@ -56,10 +56,6 @@ TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") 
 	}
 
 	REQUIRE(GetFileCountUnder(DEFAULT_ON_DISK_CACHE_DIRECTORY) > 0);
-
-	// Cleanup default cache directory.
-	LocalFileSystem::CreateLocal()->RemoveDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
-	LocalFileSystem::CreateLocal()->CreateDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
 }
 
 // One chunk is involved, requested bytes include only "first and last chunk".

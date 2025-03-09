@@ -16,8 +16,7 @@ void EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_dire
 	const time_t now = std::time(nullptr);
 	local_filesystem.ListFiles(
 	    cache_directory, [&local_filesystem, &cache_directory, now](const string &fname, bool /*unused*/) {
-		    // Multiple threads could attempt to access and delete stale files,
-		    // tolerate non-existent file.
+		    // Multiple threads could attempt to access and delete stale files, tolerate non-existent file.
 		    const string full_name = StringUtil::Format("%s/%s", cache_directory, fname);
 		    auto file_handle = local_filesystem.OpenFile(full_name, FileOpenFlags::FILE_FLAGS_READ |
 		                                                                FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
