@@ -257,11 +257,13 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 				cache_read_chunk.CopyBufferToRequestedMemory();
 
 				// Update access and modification timestamp for the cache file, so it won't get evicted.
-				if (utime(local_cache_file.data(), /*times=*/nullptr) < 0) {
+				const int ret_code = utime(local_cache_file.data(), /*times=*/nullptr);
+				// It's possible the cache file has been requested to delete by eviction thread, so `ENOENT` is a
+				// tolarable error.
+				if (ret_code != 0 && errno != ENOENT) {
 					throw IOException("Fails to update %s's access and modification timestamp because %s",
 					                  local_cache_file, strerror(errno));
 				}
-
 				return;
 			}
 
