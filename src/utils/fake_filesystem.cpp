@@ -58,5 +58,25 @@ idx_t CacheHttpfsFakeFileSystem::SeekPosition(FileHandle &handle) {
 	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
 	return local_filesystem->SeekPosition(*local_filesystem_handle);
 }
+bool CacheHttpfsFakeFileSystem::Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) {
+	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
+	return local_filesystem->Trim(*local_filesystem_handle, offset_bytes, length_bytes);
+}
+time_t CacheHttpfsFakeFileSystem::GetLastModifiedTime(FileHandle &handle) {
+	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
+	return local_filesystem->GetLastModifiedTime(*local_filesystem_handle);
+}
+FileType CacheHttpfsFakeFileSystem::GetFileType(FileHandle &handle) {
+	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
+	return local_filesystem->GetFileType(*local_filesystem_handle);
+}
+void CacheHttpfsFakeFileSystem::Truncate(FileHandle &handle, int64_t new_size) {
+	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
+	local_filesystem->Truncate(*local_filesystem_handle, new_size);
+}
+bool CacheHttpfsFakeFileSystem::OnDiskFile(FileHandle &handle) {
+	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
+	return local_filesystem->OnDiskFile(*local_filesystem_handle);
+}
 
 } // namespace duckdb

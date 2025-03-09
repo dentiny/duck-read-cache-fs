@@ -40,6 +40,11 @@ public:
 	void FileSync(FileHandle &handle) override;
 	void Seek(FileHandle &handle, idx_t location) override;
 	idx_t SeekPosition(FileHandle &handle) override;
+	bool Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) override;
+	time_t GetLastModifiedTime(FileHandle &handle) override;
+	FileType GetFileType(FileHandle &handle) override;
+	void Truncate(FileHandle &handle, int64_t new_size) override;
+	bool OnDiskFile(FileHandle &handle) override;
 
 private:
 	unique_ptr<FileSystem> local_filesystem;
