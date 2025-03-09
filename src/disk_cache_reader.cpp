@@ -240,16 +240,13 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			    GetLocalCacheFile(g_on_disk_cache_directory, handle.GetPath(), cache_read_chunk.aligned_start_offset,
 			                      cache_read_chunk.chunk_size);
 
-			// TODO(hjiang): Add documentation and implementation for stale cache eviction policy, before that it's safe
-			// to access cache file directly.
 			if (local_filesystem->FileExists(local_cache_file)) {
 				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 				                                     BaseProfileCollector::CacheAccess::kCacheHit);
 				auto file_handle = local_filesystem->OpenFile(local_cache_file, FileOpenFlags::FILE_FLAGS_READ);
 				void *addr = !cache_read_chunk.content.empty() ? const_cast<char *>(cache_read_chunk.content.data())
 				                                               : cache_read_chunk.requested_start_addr;
-				local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size,
-				                       /*location=*/0);
+				local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
 				cache_read_chunk.CopyBufferToRequestedMemory();
 
 				// Update access and modification timestamp for the cache file, so it

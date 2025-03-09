@@ -117,7 +117,10 @@ static void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, V
 	if (internal_filesystem == nullptr) {
 		throw InvalidInputException("Filesystem %s hasn't been registered yet!", filesystem_name);
 	}
-	vfs.RegisterSubSystem(make_uniq<CacheFileSystem>(std::move(internal_filesystem)));
+
+	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(internal_filesystem));
+	CacheFsRefRegistry::Get().Register(cache_filesystem.get());
+	vfs.RegisterSubSystem(std::move(cache_filesystem));
 
 	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));

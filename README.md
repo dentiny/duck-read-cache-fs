@@ -26,7 +26,7 @@ Key features:
   + profiling is by default disabled
 - 100% Compatibility with duckdb `httpfs`
   + Extension is built upon `httpfs` extension and automatically load it beforehand, so it's fully compatible with it; we provide option `SET cache_httpfs_type='noop';` to fallback to and behave exactly as httpfs.
-- Able to wrap **ALL** duckdb-compatible with one simple SQL `SELECT cache_httpfs_wrap_cache_filesystem(<your-fs>)`, and get all the benefit of caching, parallel read, IO performance stats, you name it.
+- Able to wrap **ALL** duckdb-compatible filesystem with one simple SQL `SELECT cache_httpfs_wrap_cache_filesystem(<your-fs>)`, and get all the benefit of caching, parallel read, IO performance stats, you name it.
 
 Caveat:
 - The extension is implemented for object storage, which is expected to be read-heavy workload and (mostly) immutable, so it only supports read cache (at the moment), cache won't be cleared on write operation for the same object.
