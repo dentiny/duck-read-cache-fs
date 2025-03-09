@@ -97,9 +97,16 @@ target_link_libraries(test_noop_cache_reader ${EXTENSION_NAME})
 add_executable(test_disk_cache_filesystem unit/test_disk_cache_filesystem.cpp)
 target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
 
+add_executable(test_large_file_disk_reader unit/test_large_file_disk_reader.cpp)
+target_link_libraries(test_large_file_disk_reader ${EXTENSION_NAME})
+
 add_executable(test_in_memory_cache_filesystem
                unit/test_in_memory_cache_filesystem.cpp)
 target_link_libraries(test_in_memory_cache_filesystem ${EXTENSION_NAME})
+
+add_executable(test_large_file_inmem_reader
+               unit/test_large_file_inmem_reader.cpp)
+target_link_libraries(test_large_file_inmem_reader ${EXTENSION_NAME})
 
 add_executable(test_filesystem_utils unit/test_filesystem_utils.cpp)
 target_link_libraries(test_filesystem_utils ${EXTENSION_NAME})
