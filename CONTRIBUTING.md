@@ -24,6 +24,7 @@
 
 ## Building
 
+* Install `ccache` to improve compilation speed.
 * To pull latest dependencies, run `git submodule update --init --recursive`.
 * To build the project, run `CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) make <debug>`.
 
