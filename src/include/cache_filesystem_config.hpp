@@ -44,15 +44,14 @@ inline constexpr double MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE = 0.05;
 // Maximum in-memory cache block number, which caps the overall memory consumption as (block size * max block count).
 inline constexpr idx_t DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT = 256;
 
-// Default timeout in seconds for in-memory block cache entries (which meand no timeout).
-// TODO(hjiang): Use a better default timeout value after we make it configurable, say, 1 hour.
-inline constexpr idx_t DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC = 0;
+// Default timeout in seconds for in-memory block cache entries.
+inline constexpr idx_t DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
 
 // Max number of cache entries for file metadata cache.
 inline static constexpr size_t DEFAULT_MAX_METADATA_ENTRY = 125;
 
 // Timeout in milliseconds of cache entries for file metadata cache.
-inline static constexpr uint64_t DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC = 0;
+inline static constexpr uint64_t DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
 
 // Number of seconds which we define as the threshold of staleness.
 inline constexpr idx_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
@@ -76,18 +75,26 @@ inline idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE = 0;
 //===--------------------------------------------------------------------===//
 // Global configuration
 //===--------------------------------------------------------------------===//
+
+// Global configuration.
 inline idx_t g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
-inline std::string g_on_disk_cache_directory = DEFAULT_ON_DISK_CACHE_DIRECTORY;
-inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
-inline idx_t g_in_mem_cache_block_timeout_millisec = DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC;
-inline idx_t g_max_metadata_entry = DEFAULT_MAX_METADATA_ENTRY;
-inline idx_t g_metadata_cache_entry_size = DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
+inline bool g_ignore_sigpipe = DEFAULT_IGNORE_SIGPIPE;
 inline std::string g_cache_type = DEFAULT_CACHE_TYPE;
 inline std::string g_profile_type = DEFAULT_PROFILE_TYPE;
 inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
-inline bool g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
-inline bool g_ignore_sigpipe = DEFAULT_IGNORE_SIGPIPE;
+
+// On-disk cache configuration.
+inline std::string g_on_disk_cache_directory = DEFAULT_ON_DISK_CACHE_DIRECTORY;
 inline idx_t g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
+
+// In-memory cache configuration.
+inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
+inline idx_t g_in_mem_cache_block_timeout_millisec = DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC;
+
+// Metadata cache configuration.
+inline bool g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
+inline idx_t g_max_metadata_entry = DEFAULT_MAX_METADATA_ENTRY;
+inline idx_t g_metadata_cache_entry_timeout_millisec = DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 // Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
 // TODO(hjiang): A better is bake configuration into `FileOpener`.
