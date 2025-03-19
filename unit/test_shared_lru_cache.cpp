@@ -2,6 +2,7 @@
 #include "catch.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <future>
 #include <string>
 #include <thread>
@@ -29,7 +30,7 @@ struct MapKeyHash {
 } // namespace
 
 TEST_CASE("PutAndGetSameKey", "[shared lru test]") {
-	ThreadSafeSharedLruCache<std::string, std::string> cache {1};
+	ThreadSafeSharedLruCache<std::string, std::string> cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
 
 	// No value initially.
 	auto val = cache.Get("1");
@@ -57,7 +58,8 @@ TEST_CASE("PutAndGetSameKey", "[shared lru test]") {
 }
 
 TEST_CASE("CustomizedStruct", "[shared lru test]") {
-	ThreadSafeSharedLruCache<MapKey, std::string, MapKeyHash, MapKeyEqual> cache {1};
+	ThreadSafeSharedLruCache<MapKey, std::string, MapKeyHash, MapKeyEqual> cache {/*max_entries_p=*/1,
+	                                                                              /*timeout_millisec_p=*/0};
 	MapKey key;
 	key.fname = "hello";
 	key.off = 10;
@@ -72,7 +74,7 @@ TEST_CASE("CustomizedStruct", "[shared lru test]") {
 }
 
 TEST_CASE("Clear with filter test", "[shared lru test]") {
-	ThreadSafeSharedLruCache<std::string, std::string> cache {3};
+	ThreadSafeSharedLruCache<std::string, std::string> cache {/*max_entries_p=*/3, /*timeout_millisec_p=*/0};
 	cache.Put("key1", make_shared_ptr<std::string>("val1"));
 	cache.Put("key2", make_shared_ptr<std::string>("val2"));
 	cache.Put("key3", make_shared_ptr<std::string>("val3"));
@@ -101,7 +103,7 @@ TEST_CASE("GetOrCreate test", "[shared lru test]") {
 		return make_shared_ptr<std::string>(key);
 	};
 
-	CacheType cache {1};
+	CacheType cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
 
 	constexpr size_t kFutureNum = 100;
 	std::vector<std::future<shared_ptr<std::string>>> futures;
@@ -122,6 +124,23 @@ TEST_CASE("GetOrCreate test", "[shared lru test]") {
 	auto cached_val = cache.GetOrCreate(key, factory);
 	REQUIRE(cached_val != nullptr);
 	REQUIRE(*cached_val == key);
+}
+
+TEST_CASE("Put and get with timeout test", "[shared lru test]") {
+	using CacheType = ThreadSafeSharedLruCache<std::string, std::string>;
+
+	CacheType cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/500};
+	cache.Put("key", make_shared_ptr<std::string>("val"));
+
+	// Getting key-value pair right afterwards is able to get the value.
+	auto val = cache.Get("key");
+	REQUIRE(val != nullptr);
+	REQUIRE(*val == "val");
+
+	// Sleep for a while which exceeds timeout, re-fetch key-value pair fails to get value.
+	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+	val = cache.Get("key");
+	REQUIRE(val == nullptr);
 }
 
 int main(int argc, char **argv) {

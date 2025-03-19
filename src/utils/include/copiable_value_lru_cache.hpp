@@ -22,6 +22,7 @@
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/vector.hpp"
 #include "map_utils.hpp"
+#include "time_utils.hpp"
 
 namespace duckdb {
 
@@ -33,8 +34,11 @@ public:
 	using hasher = KeyHash;
 	using key_equal = KeyEqual;
 
-	// A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
-	explicit CopiableValueLruCache(size_t max_entries_p) : max_entries(max_entries_p) {
+	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
+	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
+	// means no timeout.
+	CopiableValueLruCache(size_t max_entries_p, uint64_t timeout_millisec_p)
+	    : max_entries(max_entries_p), timeout_millisec(timeout_millisec_p) {
 	}
 
 	// Disable copy and move.
@@ -46,7 +50,11 @@ public:
 	// Insert `value` with key `key`. This will replace any previous entry with the same key.
 	void Put(Key key, Val value) {
 		lru_list.emplace_front(key);
-		Entry new_entry {std::move(value), lru_list.begin()};
+		Entry new_entry {
+		    .value = std::move(value),
+		    .timestamp = static_cast<uint64_t>(GetSteadyNowMilliSecSinceEpoch()),
+		    .lru_iterator = lru_list.begin(),
+		};
 		auto key_cref = std::cref(lru_list.front());
 		entry_map[key_cref] = std::move(new_entry);
 
@@ -64,8 +72,7 @@ public:
 		if (it == entry_map.end()) {
 			return false;
 		}
-		lru_list.erase(it->second.lru_iterator);
-		entry_map.erase(it);
+		DeleteImpl(it);
 		return true;
 	}
 
@@ -76,6 +83,16 @@ public:
 		if (entry_map_iter == entry_map.end()) {
 			return Val {};
 		}
+
+		// Check whether found cache entry is expired or not.
+		if (timeout_millisec > 0) {
+			const auto now = GetSteadyNowMilliSecSinceEpoch();
+			if (now - entry_map_iter->second.timestamp > timeout_millisec) {
+				DeleteImpl(entry_map_iter);
+				return Val {};
+			}
+		}
+
 		lru_list.splice(lru_list.begin(), lru_list, entry_map_iter->second.lru_iterator);
 		return entry_map_iter->second.value;
 	}
@@ -122,6 +139,11 @@ private:
 		// The entry's value.
 		Val value;
 
+		// Steady clock timestamp when current entry was inserted into cache.
+		// 1. It's not updated at later accesses.
+		// 2. It's updated at replace update operations.
+		uint64_t timestamp;
+
 		// A list iterator pointing to the entry's position in the LRU list.
 		typename std::list<Key>::iterator lru_iterator;
 	};
@@ -129,8 +151,17 @@ private:
 	using KeyConstRef = std::reference_wrapper<const Key>;
 	using EntryMap = std::unordered_map<KeyConstRef, Entry, RefHash<KeyHash>, RefEq<KeyEqual>>;
 
+	// Delete key-value pairs indicated by the given entry map iterator [iter] from cache.
+	void DeleteImpl(typename EntryMap::iterator iter) {
+		lru_list.erase(iter->second.lru_iterator);
+		entry_map.erase(iter);
+	}
+
 	// The maximum number of entries in the cache. A value of 0 means there is no limit on entry count.
 	const size_t max_entries;
+
+	// The timeout in seconds for cache entries; entries with exceeding timeout would be invalidated.
+	const uint64_t timeout_millisec;
 
 	// All keys are stored as refernce (`std::reference_wrapper`), and the ownership lies in `lru_list`.
 	EntryMap entry_map;
@@ -152,8 +183,11 @@ public:
 	using hasher = KeyHash;
 	using key_equal = KeyEqual;
 
-	// A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
-	explicit ThreadSafeCopiableValLruCache(size_t max_entries) : internal_cache(max_entries) {
+	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
+	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
+	// means no timeout.
+	ThreadSafeCopiableValLruCache(size_t max_entries, uint64_t timeout_millisec)
+	    : internal_cache(max_entries, timeout_millisec) {
 	}
 
 	// Disable copy and move.

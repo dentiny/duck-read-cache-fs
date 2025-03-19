@@ -23,7 +23,7 @@ void CacheFileSystem::SetMetadataCache() {
 		return;
 	}
 	if (metadata_cache == nullptr) {
-		metadata_cache = make_uniq<MetadataCache>(MAX_METADATA_ENTRY);
+		metadata_cache = make_uniq<MetadataCache>(g_max_metadata_entry, g_metadata_cache_entry_size);
 	}
 }
 

@@ -39,10 +39,20 @@ inline std::string DEFAULT_CACHE_TYPE = ON_DISK_CACHE_TYPE;
 
 // To prevent go out of disk space, we set a threshold to disallow local caching if insufficient. It applies to all
 // filesystems. The value here is the decimal representation for percentage value; for example, 0.05 means 5%.
-inline const double MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE = 0.05;
+inline constexpr double MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE = 0.05;
 
 // Maximum in-memory cache block number, which caps the overall memory consumption as (block size * max block count).
-inline const idx_t DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT = 256;
+inline constexpr idx_t DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT = 256;
+
+// Default timeout in seconds for in-memory block cache entries (which meand no timeout).
+// TODO(hjiang): Use a better default timeout value after we make it configurable, say, 1 hour.
+inline constexpr idx_t DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC = 0;
+
+// Max number of cache entries for file metadata cache.
+inline static constexpr size_t DEFAULT_MAX_METADATA_ENTRY = 125;
+
+// Timeout in milliseconds of cache entries for file metadata cache.
+inline static constexpr uint64_t DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC = 0;
 
 // Number of seconds which we define as the threshold of staleness.
 inline constexpr idx_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
@@ -69,6 +79,9 @@ inline idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE = 0;
 inline idx_t g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
 inline std::string g_on_disk_cache_directory = DEFAULT_ON_DISK_CACHE_DIRECTORY;
 inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
+inline idx_t g_in_mem_cache_block_timeout_millisec = DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC;
+inline idx_t g_max_metadata_entry = DEFAULT_MAX_METADATA_ENTRY;
+inline idx_t g_metadata_cache_entry_size = DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
 inline std::string g_cache_type = DEFAULT_CACHE_TYPE;
 inline std::string g_profile_type = DEFAULT_PROFILE_TYPE;
 inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
