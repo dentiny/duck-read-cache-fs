@@ -41,12 +41,7 @@ public:
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
 	// means no timeout.
 	ExclusiveLruCache(size_t max_entries_p, uint64_t timeout_millisec_p)
-	    : ExclusiveLruCache(max_entries_p, timeout_millisec_p, /*eviction_callback_p=*/[](Val &) {}) {
-	}
-	// @param eviction_callback_p: callback which applies to evicted values.
-	ExclusiveLruCache(size_t max_entries_p, uint64_t timeout_millisec_p, std::function<void(Val &)> eviction_callback_p)
-	    : max_entries(max_entries_p), timeout_millisec(timeout_millisec_p),
-	      eviction_callback(std::move(eviction_callback_p)) {
+	    : max_entries(max_entries_p), timeout_millisec(timeout_millisec_p) {
 	}
 
 	// Disable copy and move.
@@ -192,9 +187,6 @@ private:
 
 	// The LRU list of entries. The front of the list identifies the most recently accessed entry.
 	std::list<Key> lru_list;
-
-	// Callback which applies on evicted value.
-	std::function<void(Val &)> eviction_callback;
 };
 
 // Same interfaces as `ExclusiveLruCache`, but all cached values are `const` specified to avoid concurrent updates.
