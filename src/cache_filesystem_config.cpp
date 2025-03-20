@@ -115,7 +115,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	if (g_enable_metadata_cache) {
 		// Check and update cache entry size.
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_metadata_cache_entry_size", val);
-		g_max_metadata_entry = val.GetValue<uint64_t>();
+		g_max_metadata_cache_entry = val.GetValue<uint64_t>();
 
 		// Check and update cache entry timeout.
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_metadata_cache_entry_timeout_millisec", val);
@@ -142,7 +142,7 @@ void ResetGlobalConfig() {
 
 	// Metadata cache configuration.
 	g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
-	g_max_metadata_entry = DEFAULT_MAX_METADATA_ENTRY;
+	g_max_metadata_cache_entry = DEFAULT_MAX_METADATA_CACHE_ENTRY;
 	g_metadata_cache_entry_timeout_millisec = DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 	// Reset testing options.

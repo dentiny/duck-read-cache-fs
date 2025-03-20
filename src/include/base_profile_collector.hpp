@@ -14,8 +14,10 @@ namespace duckdb {
 class BaseProfileCollector {
 public:
 	enum class CacheEntity {
-		kMetadata, // File metadata.
-		kData,     // File data block.
+		kMetadata,   // File metadata.
+		kData,       // File data block.
+		kFileHandle, // File handle.
+		kUnknown,
 	};
 	enum class CacheAccess {
 		kCacheHit,
@@ -27,6 +29,7 @@ public:
 		kGlob,
 		kUnknown,
 	};
+	static constexpr auto kCacheEntityCount = static_cast<idx_t>(CacheEntity::kUnknown);
 	static constexpr auto kIoOperationCount = static_cast<idx_t>(IoOperation::kUnknown);
 
 	BaseProfileCollector() = default;

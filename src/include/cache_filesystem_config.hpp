@@ -50,13 +50,19 @@ inline constexpr idx_t DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT = 256;
 inline constexpr idx_t DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
 
 // Max number of cache entries for file metadata cache.
-inline static constexpr size_t DEFAULT_MAX_METADATA_ENTRY = 125;
+inline static constexpr size_t DEFAULT_MAX_METADATA_CACHE_ENTRY = 125;
 
 // Timeout in milliseconds of cache entries for file metadata cache.
 inline static constexpr uint64_t DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
 
-// Number of seconds which we define as the threshold of staleness.
+// Number of seconds which we define as the threshold of staleness for metadata entries.
 inline constexpr idx_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
+
+// Max number of cache entries for file handle cache.
+inline static constexpr size_t DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY = 125;
+
+// Timeout in milliseconds of cache entries for file handle cache.
+inline static constexpr uint64_t DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
 
 // Default option for profile type.
 inline NoDestructor<std::string> DEFAULT_PROFILE_TYPE {*NOOP_PROFILE_TYPE};
@@ -66,6 +72,9 @@ inline uint64_t DEFAULT_MAX_SUBREQUEST_COUNT = 0;
 
 // Default enable metadata cache.
 inline bool DEFAULT_ENABLE_METADATA_CACHE = true;
+
+// Default enable file handle cache.
+inline bool DEFAULT_ENABLE_FILE_HANDLE_CACHE = true;
 
 // Default not ignore SIGPIPE in the extension.
 inline bool DEFAULT_IGNORE_SIGPIPE = false;
@@ -95,8 +104,13 @@ inline idx_t g_in_mem_cache_block_timeout_millisec = DEFAULT_IN_MEM_BLOCK_CACHE_
 
 // Metadata cache configuration.
 inline bool g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
-inline idx_t g_max_metadata_entry = DEFAULT_MAX_METADATA_ENTRY;
+inline idx_t g_max_metadata_cache_entry = DEFAULT_MAX_METADATA_CACHE_ENTRY;
 inline idx_t g_metadata_cache_entry_timeout_millisec = DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
+
+// File handle cache configuration.
+inline bool g_enable_file_handle_cache = DEFAULT_ENABLE_FILE_HANDLE_CACHE;
+inline idx_t g_max_file_handle_cache_entry = DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY;
+inline idx_t g_file_handle_cache_entry_timeout_millisec = DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 // Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
 // TODO(hjiang): A better is bake configuration into `FileOpener`.

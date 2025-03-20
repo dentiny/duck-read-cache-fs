@@ -93,14 +93,20 @@ void TempProfileCollector::Reset() {
 
 std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	auto stats = StringUtil::Format("For temp profile collector and stats for %s (unit in milliseconds)\n"
-	                                "metadata cache hit count = %d\n"
-	                                "metadata cache miss count = %d\n"
-	                                "data block cache hit count = %d\n"
-	                                "data block cache miss count = %d\n",
-	                                cache_reader_type, cache_access_count[0], cache_access_count[1],
-	                                cache_access_count[2], cache_access_count[3]);
 
+	string stats =
+	    StringUtil::Format("For temp profile collector and stats for %s (unit in milliseconds)\n", cache_reader_type);
+
+	// Record cache miss and cache hit count.
+	for (idx_t cur_entity_idx = 0; cur_entity_idx < kCacheEntityCount; ++cur_entity_idx) {
+		stats = StringUtil::Format("%s\n"
+		                           "%s cache hit count = %d\n"
+		                           "%s cache miss count = %d\n",
+		                           stats, CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * 2],
+		                           CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * 2 + 1]);
+	}
+
+	// Record IO operation latency.
 	for (idx_t cur_oper_idx = 0; cur_oper_idx < kIoOperationCount; ++cur_oper_idx) {
 		const auto &cur_histogram = histograms[cur_oper_idx];
 		if (cur_histogram->counts() == 0) {

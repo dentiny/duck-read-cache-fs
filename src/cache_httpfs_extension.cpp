@@ -226,10 +226,12 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                          "Whether metadata cache is enable for cache filesystem. By default enabled.",
 	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_METADATA_CACHE);
 	config.AddExtensionOption("cache_httpfs_metadata_cache_entry_size", "Max cache size for metadata LRU cache.",
-	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_METADATA_ENTRY));
+	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_METADATA_CACHE_ENTRY));
 	config.AddExtensionOption("cache_httpfs_metadata_cache_entry_timeout_millisec",
 	                          "Cache entry timeout in milliseconds for metadata LRU cache.", LogicalTypeId::UBIGINT,
 	                          Value::UBIGINT(DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC));
+
+	// TODO(hjiang): Expose config settings and related functions for file handle cache.
 
 	// Register cache cleanup function for both in-memory and on-disk cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},

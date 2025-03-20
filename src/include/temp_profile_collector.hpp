@@ -40,12 +40,19 @@ private:
 	    "glob",
 	};
 
+	// Cache entity name, indexed by cache entity enum.
+	inline static constexpr std::array<const char *, kCacheEntityCount> CACHE_ENTITY_NAMES = {
+	    "metadata",
+	    "data",
+	    "file handle",
+	};
+
 	using OperationStatsMap = unordered_map<string /*oper_id*/, OperationStats>;
 	std::array<OperationStatsMap, kIoOperationCount> operation_events;
 	// Only records finished operations, which maps from io operation to histogram.
 	std::array<unique_ptr<Histogram>, kIoOperationCount> histograms;
 	// Aggregated cache access condition.
-	std::array<uint64_t, 4> cache_access_count {};
+	std::array<uint64_t, kCacheEntityCount * 2 /*for cache hit and miss*/> cache_access_count {};
 	// Latest access timestamp in milliseconds since unix epoch.
 	uint64_t latest_timestamp = 0;
 

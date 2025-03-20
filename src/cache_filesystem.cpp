@@ -17,13 +17,47 @@ FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
 	return cache_filesystem.GetInternalFileSystem();
 }
 
+CacheFileSystemHandle::~CacheFileSystemHandle() {
+	if (flags.OpenForReading()) {
+		auto &cache_filesystem = file_system.Cast<CacheFileSystem>();
+		CacheFileSystem::FileHandleCacheKey cache_key {
+		    .path = GetPath(),
+		    .flags = GetFlags() | FileFlags::FILE_FLAGS_PARALLEL_ACCESS,
+		};
+		// Reset file handle state (i.e. file offset) before placing into cache.
+		internal_file_handle->Reset();
+		auto evicted_handle =
+		    cache_filesystem.file_handle_cache->Put(std::move(cache_key), std::move(internal_file_handle));
+		if (evicted_handle != nullptr) {
+			evicted_handle->Close();
+		}
+	}
+}
+
+void CacheFileSystemHandle::Close() {
+	if (!flags.OpenForReading()) {
+		internal_file_handle->Close();
+	}
+}
+
 void CacheFileSystem::SetMetadataCache() {
 	if (!g_enable_metadata_cache) {
 		metadata_cache = nullptr;
 		return;
 	}
 	if (metadata_cache == nullptr) {
-		metadata_cache = make_uniq<MetadataCache>(g_max_metadata_entry, g_in_mem_cache_block_timeout_millisec);
+		metadata_cache = make_uniq<MetadataCache>(g_max_metadata_cache_entry, g_metadata_cache_entry_timeout_millisec);
+	}
+}
+
+void CacheFileSystem::SetFileHandleCache() {
+	if (!g_enable_file_handle_cache) {
+		file_handle_cache = nullptr;
+		return;
+	}
+	if (file_handle_cache == nullptr) {
+		file_handle_cache =
+		    make_uniq<FileHandleCache>(g_max_file_handle_cache_entry, g_file_handle_cache_entry_timeout_millisec);
 	}
 }
 
@@ -94,17 +128,47 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	SetProfileCollector();
 	cache_reader_manager.SetCacheReader();
 	SetMetadataCache();
+	SetFileHandleCache();
 	D_ASSERT(profile_collector != nullptr);
 	cache_reader_manager.GetCacheReader()->SetProfileCollector(profile_collector.get());
+}
+
+unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const string &path, FileOpenFlags flags,
+                                                                     optional_ptr<FileOpener> opener) {
+	D_ASSERT(flags.OpenForReading());
+
+	// Cache is exclusive, so we don't need to acquire lock for avoid repeated access.
+	if (file_handle_cache != nullptr) {
+		FileHandleCacheKey key {
+		    .path = path,
+		    .flags = flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS,
+		};
+		auto cached_file_handle = file_handle_cache->GetAndPop(key);
+		if (cached_file_handle != nullptr) {
+			GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
+			                                         BaseProfileCollector::CacheAccess::kCacheHit);
+			return make_uniq<CacheFileSystemHandle>(std::move(cached_file_handle), *this);
+		}
+		GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
+		                                         BaseProfileCollector::CacheAccess::kCacheMiss);
+	}
+
+	const auto oper_id = profile_collector->GenerateOperId();
+	profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kOpen, oper_id);
+	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
+	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kOpen, oper_id);
+	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
 }
 
 unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                  optional_ptr<FileOpener> opener) {
 	InitializeGlobalConfig(opener);
-	const auto oper_id = profile_collector->GenerateOperId();
-	profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kOpen, oper_id);
-	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
-	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kOpen, oper_id);
+	if (flags.OpenForReading()) {
+		return GetOrCreateFileHandleForRead(path, flags, opener);
+	}
+
+	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
+	auto file_handle = internal_filesystem->OpenFile(path, flags, opener);
 	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
 }
 
