@@ -63,7 +63,8 @@ TEST_CASE("CustomizedStruct", "[exclusive lru test]") {
 	MapKey key;
 	key.fname = "hello";
 	key.off = 10;
-	cache.Put(key, make_uniq<std::string>("world"));
+	auto evicted = cache.Put(key, make_uniq<std::string>("world"));
+	REQUIRE(evicted == nullptr);
 
 	MapKey lookup_key;
 	lookup_key.fname = key.fname;
@@ -75,9 +76,12 @@ TEST_CASE("CustomizedStruct", "[exclusive lru test]") {
 
 TEST_CASE("Clear with filter test", "[exclusive lru test]") {
 	ThreadSafeExclusiveLruCache<std::string, std::string> cache {/*max_entries_p=*/3, /*timeout_millisec_p=*/0};
-	cache.Put("key1", make_uniq<std::string>("val1"));
-	cache.Put("key2", make_uniq<std::string>("val2"));
-	cache.Put("key3", make_uniq<std::string>("val3"));
+	auto evicted = cache.Put("key1", make_uniq<std::string>("val1"));
+	REQUIRE(evicted == nullptr);
+	evicted = cache.Put("key2", make_uniq<std::string>("val2"));
+	REQUIRE(evicted == nullptr);
+	evicted = cache.Put("key3", make_uniq<std::string>("val3"));
+	REQUIRE(evicted == nullptr);
 	cache.Clear([](const std::string &key) { return key >= "key2"; });
 
 	// Still valid keys.
@@ -96,7 +100,8 @@ TEST_CASE("Put and get with timeout test", "[exclusive lru test]") {
 	using CacheType = ThreadSafeExclusiveLruCache<std::string, std::string>;
 
 	CacheType cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/500};
-	cache.Put("key", make_uniq<std::string>("val"));
+	auto evicted = cache.Put("key", make_uniq<std::string>("val"));
+	REQUIRE(evicted == nullptr);
 
 	// Getting key-value pair right afterwards is able to get the value.
 	auto val = cache.GetAndPop("key");
@@ -107,6 +112,20 @@ TEST_CASE("Put and get with timeout test", "[exclusive lru test]") {
 	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 	val = cache.GetAndPop("key");
 	REQUIRE(val == nullptr);
+}
+
+TEST_CASE("Evicted value test", "[exclusive lru test]") {
+	using CacheType = ThreadSafeExclusiveLruCache<std::string, std::string>;
+
+	CacheType cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
+	auto evicted = cache.Put("key1", make_uniq<std::string>("val1"));
+	REQUIRE(evicted == nullptr);
+
+	evicted = cache.Put("key2", make_uniq<std::string>("val2"));
+	REQUIRE(*evicted == "val1");
+
+	evicted = cache.Put("key3", make_uniq<std::string>("val3"));
+	REQUIRE(*evicted == "val2");
 }
 
 int main(int argc, char **argv) {
