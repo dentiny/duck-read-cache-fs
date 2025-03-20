@@ -134,6 +134,18 @@ public:
 		}
 	}
 
+	// Clear the cache and get all values, application could perform their processing logic upon these values.
+	vector<unique_ptr<Val>> ClearAndGetValues() {
+		vector<unique_ptr<Val>> values;
+		values.reserve(entry_map.size());
+		for (auto &[_, cur_entry] : entry_map) {
+			values.emplace_back(std::move(cur_entry.value));
+		}
+		entry_map.clear();
+		lru_list.clear();
+		return values;
+	}
+
 	// Accessors for cache parameters.
 	size_t MaxEntries() const {
 		return max_entries;
@@ -219,6 +231,12 @@ public:
 	unique_ptr<Val> GetAndPop(const Key &key) {
 		std::unique_lock<std::mutex> lock(mu);
 		return internal_cache.GetAndPop(key);
+	}
+
+	// Clear the cache and get all values, application could perform their processing logic upon these values.
+	vector<unique_ptr<Val>> ClearAndGetValues() {
+		std::unique_lock<std::mutex> lock(mu);
+		return internal_cache.ClearAndGetValues();
 	}
 
 	// Clear the cache.

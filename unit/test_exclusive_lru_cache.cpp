@@ -126,6 +126,10 @@ TEST_CASE("Evicted value test", "[exclusive lru test]") {
 
 	evicted = cache.Put("key3", make_uniq<std::string>("val3"));
 	REQUIRE(*evicted == "val2");
+
+	auto values = cache.ClearAndGetValues();
+	REQUIRE(values.size() == 1);
+	REQUIRE(*values[0] == "val3");
 }
 
 int main(int argc, char **argv) {
