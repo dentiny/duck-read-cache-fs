@@ -18,7 +18,7 @@ void CacheReaderManager::InitializeDiskCacheReader() {
 }
 
 void CacheReaderManager::SetCacheReader() {
-	if (g_cache_type == NOOP_CACHE_TYPE) {
+	if (*g_cache_type == *NOOP_CACHE_TYPE) {
 		if (noop_cache_reader == nullptr) {
 			noop_cache_reader = make_uniq<NoopCacheReader>();
 		}
@@ -26,7 +26,7 @@ void CacheReaderManager::SetCacheReader() {
 		return;
 	}
 
-	if (g_cache_type == ON_DISK_CACHE_TYPE) {
+	if (*g_cache_type == *ON_DISK_CACHE_TYPE) {
 		if (on_disk_cache_reader == nullptr) {
 			on_disk_cache_reader = make_uniq<DiskCacheReader>();
 		}
@@ -34,7 +34,7 @@ void CacheReaderManager::SetCacheReader() {
 		return;
 	}
 
-	if (g_cache_type == IN_MEM_CACHE_TYPE) {
+	if (*g_cache_type == *IN_MEM_CACHE_TYPE) {
 		if (in_mem_cache_reader == nullptr) {
 			in_mem_cache_reader = make_uniq<InMemoryCacheReader>();
 		}

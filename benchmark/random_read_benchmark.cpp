@@ -91,23 +91,23 @@ int main(int argc, char **argv) {
 	std::cout << "Starts to warmup read" << std::endl;
 	duckdb::FileSystem::CreateLocal()->RemoveDirectory(BENCHMARK_DISK_CACHE_DIRECTORY);
 	duckdb::BenchmarkSetup benchmark_setup;
-	benchmark_setup.cache_type = duckdb::NOOP_CACHE_TYPE;
-	benchmark_setup.profile_type = duckdb::NOOP_PROFILE_TYPE;
+	benchmark_setup.cache_type = *duckdb::NOOP_CACHE_TYPE;
+	benchmark_setup.profile_type = *duckdb::NOOP_PROFILE_TYPE;
 	duckdb::TestSequentialRead(benchmark_setup);
 
 	// Benchmark httpfs (with no cache reader).
 	std::cout << "Starts with httpfs read with no cache" << std::endl;
 	duckdb::FileSystem::CreateLocal()->RemoveDirectory(BENCHMARK_DISK_CACHE_DIRECTORY);
-	benchmark_setup.cache_type = duckdb::NOOP_CACHE_TYPE;
-	benchmark_setup.profile_type = duckdb::TEMP_PROFILE_TYPE;
+	benchmark_setup.cache_type = *duckdb::NOOP_CACHE_TYPE;
+	benchmark_setup.profile_type = *duckdb::TEMP_PROFILE_TYPE;
 	benchmark_setup.disk_cache_directory = BENCHMARK_DISK_CACHE_DIRECTORY;
 	duckdb::TestSequentialRead(benchmark_setup);
 
 	// Benchmark on-disk cache reader.
 	std::cout << "Starts on-disk cache read with no existing cache" << std::endl;
 	duckdb::FileSystem::CreateLocal()->RemoveDirectory(BENCHMARK_DISK_CACHE_DIRECTORY);
-	benchmark_setup.cache_type = duckdb::ON_DISK_CACHE_TYPE;
-	benchmark_setup.profile_type = duckdb::TEMP_PROFILE_TYPE;
+	benchmark_setup.cache_type = *duckdb::ON_DISK_CACHE_TYPE;
+	benchmark_setup.profile_type = *duckdb::TEMP_PROFILE_TYPE;
 	benchmark_setup.disk_cache_directory = BENCHMARK_DISK_CACHE_DIRECTORY;
 	duckdb::TestSequentialRead(benchmark_setup);
 

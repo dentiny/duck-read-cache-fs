@@ -28,14 +28,14 @@ void CacheFileSystem::SetMetadataCache() {
 }
 
 void CacheFileSystem::SetProfileCollector() {
-	if (g_profile_type == NOOP_PROFILE_TYPE) {
-		if (profile_collector == nullptr || profile_collector->GetProfilerType() != NOOP_PROFILE_TYPE) {
+	if (*g_profile_type == *NOOP_PROFILE_TYPE) {
+		if (profile_collector == nullptr || profile_collector->GetProfilerType() != *NOOP_PROFILE_TYPE) {
 			profile_collector = make_uniq<NoopProfileCollector>();
 		}
 		return;
 	}
-	if (g_profile_type == TEMP_PROFILE_TYPE) {
-		if (profile_collector == nullptr || profile_collector->GetProfilerType() != TEMP_PROFILE_TYPE) {
+	if (*g_profile_type == *TEMP_PROFILE_TYPE) {
+		if (profile_collector == nullptr || profile_collector->GetProfilerType() != *TEMP_PROFILE_TYPE) {
 			profile_collector = make_uniq<TempProfileCollector>();
 		}
 		return;

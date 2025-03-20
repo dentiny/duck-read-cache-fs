@@ -132,6 +132,9 @@ target_link_libraries(test_base_cache_filesystem ${EXTENSION_NAME})
 add_executable(test_string_utils unit/test_string_utils)
 target_link_libraries(test_string_utils ${EXTENSION_NAME})
 
+add_executable(test_no_destructor unit/test_no_destructor)
+target_link_libraries(test_no_destructor ${EXTENSION_NAME})
+
 # Benchmark
 add_executable(read_s3_object benchmark/read_s3_object.cpp)
 target_link_libraries(read_s3_object ${EXTENSION_NAME})

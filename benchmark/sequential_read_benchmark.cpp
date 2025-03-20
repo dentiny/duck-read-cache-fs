@@ -90,31 +90,31 @@ int main(int argc, char **argv) {
 	std::cout << "Starts to warmup read" << std::endl;
 	duckdb::FileSystem::CreateLocal()->RemoveDirectory(disk_cache_directory);
 	duckdb::BenchmarkSetup benchmark_setup;
-	benchmark_setup.cache_type = duckdb::NOOP_CACHE_TYPE;
-	benchmark_setup.profile_type = duckdb::NOOP_PROFILE_TYPE;
+	benchmark_setup.cache_type = *duckdb::NOOP_CACHE_TYPE;
+	benchmark_setup.profile_type = *duckdb::NOOP_PROFILE_TYPE;
 	duckdb::TestSequentialRead(benchmark_setup);
 
 	// Benchmark httpfs (with no cache reader).
 	std::cout << "Starts with httpfs read with no cache" << std::endl;
 	duckdb::FileSystem::CreateLocal()->RemoveDirectory(disk_cache_directory);
-	benchmark_setup.cache_type = duckdb::NOOP_CACHE_TYPE;
-	benchmark_setup.profile_type = duckdb::TEMP_PROFILE_TYPE;
+	benchmark_setup.cache_type = *duckdb::NOOP_CACHE_TYPE;
+	benchmark_setup.profile_type = *duckdb::TEMP_PROFILE_TYPE;
 	benchmark_setup.disk_cache_directory = disk_cache_directory;
 	duckdb::TestSequentialRead(benchmark_setup);
 
 	// Benchmark on-disk cache reader.
 	std::cout << "Starts on-disk cache read with no existing cache" << std::endl;
 	duckdb::FileSystem::CreateLocal()->RemoveDirectory(disk_cache_directory);
-	benchmark_setup.cache_type = duckdb::ON_DISK_CACHE_TYPE;
-	benchmark_setup.profile_type = duckdb::TEMP_PROFILE_TYPE;
+	benchmark_setup.cache_type = *duckdb::ON_DISK_CACHE_TYPE;
+	benchmark_setup.profile_type = *duckdb::TEMP_PROFILE_TYPE;
 	benchmark_setup.disk_cache_directory = disk_cache_directory;
 	benchmark_setup.block_size = 2_MiB;
 	duckdb::TestSequentialRead(benchmark_setup);
 
 	// No delete cache directory to verify cache read.
 	std::cout << "Starts on-disk cache read with local cache" << std::endl;
-	benchmark_setup.cache_type = duckdb::ON_DISK_CACHE_TYPE;
-	benchmark_setup.profile_type = duckdb::TEMP_PROFILE_TYPE;
+	benchmark_setup.cache_type = *duckdb::ON_DISK_CACHE_TYPE;
+	benchmark_setup.profile_type = *duckdb::TEMP_PROFILE_TYPE;
 	benchmark_setup.disk_cache_directory = disk_cache_directory;
 	duckdb::TestSequentialRead(benchmark_setup);
 

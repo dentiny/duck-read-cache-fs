@@ -27,8 +27,8 @@ static shared_ptr<DatabaseInstance> duckdb_instance;
 static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
 	// Special handle local disk cache clear, since it's possible disk cache reader hasn't been initialized.
 	auto local_filesystem = LocalFileSystem::CreateLocal();
-	local_filesystem->RemoveDirectory(g_on_disk_cache_directory);
-	local_filesystem->CreateDirectory(g_on_disk_cache_directory);
+	local_filesystem->RemoveDirectory(*g_on_disk_cache_directory);
+	local_filesystem->CreateDirectory(*g_on_disk_cache_directory);
 
 	// Clear cache for all initialized cache readers.
 	CacheReaderManager::Get().ClearCache();
@@ -53,8 +53,8 @@ static void GetOnDiskCacheSize(const DataChunk &args, ExpressionState &state, Ve
 
 	int64_t total_cache_size = 0;
 	local_filesystem->ListFiles(
-	    g_on_disk_cache_directory, [&local_filesystem, &total_cache_size](const string &fname, bool /*unused*/) {
-		    const string file_path = StringUtil::Format("%s/%s", g_on_disk_cache_directory, fname);
+	    *g_on_disk_cache_directory, [&local_filesystem, &total_cache_size](const string &fname, bool /*unused*/) {
+		    const string file_path = StringUtil::Format("%s/%s", *g_on_disk_cache_directory, fname);
 		    auto file_handle = local_filesystem->OpenFile(file_path, FileOpenFlags::FILE_FLAGS_READ);
 		    total_cache_size += local_filesystem->GetFileSize(*file_handle);
 	    });
@@ -178,7 +178,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                          "Type for cached filesystem. Currently there're two types available, one is `in_mem`, "
 	                          "another is `on_disk`. By default we use on-disk cache. Set to `noop` to disable, which "
 	                          "behaves exactly same as httpfs extension.",
-	                          LogicalType::VARCHAR, ON_DISK_CACHE_TYPE);
+	                          LogicalType::VARCHAR, *ON_DISK_CACHE_TYPE);
 	config.AddExtensionOption(
 	    "cache_httpfs_cache_block_size",
 	    "Block size for cache, applies to both in-memory cache filesystem and on-disk cache filesystem. It's worth "
@@ -189,7 +189,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	    "Profiling type for cached filesystem. There're three options available: `noop`, `temp`, and `duckdb`. `temp` "
 	    "option stores the latest IO operation profiling result, which potentially suffers concurrent updates; "
 	    "`duckdb` stores the IO operation profiling results into duckdb table, which unblocks advanced analysis.",
-	    LogicalType::VARCHAR, DEFAULT_PROFILE_TYPE);
+	    LogicalType::VARCHAR, *DEFAULT_PROFILE_TYPE);
 	config.AddExtensionOption(
 	    "cache_httpfs_max_fanout_subrequest",
 	    "Cached httpfs performs parallel request by splittng them into small request, with request size decided by "
@@ -203,7 +203,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 
 	// On disk cache config.
 	config.AddExtensionOption("cache_httpfs_cache_directory", "The disk cache directory that stores cached data",
-	                          LogicalType::VARCHAR, DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	                          LogicalType::VARCHAR, *DEFAULT_ON_DISK_CACHE_DIRECTORY);
 	config.AddExtensionOption("cache_httpfs_min_disk_bytes_for_cache",
 	                          "Min number of bytes on disk for the cache filesystem to enable on-disk cache; if left "
 	                          "bytes is less than the threshold, LRU based cache file eviction will be performed."
@@ -274,7 +274,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	ExtensionUtil::RegisterFunction(instance, clear_profile_stats_function);
 
 	// Create default cache directory.
-	LocalFileSystem::CreateLocal()->CreateDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	LocalFileSystem::CreateLocal()->CreateDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
 }
 
 void CacheHttpfsExtension::Load(DuckDB &db) {

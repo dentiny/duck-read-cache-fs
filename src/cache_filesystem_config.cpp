@@ -11,10 +11,10 @@ namespace duckdb {
 void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	if (opener == nullptr) {
 		// Testing cache type has higher priority than [g_cache_type].
-		if (!g_test_cache_type.empty()) {
-			g_cache_type = g_test_cache_type;
+		if (!g_test_cache_type->empty()) {
+			*g_cache_type = *g_test_cache_type;
 		}
-		LocalFileSystem::CreateLocal()->CreateDirectory(g_on_disk_cache_directory);
+		LocalFileSystem::CreateLocal()->CreateDirectory(*g_on_disk_cache_directory);
 		return;
 	}
 
@@ -28,12 +28,12 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_type", val);
 	auto cache_type_string = val.ToString();
 	if (ALL_CACHE_TYPES.find(cache_type_string) != ALL_CACHE_TYPES.end()) {
-		g_cache_type = std::move(cache_type_string);
+		*g_cache_type = std::move(cache_type_string);
 	}
 
 	// Testing cache type has higher priority than [g_cache_type].
-	if (!g_test_cache_type.empty()) {
-		g_cache_type = g_test_cache_type;
+	if (!g_test_cache_type->empty()) {
+		*g_cache_type = *g_test_cache_type;
 	}
 
 	// Check and update cache block size if necessary.
@@ -46,8 +46,8 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	// Check and update profile collector type if necessary, only assign if valid.
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_profile_type", val);
 	auto profile_type_string = val.ToString();
-	if (ALL_PROFILE_TYPES.find(profile_type_string) != ALL_PROFILE_TYPES.end()) {
-		g_profile_type = std::move(profile_type_string);
+	if (ALL_PROFILE_TYPES->find(profile_type_string) != ALL_PROFILE_TYPES->end()) {
+		*g_profile_type = std::move(profile_type_string);
 	}
 
 	// Check and update configuration for max subrequest count.
@@ -68,13 +68,13 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	//===--------------------------------------------------------------------===//
 
 	// Check and update configurations for on-disk cache type.
-	if (g_cache_type == ON_DISK_CACHE_TYPE) {
+	if (*g_cache_type == *ON_DISK_CACHE_TYPE) {
 		// Check and update cache directory if necessary.
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_cache_directory", val);
 		auto new_on_disk_cache_directory = val.ToString();
-		if (new_on_disk_cache_directory != g_on_disk_cache_directory) {
-			g_on_disk_cache_directory = std::move(new_on_disk_cache_directory);
-			LocalFileSystem::CreateLocal()->CreateDirectory(g_on_disk_cache_directory);
+		if (new_on_disk_cache_directory != *g_on_disk_cache_directory) {
+			*g_on_disk_cache_directory = std::move(new_on_disk_cache_directory);
+			LocalFileSystem::CreateLocal()->CreateDirectory(*g_on_disk_cache_directory);
 		}
 
 		// Check and update min bytes for disk cache.
@@ -90,7 +90,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	//===--------------------------------------------------------------------===//
 
 	// Check and update configurations for in-memory cache type.
-	if (g_cache_type == IN_MEM_CACHE_TYPE) {
+	if (*g_cache_type == *IN_MEM_CACHE_TYPE) {
 		// Check and update max cache block count.
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_max_in_mem_cache_block_count", val);
 		const auto in_mem_block_count = val.GetValue<uint64_t>();
@@ -128,12 +128,12 @@ void ResetGlobalConfig() {
 
 	// Global configuration.
 	g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
-	g_cache_type = DEFAULT_CACHE_TYPE;
-	g_profile_type = DEFAULT_PROFILE_TYPE;
+	*g_cache_type = *DEFAULT_CACHE_TYPE;
+	*g_profile_type = *DEFAULT_PROFILE_TYPE;
 	g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 
 	// On-disk cache configuration.
-	g_on_disk_cache_directory = DEFAULT_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = *DEFAULT_ON_DISK_CACHE_DIRECTORY;
 	g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 
 	// In-memory cache configuration.

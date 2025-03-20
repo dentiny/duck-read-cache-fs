@@ -1,5 +1,6 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "temp_profile_collector.hpp"
+#include "utils/include/no_destructor.hpp"
 #include "utils/include/time_utils.hpp"
 
 namespace duckdb {
@@ -18,27 +19,27 @@ constexpr double MIN_GLOB_LATENCY_MILLISEC = 0;
 constexpr double MAX_GLOB_LATENCY_MILLISEC = 1000;
 constexpr int GLOB_LATENCY_NUM_BKT = 100;
 
-const string LATENCY_HISTOGRAM_ITEM = "latency";
-const string LATENCY_HISTOGRAM_UNIT = "millisec";
+const NoDestructor<string> LATENCY_HISTOGRAM_ITEM {"latency"};
+const NoDestructor<string> LATENCY_HISTOGRAM_UNIT {"millisec"};
 } // namespace
 
 TempProfileCollector::TempProfileCollector() {
 	histograms[static_cast<idx_t>(IoOperation::kRead)] =
 	    make_uniq<Histogram>(MIN_READ_LATENCY_MILLISEC, MAX_READ_LATENCY_MILLISEC, READ_LATENCY_NUM_BKT);
-	histograms[static_cast<idx_t>(IoOperation::kRead)]->SetStatsDistribution(LATENCY_HISTOGRAM_ITEM,
-	                                                                         LATENCY_HISTOGRAM_UNIT);
+	histograms[static_cast<idx_t>(IoOperation::kRead)]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM,
+	                                                                         *LATENCY_HISTOGRAM_UNIT);
 	operation_events[static_cast<idx_t>(IoOperation::kRead)] = OperationStatsMap {};
 
 	histograms[static_cast<idx_t>(IoOperation::kOpen)] =
 	    make_uniq<Histogram>(MIN_OPEN_LATENCY_MILLISEC, MAX_OPEN_LATENCY_MILLISEC, OPEN_LATENCY_NUM_BKT);
-	histograms[static_cast<idx_t>(IoOperation::kOpen)]->SetStatsDistribution(LATENCY_HISTOGRAM_ITEM,
-	                                                                         LATENCY_HISTOGRAM_UNIT);
+	histograms[static_cast<idx_t>(IoOperation::kOpen)]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM,
+	                                                                         *LATENCY_HISTOGRAM_UNIT);
 	operation_events[static_cast<idx_t>(IoOperation::kOpen)] = OperationStatsMap {};
 
 	histograms[static_cast<idx_t>(IoOperation::kGlob)] =
 	    make_uniq<Histogram>(MIN_GLOB_LATENCY_MILLISEC, MAX_GLOB_LATENCY_MILLISEC, GLOB_LATENCY_NUM_BKT);
-	histograms[static_cast<idx_t>(IoOperation::kGlob)]->SetStatsDistribution(LATENCY_HISTOGRAM_ITEM,
-	                                                                         LATENCY_HISTOGRAM_UNIT);
+	histograms[static_cast<idx_t>(IoOperation::kGlob)]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM,
+	                                                                         *LATENCY_HISTOGRAM_UNIT);
 	operation_events[static_cast<idx_t>(IoOperation::kGlob)] = OperationStatsMap {};
 }
 

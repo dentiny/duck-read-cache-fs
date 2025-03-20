@@ -89,7 +89,7 @@ TEST_CASE("Test on concurrent access", "[in-memory cache filesystem test]") {
 
 int main(int argc, char **argv) {
 	// Set global cache type for testing.
-	g_test_cache_type = IN_MEM_CACHE_TYPE;
+	*g_test_cache_type = *IN_MEM_CACHE_TYPE;
 
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |

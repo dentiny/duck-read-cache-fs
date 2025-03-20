@@ -83,7 +83,7 @@ public:
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {
 	}
 	std::string GetProfilerType() override {
-		return NOOP_PROFILE_TYPE;
+		return *NOOP_PROFILE_TYPE;
 	}
 	void Reset() override {};
 	std::pair<std::string, uint64_t> GetHumanReadableStats() override {
