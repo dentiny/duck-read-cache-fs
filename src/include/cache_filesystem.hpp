@@ -7,7 +7,7 @@
 #include "cache_reader_manager.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
-#include "lru_cache.hpp"
+#include "shared_lru_cache.hpp"
 
 #include <mutex>
 

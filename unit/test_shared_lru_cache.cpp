@@ -8,7 +8,7 @@
 #include <thread>
 #include <tuple>
 
-#include "lru_cache.hpp"
+#include "shared_lru_cache.hpp"
 
 using namespace duckdb; // NOLINT
 
