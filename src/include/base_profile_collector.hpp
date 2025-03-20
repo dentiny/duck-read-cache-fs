@@ -21,6 +21,13 @@ public:
 		kCacheHit,
 		kCacheMiss,
 	};
+	enum class IoOperation {
+		kOpen,
+		kRead,
+		kGlob,
+		kUnknown,
+	};
+	static constexpr auto kIoOperationCount = static_cast<idx_t>(IoOperation::kUnknown);
 
 	BaseProfileCollector() = default;
 	virtual ~BaseProfileCollector() = default;
@@ -28,11 +35,11 @@ public:
 	BaseProfileCollector &operator=(const BaseProfileCollector &) = delete;
 
 	// Get an ID which uniquely identifies current operation.
-	virtual std::string GetOperId() const = 0;
-	// Record the start of operation [oper].
-	virtual void RecordOperationStart(const std::string &oper) = 0;
-	// Record the finish of operation [oper].
-	virtual void RecordOperationEnd(const std::string &oper) = 0;
+	virtual std::string GenerateOperId() const = 0;
+	// Record the start of operation [io_oper] with operation identifier [oper_id].
+	virtual void RecordOperationStart(IoOperation io_oper, const std::string &oper_id) = 0;
+	// Record the finish of operation [io_oper] with operation identifier [oper_id].
+	virtual void RecordOperationEnd(IoOperation io_oper, const std::string &oper_id) = 0;
 	// Record cache access condition.
 	virtual void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) = 0;
 	// Get profiler type.
@@ -66,12 +73,12 @@ public:
 	NoopProfileCollector() = default;
 	~NoopProfileCollector() override = default;
 
-	std::string GetOperId() const override {
+	std::string GenerateOperId() const override {
 		return "";
 	}
-	void RecordOperationStart(const std::string &oper) override {
+	void RecordOperationStart(IoOperation io_oper, const std::string &oper_id) override {
 	}
-	void RecordOperationEnd(const std::string &oper) override {
+	void RecordOperationEnd(IoOperation io_oper, const std::string &oper_id) override {
 	}
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {
 	}

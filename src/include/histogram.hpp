@@ -16,6 +16,11 @@ public:
 	// [min_val] is inclusive, and [max_val] is exclusive.
 	Histogram(double min_val, double max_val, int num_bkt);
 
+	Histogram(const Histogram &) = delete;
+	Histogram &operator=(const Histogram &) = delete;
+	Histogram(Histogram &&) = delete;
+	Histogram &operator=(Histogram &&) = delete;
+
 	// Set the distribution stats name and unit, used for formatting purpose.
 	void SetStatsDistribution(std::string name, std::string unit);
 

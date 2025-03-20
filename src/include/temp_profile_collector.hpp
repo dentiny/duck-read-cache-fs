@@ -3,6 +3,7 @@
 #pragma once
 
 #include "base_profile_collector.hpp"
+#include "duckdb/common/helper.hpp"
 #include "duckdb/common/profiler.hpp"
 #include "histogram.hpp"
 
@@ -16,9 +17,9 @@ public:
 	TempProfileCollector();
 	~TempProfileCollector() override = default;
 
-	std::string GetOperId() const override;
-	void RecordOperationStart(const std::string &oper) override;
-	void RecordOperationEnd(const std::string &oper) override;
+	std::string GenerateOperId() const override;
+	void RecordOperationStart(IoOperation io_oper, const std::string &oper) override;
+	void RecordOperationEnd(IoOperation io_oper, const std::string &oper) override;
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override;
 	std::string GetProfilerType() override {
 		return TEMP_PROFILE_TYPE;
@@ -32,10 +33,17 @@ private:
 		int64_t start_timestamp = 0;
 	};
 
-	// Maps from operation name to its stats, only records ongoing operations.
-	unordered_map<string, OperationStats> operation_events;
-	// Only records finished operations.
-	Histogram histogram;
+	// Operation names, indexed by operation enums.
+	inline static constexpr std::array<const char *, kIoOperationCount> OPER_NAMES = {
+	    "open",
+	    "read",
+	    "glob",
+	};
+
+	using OperationStatsMap = unordered_map<string /*oper_id*/, OperationStats>;
+	std::array<OperationStatsMap, kIoOperationCount> operation_events;
+	// Only records finished operations, which maps from io operation to histogram.
+	std::array<unique_ptr<Histogram>, kIoOperationCount> histograms;
 	// Aggregated cache access condition.
 	std::array<uint64_t, 4> cache_access_count {};
 	// Latest access timestamp in milliseconds since unix epoch.

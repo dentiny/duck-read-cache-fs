@@ -120,9 +120,7 @@ public:
 	string PathSeparator(const string &path) override {
 		return internal_filesystem->PathSeparator(path);
 	}
-	vector<string> Glob(const string &path, FileOpener *opener = nullptr) override {
-		return internal_filesystem->Glob(path, opener);
-	}
+	vector<string> Glob(const string &path, FileOpener *opener = nullptr) override;
 	void RegisterSubSystem(unique_ptr<FileSystem> sub_fs) override {
 		internal_filesystem->RegisterSubSystem(std::move(sub_fs));
 	}
@@ -164,6 +162,9 @@ private:
 	struct FileMetadata {
 		int64_t file_size = 0;
 	};
+
+	// Initialize global configurations and global objects (i.e. metadata cache, profiler, etc) in a thread-safe manner.
+	void InitializeGlobalConfig(optional_ptr<FileOpener> opener);
 
 	// Read from [location] on [nr_bytes] for the given [handle] into [buffer].
 	// Return the actual number of bytes to read.

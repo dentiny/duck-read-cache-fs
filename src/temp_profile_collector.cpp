@@ -6,26 +6,51 @@ namespace duckdb {
 
 namespace {
 // Heuristic estimation of single IO request latency, out of which range are classified as outliers.
-constexpr double MIN_LATENCY_MILLISEC = 0;
-constexpr double MAX_LATENCY_MILLISEC = 1000;
-constexpr int LATENCY_NUM_BKT = 200;
+constexpr double MIN_READ_LATENCY_MILLISEC = 0;
+constexpr double MAX_READ_LATENCY_MILLISEC = 1000;
+constexpr int READ_LATENCY_NUM_BKT = 100;
+
+constexpr double MIN_OPEN_LATENCY_MILLISEC = 0;
+constexpr double MAX_OPEN_LATENCY_MILLISEC = 1000;
+constexpr int OPEN_LATENCY_NUM_BKT = 100;
+
+constexpr double MIN_GLOB_LATENCY_MILLISEC = 0;
+constexpr double MAX_GLOB_LATENCY_MILLISEC = 1000;
+constexpr int GLOB_LATENCY_NUM_BKT = 100;
 
 const string LATENCY_HISTOGRAM_ITEM = "latency";
 const string LATENCY_HISTOGRAM_UNIT = "millisec";
 } // namespace
 
-TempProfileCollector::TempProfileCollector() : histogram(MIN_LATENCY_MILLISEC, MAX_LATENCY_MILLISEC, LATENCY_NUM_BKT) {
-	histogram.SetStatsDistribution(LATENCY_HISTOGRAM_ITEM, LATENCY_HISTOGRAM_UNIT);
+TempProfileCollector::TempProfileCollector() {
+	histograms[static_cast<idx_t>(IoOperation::kRead)] =
+	    make_uniq<Histogram>(MIN_READ_LATENCY_MILLISEC, MAX_READ_LATENCY_MILLISEC, READ_LATENCY_NUM_BKT);
+	histograms[static_cast<idx_t>(IoOperation::kRead)]->SetStatsDistribution(LATENCY_HISTOGRAM_ITEM,
+	                                                                         LATENCY_HISTOGRAM_UNIT);
+	operation_events[static_cast<idx_t>(IoOperation::kRead)] = OperationStatsMap {};
+
+	histograms[static_cast<idx_t>(IoOperation::kOpen)] =
+	    make_uniq<Histogram>(MIN_OPEN_LATENCY_MILLISEC, MAX_OPEN_LATENCY_MILLISEC, OPEN_LATENCY_NUM_BKT);
+	histograms[static_cast<idx_t>(IoOperation::kOpen)]->SetStatsDistribution(LATENCY_HISTOGRAM_ITEM,
+	                                                                         LATENCY_HISTOGRAM_UNIT);
+	operation_events[static_cast<idx_t>(IoOperation::kOpen)] = OperationStatsMap {};
+
+	histograms[static_cast<idx_t>(IoOperation::kGlob)] =
+	    make_uniq<Histogram>(MIN_GLOB_LATENCY_MILLISEC, MAX_GLOB_LATENCY_MILLISEC, GLOB_LATENCY_NUM_BKT);
+	histograms[static_cast<idx_t>(IoOperation::kGlob)]->SetStatsDistribution(LATENCY_HISTOGRAM_ITEM,
+	                                                                         LATENCY_HISTOGRAM_UNIT);
+	operation_events[static_cast<idx_t>(IoOperation::kGlob)] = OperationStatsMap {};
 }
 
-std::string TempProfileCollector::GetOperId() const {
+std::string TempProfileCollector::GenerateOperId() const {
 	return UUID::ToString(UUID::GenerateRandomUUID());
 }
 
-void TempProfileCollector::RecordOperationStart(const std::string &oper) {
+void TempProfileCollector::RecordOperationStart(IoOperation io_oper, const std::string &oper_id) {
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	const bool is_new = operation_events
-	                        .emplace(oper,
+	auto &cur_oper_event = operation_events[static_cast<idx_t>(io_oper)];
+	const bool is_new = cur_oper_event
+	                        .emplace(oper_id,
 	                                 OperationStats {
 	                                     .start_timestamp = GetSteadyNowMilliSecSinceEpoch(),
 	                                 })
@@ -33,14 +58,17 @@ void TempProfileCollector::RecordOperationStart(const std::string &oper) {
 	D_ASSERT(is_new);
 }
 
-void TempProfileCollector::RecordOperationEnd(const std::string &oper) {
+void TempProfileCollector::RecordOperationEnd(IoOperation io_oper, const std::string &oper_id) {
 	const auto now = GetSteadyNowMilliSecSinceEpoch();
 
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	auto iter = operation_events.find(oper);
-	D_ASSERT(iter != operation_events.end());
-	histogram.Add(now - iter->second.start_timestamp);
-	operation_events.erase(iter);
+	auto &cur_oper_event = operation_events[static_cast<idx_t>(io_oper)];
+	auto iter = cur_oper_event.find(oper_id);
+	D_ASSERT(iter != cur_oper_event.end());
+
+	auto &cur_histogram = histograms[static_cast<idx_t>(io_oper)];
+	cur_histogram->Add(now - iter->second.start_timestamp);
+	cur_oper_event.erase(iter);
 	latest_timestamp = now;
 }
 
@@ -52,8 +80,12 @@ void TempProfileCollector::RecordCacheAccess(CacheEntity cache_entity, CacheAcce
 
 void TempProfileCollector::Reset() {
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	histogram.Reset();
-	operation_events.clear();
+	for (auto &cur_oper_event : operation_events) {
+		cur_oper_event.clear();
+	}
+	for (auto &cur_histogram : histograms) {
+		cur_histogram->Reset();
+	}
 	cache_access_count.fill(0);
 	latest_timestamp = 0;
 }
@@ -64,10 +96,20 @@ std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 	                                "metadata cache hit count = %d\n"
 	                                "metadata cache miss count = %d\n"
 	                                "data block cache hit count = %d\n"
-	                                "data block cache miss count = %d\n"
-	                                "IO latency is %s",
+	                                "data block cache miss count = %d\n",
 	                                cache_reader_type, cache_access_count[0], cache_access_count[1],
-	                                cache_access_count[2], cache_access_count[3], histogram.FormatString());
+	                                cache_access_count[2], cache_access_count[3]);
+
+	for (idx_t cur_oper_idx = 0; cur_oper_idx < kIoOperationCount; ++cur_oper_idx) {
+		const auto &cur_histogram = histograms[cur_oper_idx];
+		if (cur_histogram->counts() == 0) {
+			continue;
+		}
+		stats = StringUtil::Format("%s\n"
+		                           "%s operation latency is %s",
+		                           stats, OPER_NAMES[cur_oper_idx], cur_histogram->FormatString());
+	}
+
 	return std::make_pair(std::move(stats), latest_timestamp);
 }
 

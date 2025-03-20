@@ -76,22 +76,35 @@ std::string CacheFileSystem::GetName() const {
 	return StringUtil::Format("cache_httpfs with %s", internal_filesystem->GetName());
 }
 
-unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
-                                                 optional_ptr<FileOpener> opener) {
+vector<string> CacheFileSystem::Glob(const string &path, FileOpener *opener) {
+	InitializeGlobalConfig(opener);
+	const auto oper_id = profile_collector->GenerateOperId();
+	profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kGlob, oper_id);
+	auto filenames = internal_filesystem->Glob(path, opener);
+	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kGlob, oper_id);
+	return filenames;
+}
+
+void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	// Initialize cache reader with mutex guard against concurrent access.
 	// For duckdb, read operation happens after successful file open, at which point we won't have new configs and read
 	// operation happening concurrently.
-	{
-		std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
-		SetGlobalConfig(opener);
-		SetProfileCollector();
-		cache_reader_manager.SetCacheReader();
-		SetMetadataCache();
-		D_ASSERT(profile_collector != nullptr);
-		cache_reader_manager.GetCacheReader()->SetProfileCollector(profile_collector.get());
-	}
+	std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
+	SetGlobalConfig(opener);
+	SetProfileCollector();
+	cache_reader_manager.SetCacheReader();
+	SetMetadataCache();
+	D_ASSERT(profile_collector != nullptr);
+	cache_reader_manager.GetCacheReader()->SetProfileCollector(profile_collector.get());
+}
 
+unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
+                                                 optional_ptr<FileOpener> opener) {
+	InitializeGlobalConfig(opener);
+	const auto oper_id = profile_collector->GenerateOperId();
+	profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kOpen, oper_id);
 	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
+	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kOpen, oper_id);
 	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
 }
 
