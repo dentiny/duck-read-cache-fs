@@ -42,6 +42,13 @@ TEST_CASE("NoDestructor test", "[no destructor test]") {
 		(*content)[1] = 'c';
 		REQUIRE(*content == "bclloworld");
 	}
+
+	// Reassign.
+	{
+		NoDestructor<std::string> content {s.begin(), s.end()};
+		*content = "worldhello";
+		REQUIRE(*content == "worldhello");
+	}
 }
 
 int main(int argc, char **argv) {

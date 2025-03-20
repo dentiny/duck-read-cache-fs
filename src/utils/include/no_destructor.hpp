@@ -4,6 +4,10 @@
 // In theory, the best implementation is `absl::NoDestructor<T>`.
 // Reference: https://github.com/abseil/abseil-cpp/blob/master/absl/base/no_destructor.h
 // But C++11 doesn't support `std::launder` so we have to switch `new`-allocation method, instead of `placement new`.
+//
+// Example usage:
+// - Initialization: NoDestructor<T> obj{...};
+// - Re-assignment: *obj = T{...};
 
 #pragma once
 
