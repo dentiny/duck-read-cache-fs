@@ -1,0 +1,51 @@
+# name: test/sql/cache_access_info.test
+# description: test cache access info
+# group: [cache_httpfs]
+
+require cache_httpfs
+
+query III
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	0	0
+data	0	0
+file handle	0	0
+
+# Start to record profile.
+statement ok
+SET cache_httpfs_profile_type='temp';
+
+# Test uncached query.
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+query III
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	2	1
+data	0	1
+file handle	0	1
+
+# Query second time should show cache hit.
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+query III
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	5	1
+data	1	1
+file handle	1	1
+
+statement ok
+SELECT cache_httpfs_clear_profile();
+
+query III
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	0	0
+data	0	0
+file handle	0	0
