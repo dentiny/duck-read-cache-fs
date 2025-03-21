@@ -24,6 +24,7 @@ public:
 	std::string GetProfilerType() override {
 		return *TEMP_PROFILE_TYPE;
 	}
+	vector<CacheAccessInfo> GetCacheAccessInfo() const override;
 	void Reset() override;
 	std::pair<std::string, uint64_t> GetHumanReadableStats() override;
 
@@ -31,20 +32,6 @@ private:
 	struct OperationStats {
 		// Accounted as time elapsed since unix epoch in milliseconds.
 		int64_t start_timestamp = 0;
-	};
-
-	// Operation names, indexed by operation enums.
-	inline static constexpr std::array<const char *, kIoOperationCount> OPER_NAMES = {
-	    "open",
-	    "read",
-	    "glob",
-	};
-
-	// Cache entity name, indexed by cache entity enum.
-	inline static constexpr std::array<const char *, kCacheEntityCount> CACHE_ENTITY_NAMES = {
-	    "metadata",
-	    "data",
-	    "file handle",
 	};
 
 	using OperationStatsMap = unordered_map<string /*oper_id*/, OperationStats>;
@@ -56,6 +43,6 @@ private:
 	// Latest access timestamp in milliseconds since unix epoch.
 	uint64_t latest_timestamp = 0;
 
-	std::mutex stats_mutex;
+	mutable std::mutex stats_mutex;
 };
 } // namespace duckdb

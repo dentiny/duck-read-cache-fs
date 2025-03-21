@@ -7,6 +7,9 @@
 namespace duckdb {
 
 // Get the table function to query cache status.
-TableFunction GetCacheStatusQueryFunc();
+TableFunction GetDataCacheStatusQueryFunc();
+
+// Get the table function to query cache access status.
+TableFunction GetCacheAccessInfoQueryFunc();
 
 } // namespace duckdb

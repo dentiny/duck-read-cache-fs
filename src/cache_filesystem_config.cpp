@@ -121,6 +121,25 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_metadata_cache_entry_timeout_millisec", val);
 		g_metadata_cache_entry_timeout_millisec = val.GetValue<uint64_t>();
 	}
+
+	//===--------------------------------------------------------------------===//
+	// File handle cache configuration
+	//===--------------------------------------------------------------------===//
+
+	// Check and update configurations for metadata cache enablement.
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_enable_file_handle_cache", val);
+	g_enable_file_handle_cache = val.GetValue<bool>();
+
+	// Check and update file handle cache config if enabled.
+	if (g_enable_file_handle_cache) {
+		// Check and update cache entry size.
+		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_file_handle_cache_entry_size", val);
+		g_max_file_handle_cache_entry = val.GetValue<uint64_t>();
+
+		// Check and update cache entry timeout.
+		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_file_handle_cache_entry_timeout_millisec", val);
+		g_file_handle_cache_entry_timeout_millisec = val.GetValue<uint64_t>();
+	}
 }
 
 void ResetGlobalConfig() {
@@ -144,6 +163,11 @@ void ResetGlobalConfig() {
 	g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
 	g_max_metadata_cache_entry = DEFAULT_MAX_METADATA_CACHE_ENTRY;
 	g_metadata_cache_entry_timeout_millisec = DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
+
+	// File handle cache configuration.
+	g_enable_file_handle_cache = DEFAULT_ENABLE_FILE_HANDLE_CACHE;
+	g_max_file_handle_cache_entry = DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY;
+	g_file_handle_cache_entry_timeout_millisec = DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 	// Reset testing options.
 	g_test_insufficient_disk_space = false;

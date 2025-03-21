@@ -28,7 +28,7 @@ public:
 	void ClearCache(const string &fname) override;
 	void ReadAndCache(FileHandle &handle, char *buffer, uint64_t requested_start_offset,
 	                  uint64_t requested_bytes_to_read, uint64_t file_size) override;
-	vector<CacheEntryInfo> GetCacheEntriesInfo() const override;
+	vector<DataCacheEntryInfo> GetCacheEntriesInfo() const override;
 
 private:
 	using InMemCache =

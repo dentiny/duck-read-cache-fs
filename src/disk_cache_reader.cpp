@@ -156,12 +156,12 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 DiskCacheReader::DiskCacheReader() : local_filesystem(LocalFileSystem::CreateLocal()) {
 }
 
-vector<CacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
-	vector<CacheEntryInfo> cache_entries_info;
+vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
+	vector<DataCacheEntryInfo> cache_entries_info;
 	local_filesystem->ListFiles(
 	    *g_on_disk_cache_directory, [&cache_entries_info](const std::string &fname, bool /*unused*/) {
 		    auto remote_file_info = GetRemoteFileInfo(fname);
-		    cache_entries_info.emplace_back(CacheEntryInfo {
+		    cache_entries_info.emplace_back(DataCacheEntryInfo {
 		        .cache_filepath = StringUtil::Format("%s/%s", *g_on_disk_cache_directory, fname),
 		        .remote_filename = std::get<0>(remote_file_info),
 		        .start_offset = std::get<1>(remote_file_info),

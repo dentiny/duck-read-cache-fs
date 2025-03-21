@@ -231,7 +231,15 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                          "Cache entry timeout in milliseconds for metadata LRU cache.", LogicalTypeId::UBIGINT,
 	                          Value::UBIGINT(DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC));
 
-	// TODO(hjiang): Expose config settings and related functions for file handle cache.
+	// File handle cache config.
+	config.AddExtensionOption("cache_httpfs_enable_file_handle_cache",
+	                          "Whether file handle cache is enable for cache filesystem. By default enabled.",
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_FILE_HANDLE_CACHE);
+	config.AddExtensionOption("cache_httpfs_file_handle_cache_entry_size", "Max cache size for file handle cache.",
+	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY));
+	config.AddExtensionOption("cache_httpfs_file_handle_cache_entry_timeout_millisec",
+	                          "Cache entry timeout in milliseconds for file handle cache.", LogicalTypeId::UBIGINT,
+	                          Value::UBIGINT(DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC));
 
 	// Register cache cleanup function for both in-memory and on-disk cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},
@@ -262,7 +270,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	ExtensionUtil::RegisterFunction(instance, get_cache_size_function);
 
 	// Register on-disk cache file display.
-	ExtensionUtil::RegisterFunction(instance, GetCacheStatusQueryFunc());
+	ExtensionUtil::RegisterFunction(instance, GetDataCacheStatusQueryFunc());
 
 	// Register profile collector metrics.
 	// A commonly-used SQL is `COPY (SELECT cache_httpfs_get_profile()) TO '/tmp/output.txt';`.
@@ -274,6 +282,9 @@ static void LoadInternal(DatabaseInstance &instance) {
 	ScalarFunction clear_profile_stats_function("cache_httpfs_clear_profile", /*arguments=*/ {},
 	                                            /*return_type=*/LogicalType::BOOLEAN, ResetProfileStats);
 	ExtensionUtil::RegisterFunction(instance, clear_profile_stats_function);
+
+	// Register cache access metrics.
+	ExtensionUtil::RegisterFunction(instance, GetCacheAccessInfoQueryFunc());
 
 	// Create default cache directory.
 	LocalFileSystem::CreateLocal()->CreateDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);

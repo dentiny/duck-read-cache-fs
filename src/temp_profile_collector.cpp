@@ -91,6 +91,20 @@ void TempProfileCollector::Reset() {
 	latest_timestamp = 0;
 }
 
+vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
+	std::lock_guard<std::mutex> lck(stats_mutex);
+	vector<CacheAccessInfo> cache_access_info;
+	cache_access_info.reserve(kCacheEntityCount);
+	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
+		cache_access_info.emplace_back(CacheAccessInfo {
+		    .cache_type = CACHE_ENTITY_NAMES[idx],
+		    .cache_hit_count = cache_access_count[idx * 2],
+		    .cache_miss_count = cache_access_count[idx * 2 + 1],
+		});
+	}
+	return cache_access_info;
+}
+
 std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 	std::lock_guard<std::mutex> lck(stats_mutex);
 

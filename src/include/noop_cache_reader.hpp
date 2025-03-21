@@ -22,7 +22,7 @@ public:
 	void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset, idx_t requested_bytes_to_read,
 	                  idx_t file_size) override;
 
-	vector<CacheEntryInfo> GetCacheEntriesInfo() const override {
+	vector<DataCacheEntryInfo> GetCacheEntriesInfo() const override {
 		return {};
 	}
 
