@@ -52,6 +52,14 @@ void CacheFileSystem::SetMetadataCache() {
 
 void CacheFileSystem::SetFileHandleCache() {
 	if (!g_enable_file_handle_cache) {
+		// If file handle cache exists, get all existing file handles and close them.
+		if (file_handle_cache != nullptr) {
+			auto file_handles = file_handle_cache->ClearAndGetValues();
+			for (auto &cur_file_handle : file_handles) {
+				cur_file_handle->Close();
+			}
+		}
+
 		file_handle_cache = nullptr;
 		return;
 	}
