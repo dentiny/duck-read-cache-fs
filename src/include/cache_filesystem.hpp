@@ -59,7 +59,9 @@ public:
 	explicit CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p)
 	    : internal_filesystem(std::move(internal_filesystem_p)), cache_reader_manager(CacheReaderManager::Get()) {
 	}
-	~CacheFileSystem() override = default;
+	~CacheFileSystem() override {
+		ClearFileHandleCache();
+	}
 
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 	int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
@@ -224,6 +226,9 @@ private:
 
 	// Initialize file handle cache.
 	void SetFileHandleCache();
+
+	// Clear file handle cache and close all file handle resource inside.
+	void ClearFileHandleCache();
 
 	// Get file handle from cache, or open if it doesn't exist.
 	// Return cached file handle.

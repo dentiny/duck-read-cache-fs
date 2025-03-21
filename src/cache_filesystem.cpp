@@ -50,17 +50,20 @@ void CacheFileSystem::SetMetadataCache() {
 	}
 }
 
+void CacheFileSystem::ClearFileHandleCache() {
+	if (file_handle_cache == nullptr) {
+		return;
+	}
+	auto file_handles = file_handle_cache->ClearAndGetValues();
+	for (auto &cur_file_handle : file_handles) {
+		cur_file_handle->Close();
+	}
+	file_handle_cache = nullptr;
+}
+
 void CacheFileSystem::SetFileHandleCache() {
 	if (!g_enable_file_handle_cache) {
-		// If file handle cache exists, get all existing file handles and close them.
-		if (file_handle_cache != nullptr) {
-			auto file_handles = file_handle_cache->ClearAndGetValues();
-			for (auto &cur_file_handle : file_handles) {
-				cur_file_handle->Close();
-			}
-		}
-
-		file_handle_cache = nullptr;
+		ClearFileHandleCache();
 		return;
 	}
 	if (file_handle_cache == nullptr) {
