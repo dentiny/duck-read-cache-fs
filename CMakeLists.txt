@@ -116,6 +116,10 @@ target_link_libraries(test_shared_lru_cache ${EXTENSION_NAME})
 add_executable(test_exclusive_lru_cache unit/test_exclusive_lru_cache.cpp)
 target_link_libraries(test_exclusive_lru_cache ${EXTENSION_NAME})
 
+add_executable(test_exclusive_multi_lru_cache
+               unit/test_exclusive_multi_lru_cache.cpp)
+target_link_libraries(test_exclusive_multi_lru_cache ${EXTENSION_NAME})
+
 add_executable(test_copiable_value_lru_cache
                unit/test_copiable_value_lru_cache.cpp)
 target_link_libraries(test_copiable_value_lru_cache ${EXTENSION_NAME})

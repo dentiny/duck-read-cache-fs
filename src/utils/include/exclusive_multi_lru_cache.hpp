@@ -1,9 +1,11 @@
-// ExclusiveLruCache is a LRU cache with all entries exclusive, which pops out at `GetAndPop` operation.
+// ExclusiveMultiLruCache is a LRU cache with all entries exclusive, which
+// - pops out at `GetAndPop` operation;
+// - allows multiple values for one single key.
 //
 // It's made for values which indicate exclusive resource, for example, file handle.
 //
 // Example usage:
-// ExclusiveLruCache<string, FileHandle> cache{/*max_entries_p=*/1, /*timeout_millisec_p=*/1000};
+// ExclusiveMultiLruCache<string, FileHandle> cache{/*max_entries_p=*/1, /*timeout_millisec_p=*/1000};
 // cache.Put("hello", make_unique<FileHandle>(handle));
 // auto cached_handle = cache.GetAndPop("hello");
 
@@ -11,6 +13,7 @@
 
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <list>
 #include <memory>
@@ -30,27 +33,34 @@ namespace duckdb {
 // TODO(hjiang): The most ideal return type is `std::optional<Value>` for `GetAndPop`, but we're still at C++14, so have
 // to use `unique_ptr`.
 template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
-class ExclusiveLruCache {
+class ExclusiveMultiLruCache {
 public:
 	using key_type = Key;
-	using mapped_type = unique_ptr<Val>;
+	using mapped_type = vector<unique_ptr<Val>>;
 	using hasher = KeyHash;
 	using key_equal = KeyEqual;
+
+	struct GetAndPopResult {
+		// Entries evicted due to staleness.
+		vector<unique_ptr<Val>> evicted_items;
+		// The real entry caller could use.
+		unique_ptr<Val> target_item;
+	};
 
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
 	// means no timeout.
-	ExclusiveLruCache(size_t max_entries_p, uint64_t timeout_millisec_p)
+	ExclusiveMultiLruCache(size_t max_entries_p, uint64_t timeout_millisec_p)
 	    : max_entries(max_entries_p), timeout_millisec(timeout_millisec_p) {
 	}
 
 	// Disable copy and move.
-	ExclusiveLruCache(const ExclusiveLruCache &) = delete;
-	ExclusiveLruCache &operator=(const ExclusiveLruCache &) = delete;
+	ExclusiveMultiLruCache(const ExclusiveMultiLruCache &) = delete;
+	ExclusiveMultiLruCache &operator=(const ExclusiveMultiLruCache &) = delete;
 
-	~ExclusiveLruCache() = default;
+	~ExclusiveMultiLruCache() = default;
 
-	// Insert `value` with key `key`. This will replace any previous entry with the same key.
+	// Insert `value` with key `key`, the values with the same key will be kept and evicted first.
 	// Return evicted value if any.
 	//
 	// Reasoning for returning the value back to caller:
@@ -64,91 +74,93 @@ public:
 		    .lru_iterator = lru_list.begin(),
 		};
 		auto key_cref = std::cref(lru_list.front());
-		entry_map[key_cref] = std::move(new_entry);
+		entry_map[key_cref].emplace_back(std::move(new_entry));
+		++cur_entries_num;
 
 		unique_ptr<Val> evicted_val = nullptr;
-		if (max_entries > 0 && lru_list.size() > max_entries) {
+		if (max_entries > 0 && cur_entries_num > max_entries) {
 			const auto &stale_key = lru_list.back();
 			auto iter = entry_map.find(stale_key);
 			D_ASSERT(iter != entry_map.end());
-			evicted_val = std::move(iter->second.value);
-
-			entry_map.erase(iter);
-			lru_list.pop_back();
+			evicted_val = DeleteFirstEntry(iter);
 		}
-
 		return evicted_val;
 	}
 
-	// Delete the entry with key `key`. Return true if the entry was found for `key`, false if the entry was not found.
-	// In both cases, there is no entry with key `key` existed after the call.
-	bool Delete(const Key &key) {
-		auto it = entry_map.find(key);
-		if (it == entry_map.end()) {
-			return false;
-		}
-		DeleteImpl(it);
-		return true;
-	}
-
 	// Look up the entry with key `key` and remove from cache.
-	// Return nullptr if `key` doesn't exist in cache.
-	unique_ptr<Val> GetAndPop(const Key &key) {
+	// If there're multiple values corresponds to the given [key]. the oldest value will be returned.
+	GetAndPopResult GetAndPop(const Key &key) {
+		GetAndPopResult result;
+
 		const auto entry_map_iter = entry_map.find(key);
 		if (entry_map_iter == entry_map.end()) {
-			return nullptr;
+			return result;
 		}
 
-		// Check whether found cache entry is expired or not.
+		// There're multiple entries correspond to the given [key], check whether they're stale one by one.
+		auto &entries = entry_map_iter->second;
 		if (timeout_millisec > 0) {
 			const auto now = GetSteadyNowMilliSecSinceEpoch();
-			if (now - entry_map_iter->second.timestamp > timeout_millisec) {
-				DeleteImpl(entry_map_iter);
-				return nullptr;
+			size_t cur_entries_size = entries.size();
+			while (cur_entries_num > 0) {
+				auto &cur_entry = entries.front();
+				if (now - cur_entry.timestamp > timeout_millisec) {
+					result.evicted_items.emplace_back(DeleteFirstEntry(entry_map_iter));
+					--cur_entries_size;
+					continue;
+				}
+				break;
+			}
+
+			// If there're no left entries correspond to the given [key], we directly return.
+			if (cur_entries_size == 0) {
+				return result;
 			}
 		}
 
-		// Move the value out and delete from LRU cache.
-		unique_ptr<Val> value = std::move(entry_map_iter->second.value);
-		DeleteImpl(entry_map_iter);
-		return value;
-	}
-
-	// Clear the cache.
-	void Clear() {
-		entry_map.clear();
-		lru_list.clear();
-	}
-
-	// Clear cache entry by its key functor.
-	template <typename KeyFilter>
-	void Clear(KeyFilter &&key_filter) {
-		vector<Key> keys_to_delete;
-		for (const auto &key : lru_list) {
-			if (key_filter(key)) {
-				keys_to_delete.emplace_back(key);
-			}
-		}
-		for (const auto &key : keys_to_delete) {
-			Delete(key);
-		}
+		// There're still fresh entry for the given [key].
+		D_ASSERT(!entries.empty());
+		result.target_item = std::move(entries.front().value);
+		DeleteFirstEntry(entry_map_iter);
+		return result;
 	}
 
 	// Clear the cache and get all values, application could perform their processing logic upon these values.
 	vector<unique_ptr<Val>> ClearAndGetValues() {
 		vector<unique_ptr<Val>> values;
-		values.reserve(entry_map.size());
-		for (auto &[_, cur_entry] : entry_map) {
-			values.emplace_back(std::move(cur_entry.value));
+		values.reserve(cur_entries_num);
+		for (auto &[_, entries] : entry_map) {
+			for (auto &cur_entry : entries) {
+				values.emplace_back(std::move(cur_entry.value));
+			}
 		}
 		entry_map.clear();
 		lru_list.clear();
 		return values;
 	}
 
-	// Accessors for cache parameters.
-	size_t MaxEntries() const {
-		return max_entries;
+	// Check invariant:
+	// - the number of entries in the LRU cache (1) = the number of entries in the entry map (2)
+	// - the number of entries in the LRU cache (1) = the number of keys in lru list (3)
+	//
+	// This method iterates all elements in the LRU cache, which is time-consuming; it's supposed to be used in the unit
+	// test and debug assertion.
+	bool Verify() {
+		// Count 2.
+		int entry_map_count = 0;
+		for (const auto &[_, entries] : entry_map) {
+			if (entries.empty()) {
+				return false;
+			}
+			entry_map_count += entries.size();
+		}
+
+		if (entry_map_count != cur_entries_num) {
+			return false;
+		}
+
+		// Count 3.
+		return lru_list.size() == cur_entries_num;
 	}
 
 private:
@@ -166,15 +178,26 @@ private:
 	};
 
 	using KeyConstRef = std::reference_wrapper<const Key>;
-	using EntryMap = std::unordered_map<KeyConstRef, Entry, RefHash<KeyHash>, RefEq<KeyEqual>>;
+	using EntryMap = std::unordered_map<KeyConstRef, std::deque<Entry>, RefHash<KeyHash>, RefEq<KeyEqual>>;
 
-	// Delete key-value pairs indicated by the given entry map iterator [iter] from cache.
-	unique_ptr<Val> DeleteImpl(typename EntryMap::iterator iter) {
-		auto value = std::move(iter->second.value);
-		lru_list.erase(iter->second.lru_iterator);
-		entry_map.erase(iter);
+	// Delete the first entry from the given [iter], return the deleted entry.
+	unique_ptr<Val> DeleteFirstEntry(typename EntryMap::iterator iter) {
+		auto &entries = iter->second;
+		D_ASSERT(!entries.empty());
+
+		auto value = std::move(entries.front().value);
+		lru_list.erase(entries.front().lru_iterator);
+		if (entries.size() == 1) {
+			entry_map.erase(iter);
+		} else {
+			entries.pop_front();
+		}
+		--cur_entries_num;
 		return value;
 	}
+
+	// Current number of entries in the cache.
+	size_t cur_entries_num = 0;
 
 	// The maximum number of entries in the cache. A value of 0 means there is no limit on entry count.
 	const size_t max_entries;
@@ -189,48 +212,43 @@ private:
 	std::list<Key> lru_list;
 };
 
-// Same interfaces as `ExclusiveLruCache`, but all cached values are `const` specified to avoid concurrent updates.
+// Same interfaces as `ExclusiveMultiLruCache`, but all cached values are `const` specified to avoid concurrent updates.
 template <typename K, typename V, typename KeyHash = std::hash<K>, typename KeyEqual = std::equal_to<K>>
-using ExclusiveLruConstCache = ExclusiveLruCache<K, const V, KeyHash, KeyEqual>;
+using ExclusiveLruConstCache = ExclusiveMultiLruCache<K, const V, KeyHash, KeyEqual>;
 
 // Thread-safe implementation.
 template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
-class ThreadSafeExclusiveLruCache {
+class ThreadSafeExclusiveMultiLruCache {
 public:
 	using key_type = Key;
 	using mapped_type = Val;
 	using hasher = KeyHash;
 	using key_equal = KeyEqual;
+	using GetAndPopResult = typename ExclusiveMultiLruCache<Key, Val, KeyHash, KeyEqual>::GetAndPopResult;
 
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
 	// means no timeout.
-	ThreadSafeExclusiveLruCache(size_t max_entries, uint64_t timeout_millisec)
+	ThreadSafeExclusiveMultiLruCache(size_t max_entries, uint64_t timeout_millisec)
 	    : internal_cache(max_entries, timeout_millisec) {
 	}
 
 	// Disable copy and move.
-	ThreadSafeExclusiveLruCache(const ThreadSafeExclusiveLruCache &) = delete;
-	ThreadSafeExclusiveLruCache &operator=(const ThreadSafeExclusiveLruCache &) = delete;
+	ThreadSafeExclusiveMultiLruCache(const ThreadSafeExclusiveMultiLruCache &) = delete;
+	ThreadSafeExclusiveMultiLruCache &operator=(const ThreadSafeExclusiveMultiLruCache &) = delete;
 
-	~ThreadSafeExclusiveLruCache() = default;
+	~ThreadSafeExclusiveMultiLruCache() = default;
 
-	// Insert `value` with key `key`. This will replace any previous entry with the same key.
+	// Insert `value` with key `key`, the values with the same key will be kept and evicted first.
+	// Return evicted value if any.
 	unique_ptr<Val> Put(Key key, unique_ptr<Val> value) {
 		std::lock_guard<std::mutex> lock(mu);
 		return internal_cache.Put(std::move(key), std::move(value));
 	}
 
-	// Delete the entry with key `key`. Return true if the entry was found for `key`, false if the entry was not found.
-	// In both cases, there is no entry with key `key` existed after the call.
-	bool Delete(const Key &key) {
-		std::lock_guard<std::mutex> lock(mu);
-		return internal_cache.Delete(key);
-	}
-
 	// Look up the entry with key `key` and remove from cache.
-	// Return nullptr if `key` doesn't exist in cache.
-	unique_ptr<Val> GetAndPop(const Key &key) {
+	// If there're multiple values corresponds to the given [key]. the oldest value will be returned.
+	GetAndPopResult GetAndPop(const Key &key) {
 		std::unique_lock<std::mutex> lock(mu);
 		return internal_cache.GetAndPop(key);
 	}
@@ -241,31 +259,19 @@ public:
 		return internal_cache.ClearAndGetValues();
 	}
 
-	// Clear the cache.
-	void Clear() {
-		std::lock_guard<std::mutex> lock(mu);
-		internal_cache.Clear();
-	}
-
-	// Clear cache entry by its key functor.
-	template <typename KeyFilter>
-	void Clear(KeyFilter &&key_filter) {
-		std::lock_guard<std::mutex> lock(mu);
-		internal_cache.Clear(std::forward<KeyFilter>(key_filter));
-	}
-
-	// Accessors for cache parameters.
-	size_t MaxEntries() const {
-		return internal_cache.MaxEntries();
+	// Check invariant.
+	bool Verify() {
+		std::unique_lock<std::mutex> lock(mu);
+		return internal_cache.Verify();
 	}
 
 private:
 	std::mutex mu;
-	ExclusiveLruCache<Key, Val, KeyHash, KeyEqual> internal_cache;
+	ExclusiveMultiLruCache<Key, Val, KeyHash, KeyEqual> internal_cache;
 };
 
-// Same interfaces as `ExclusiveLruCache`, but all cached values are `const` specified to avoid concurrent updates.
+// Same interfaces as `ExclusiveMultiLruCache`, but all cached values are `const` specified to avoid concurrent updates.
 template <typename K, typename V, typename KeyHash = std::hash<K>, typename KeyEqual = std::equal_to<K>>
-using ThreadSafeExclusiveLruConstCache = ThreadSafeExclusiveLruCache<K, const V, KeyHash, KeyEqual>;
+using ThreadSafeExclusiveLruConstCache = ThreadSafeExclusiveMultiLruCache<K, const V, KeyHash, KeyEqual>;
 
 } // namespace duckdb
