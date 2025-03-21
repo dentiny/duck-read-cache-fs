@@ -154,11 +154,14 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 		    .path = path,
 		    .flags = flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS,
 		};
-		auto cached_file_handle = file_handle_cache->GetAndPop(key);
-		if (cached_file_handle != nullptr) {
+		auto get_and_pop_res = file_handle_cache->GetAndPop(key);
+		for (auto &cur_val : get_and_pop_res.evicted_items) {
+			cur_val->Close();
+		}
+		if (get_and_pop_res.target_item != nullptr) {
 			GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
 			                                         BaseProfileCollector::CacheAccess::kCacheHit);
-			return make_uniq<CacheFileSystemHandle>(std::move(cached_file_handle), *this);
+			return make_uniq<CacheFileSystemHandle>(std::move(get_and_pop_res.target_item), *this);
 		}
 		GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
 		                                         BaseProfileCollector::CacheAccess::kCacheMiss);

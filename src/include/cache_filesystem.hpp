@@ -7,7 +7,7 @@
 #include "cache_reader_manager.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
-#include "exclusive_lru_cache.hpp"
+#include "exclusive_multi_lru_cache.hpp"
 #include "shared_lru_cache.hpp"
 
 #include <mutex>
@@ -248,8 +248,8 @@ private:
 	unique_ptr<MetadataCache> metadata_cache;
 	// File handle cache, which maps from file name to uncached file handle.
 	// Cache is used here to avoid HEAD HTTP request on read operations.
-	using FileHandleCache =
-	    ThreadSafeExclusiveLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyHash, FileHandleCacheKeyEqual>;
+	using FileHandleCache = ThreadSafeExclusiveMultiLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyHash,
+	                                                         FileHandleCacheKeyEqual>;
 	unique_ptr<FileHandleCache> file_handle_cache;
 };
 
