@@ -126,7 +126,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	// File handle cache configuration
 	//===--------------------------------------------------------------------===//
 
-	// Check and update configurations for metadata cache enablement.
+	// Check and update configurations for file handle cache enablement.
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_enable_file_handle_cache", val);
 	g_enable_file_handle_cache = val.GetValue<bool>();
 
@@ -139,6 +139,25 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		// Check and update cache entry timeout.
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_file_handle_cache_entry_timeout_millisec", val);
 		g_file_handle_cache_entry_timeout_millisec = val.GetValue<uint64_t>();
+	}
+
+	//===--------------------------------------------------------------------===//
+	// Glob cache configuration
+	//===--------------------------------------------------------------------===//
+
+	// Check and update configurations for glob cache enablement.
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_enable_glob_cache", val);
+	g_enable_glob_cache = val.GetValue<bool>();
+
+	// Check and update file handle cache config if enabled.
+	if (g_enable_glob_cache) {
+		// Check and update cache entry size.
+		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_glob_cache_entry_size", val);
+		g_max_glob_cache_entry = val.GetValue<uint64_t>();
+
+		// Check and update cache entry timeout.
+		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_glob_cache_entry_timeout_millisec", val);
+		g_glob_cache_entry_timeout_millisec = val.GetValue<uint64_t>();
 	}
 }
 
@@ -168,6 +187,11 @@ void ResetGlobalConfig() {
 	g_enable_file_handle_cache = DEFAULT_ENABLE_FILE_HANDLE_CACHE;
 	g_max_file_handle_cache_entry = DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY;
 	g_file_handle_cache_entry_timeout_millisec = DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC;
+
+	// Glob cache configuration.
+	g_enable_glob_cache = DEFAULT_ENABLE_GLOB_CACHE;
+	g_max_glob_cache_entry = DEFAULT_MAX_GLOB_CACHE_ENTRY;
+	g_glob_cache_entry_timeout_millisec = DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 	// Reset testing options.
 	g_test_insufficient_disk_space = false;

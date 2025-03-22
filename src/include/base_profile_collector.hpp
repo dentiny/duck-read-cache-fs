@@ -18,6 +18,7 @@ public:
 		kMetadata,   // File metadata.
 		kData,       // File data block.
 		kFileHandle, // File handle.
+		kGlob,		// Glob.
 		kUnknown,
 	};
 	enum class CacheAccess {
@@ -45,6 +46,7 @@ public:
 	    "metadata",
 	    "data",
 	    "file handle",
+		"glob",
 	};
 
 	BaseProfileCollector() = default;

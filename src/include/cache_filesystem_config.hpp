@@ -64,6 +64,12 @@ inline static constexpr size_t DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY = 125;
 // Timeout in milliseconds of cache entries for file handle cache.
 inline static constexpr uint64_t DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
 
+// Max number of cache entries for glob cache.
+inline static constexpr size_t DEFAULT_MAX_GLOB_CACHE_ENTRY = 64;
+
+// Timeout in milliseconds of cache entries for file handle cache.
+inline static constexpr uint64_t DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC = 1800ULL * 1000 /*30min*/;
+
 // Default option for profile type.
 inline NoDestructor<std::string> DEFAULT_PROFILE_TYPE {*NOOP_PROFILE_TYPE};
 
@@ -75,6 +81,9 @@ inline bool DEFAULT_ENABLE_METADATA_CACHE = true;
 
 // Default enable file handle cache.
 inline bool DEFAULT_ENABLE_FILE_HANDLE_CACHE = true;
+
+// Default enable glob cache.
+inline bool DEFAULT_ENABLE_GLOB_CACHE = true;
 
 // Default not ignore SIGPIPE in the extension.
 inline bool DEFAULT_IGNORE_SIGPIPE = false;
@@ -111,6 +120,11 @@ inline idx_t g_metadata_cache_entry_timeout_millisec = DEFAULT_METADATA_CACHE_EN
 inline bool g_enable_file_handle_cache = DEFAULT_ENABLE_FILE_HANDLE_CACHE;
 inline idx_t g_max_file_handle_cache_entry = DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY;
 inline idx_t g_file_handle_cache_entry_timeout_millisec = DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC;
+
+// File glob configuration.
+inline bool g_enable_glob_cache = DEFAULT_ENABLE_GLOB_CACHE;
+inline idx_t g_max_glob_cache_entry = DEFAULT_MAX_GLOB_CACHE_ENTRY;
+inline idx_t g_glob_cache_entry_timeout_millisec = DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 // Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
 // TODO(hjiang): A better is bake configuration into `FileOpener`.

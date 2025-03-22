@@ -219,6 +219,9 @@ private:
 	// Return the actual number of bytes to read.
 	int64_t ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location);
 
+	// Internal implementation for glob operation.
+	vector<string> GlobImpl(const string &path, FileOpener *opener);
+
 	// Initialize cache reader data member, and set to [internal_cache_reader].
 	void SetAndGetCacheReader();
 
@@ -230,6 +233,9 @@ private:
 
 	// Initialize file handle cache.
 	void SetFileHandleCache();
+
+	// Initialize glob cache.
+	void SetGlobCache();
 
 	// Clear file handle cache and close all file handle resource inside.
 	void ClearFileHandleCache();
@@ -255,6 +261,9 @@ private:
 	using FileHandleCache = ThreadSafeExclusiveMultiLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyHash,
 	                                                         FileHandleCacheKeyEqual>;
 	unique_ptr<FileHandleCache> file_handle_cache;
+	// Glob cache, which maps from path to filenames.
+	using GlobCache = ThreadSafeSharedLruConstCache<string, vector<string>>;
+	unique_ptr<GlobCache> glob_cache;
 };
 
 } // namespace duckdb

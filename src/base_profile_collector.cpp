@@ -1,7 +1,6 @@
 #include "base_profile_collector.hpp"
 
 namespace duckdb {
-
 namespace {
 constexpr bool IsNonEmptyString(const char *str) {
 	return str != nullptr && str[0] != '\0';
