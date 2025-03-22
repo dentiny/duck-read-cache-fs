@@ -28,7 +28,7 @@ public:
 
 	// Get status information for all cache entries for the current cache reader. Entries are returned in a random
 	// order.
-	virtual vector<CacheEntryInfo> GetCacheEntriesInfo() const = 0;
+	virtual vector<DataCacheEntryInfo> GetCacheEntriesInfo() const = 0;
 
 	// Clear all cache.
 	virtual void ClearCache() = 0;
@@ -44,6 +44,10 @@ public:
 	void SetProfileCollector(BaseProfileCollector *profile_collector_p) {
 		profile_collector = profile_collector_p;
 		profile_collector->SetCacheReaderType(GetName());
+	}
+
+	BaseProfileCollector *GetProfileCollector() const {
+		return profile_collector;
 	}
 
 	template <class TARGET>

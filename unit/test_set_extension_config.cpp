@@ -65,7 +65,7 @@ TEST_CASE("Test on correct config", "[extension config test]") {
 	REQUIRE(!result->HasError());
 }
 
-TEST_CASE("Test on changing extension config change defaul cache dir path setting", "[extension config test]") {
+TEST_CASE("Test on changing extension config change default cache dir path setting", "[extension config test]") {
 	DuckDB db(nullptr);
 	auto &instance = db.instance;
 	auto &fs = instance->GetFileSystem();

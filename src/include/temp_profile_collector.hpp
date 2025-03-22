@@ -3,6 +3,7 @@
 #pragma once
 
 #include "base_profile_collector.hpp"
+#include "duckdb/common/helper.hpp"
 #include "duckdb/common/profiler.hpp"
 #include "histogram.hpp"
 
@@ -16,13 +17,14 @@ public:
 	TempProfileCollector();
 	~TempProfileCollector() override = default;
 
-	std::string GetOperId() const override;
-	void RecordOperationStart(const std::string &oper) override;
-	void RecordOperationEnd(const std::string &oper) override;
+	std::string GenerateOperId() const override;
+	void RecordOperationStart(IoOperation io_oper, const std::string &oper) override;
+	void RecordOperationEnd(IoOperation io_oper, const std::string &oper) override;
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override;
 	std::string GetProfilerType() override {
-		return TEMP_PROFILE_TYPE;
+		return *TEMP_PROFILE_TYPE;
 	}
+	vector<CacheAccessInfo> GetCacheAccessInfo() const override;
 	void Reset() override;
 	std::pair<std::string, uint64_t> GetHumanReadableStats() override;
 
@@ -32,15 +34,15 @@ private:
 		int64_t start_timestamp = 0;
 	};
 
-	// Maps from operation name to its stats, only records ongoing operations.
-	unordered_map<string, OperationStats> operation_events;
-	// Only records finished operations.
-	Histogram histogram;
+	using OperationStatsMap = unordered_map<string /*oper_id*/, OperationStats>;
+	std::array<OperationStatsMap, kIoOperationCount> operation_events;
+	// Only records finished operations, which maps from io operation to histogram.
+	std::array<unique_ptr<Histogram>, kIoOperationCount> histograms;
 	// Aggregated cache access condition.
-	std::array<uint64_t, 4> cache_access_count {};
+	std::array<uint64_t, kCacheEntityCount * 2 /*for cache hit and miss*/> cache_access_count {};
 	// Latest access timestamp in milliseconds since unix epoch.
 	uint64_t latest_timestamp = 0;
 
-	std::mutex stats_mutex;
+	mutable std::mutex stats_mutex;
 };
 } // namespace duckdb

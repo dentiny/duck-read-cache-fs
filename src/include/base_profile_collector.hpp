@@ -3,6 +3,7 @@
 #include <string>
 #include <utility>
 
+#include "cache_entry_info.hpp"
 #include "cache_filesystem_config.hpp"
 
 namespace duckdb {
@@ -14,12 +15,38 @@ namespace duckdb {
 class BaseProfileCollector {
 public:
 	enum class CacheEntity {
-		kMetadata, // File metadata.
-		kData,     // File data block.
+		kMetadata,   // File metadata.
+		kData,       // File data block.
+		kFileHandle, // File handle.
+		kGlob,       // Glob.
+		kUnknown,
 	};
 	enum class CacheAccess {
 		kCacheHit,
 		kCacheMiss,
+	};
+	enum class IoOperation {
+		kOpen,
+		kRead,
+		kGlob,
+		kUnknown,
+	};
+	static constexpr auto kCacheEntityCount = static_cast<idx_t>(CacheEntity::kUnknown);
+	static constexpr auto kIoOperationCount = static_cast<idx_t>(IoOperation::kUnknown);
+
+	// Operation names, indexed by operation enums.
+	inline static constexpr std::array<const char *, kIoOperationCount> OPER_NAMES = {
+	    "open",
+	    "read",
+	    "glob",
+	};
+
+	// Cache entity name, indexed by cache entity enum.
+	inline static constexpr std::array<const char *, kCacheEntityCount> CACHE_ENTITY_NAMES = {
+	    "metadata",
+	    "data",
+	    "file handle",
+	    "glob",
 	};
 
 	BaseProfileCollector() = default;
@@ -28,15 +55,18 @@ public:
 	BaseProfileCollector &operator=(const BaseProfileCollector &) = delete;
 
 	// Get an ID which uniquely identifies current operation.
-	virtual std::string GetOperId() const = 0;
-	// Record the start of operation [oper].
-	virtual void RecordOperationStart(const std::string &oper) = 0;
-	// Record the finish of operation [oper].
-	virtual void RecordOperationEnd(const std::string &oper) = 0;
+	virtual std::string GenerateOperId() const = 0;
+	// Record the start of operation [io_oper] with operation identifier [oper_id].
+	virtual void RecordOperationStart(IoOperation io_oper, const std::string &oper_id) = 0;
+	// Record the finish of operation [io_oper] with operation identifier [oper_id].
+	virtual void RecordOperationEnd(IoOperation io_oper, const std::string &oper_id) = 0;
 	// Record cache access condition.
 	virtual void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) = 0;
 	// Get profiler type.
 	virtual std::string GetProfilerType() = 0;
+	// Get cache access information.
+	// It's guaranteed that access info are returned in the order of and are size of [CacheEntity].
+	virtual vector<CacheAccessInfo> GetCacheAccessInfo() const = 0;
 	// Set cache reader type.
 	void SetCacheReaderType(std::string cache_reader_type_p) {
 		cache_reader_type = std::move(cache_reader_type_p);
@@ -66,17 +96,25 @@ public:
 	NoopProfileCollector() = default;
 	~NoopProfileCollector() override = default;
 
-	std::string GetOperId() const override {
+	std::string GenerateOperId() const override {
 		return "";
 	}
-	void RecordOperationStart(const std::string &oper) override {
+	void RecordOperationStart(IoOperation io_oper, const std::string &oper_id) override {
 	}
-	void RecordOperationEnd(const std::string &oper) override {
+	void RecordOperationEnd(IoOperation io_oper, const std::string &oper_id) override {
 	}
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {
 	}
 	std::string GetProfilerType() override {
-		return NOOP_PROFILE_TYPE;
+		return *NOOP_PROFILE_TYPE;
+	}
+	vector<CacheAccessInfo> GetCacheAccessInfo() const override {
+		vector<CacheAccessInfo> cache_access_info;
+		cache_access_info.resize(kCacheEntityCount);
+		for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
+			cache_access_info[idx].cache_type = CACHE_ENTITY_NAMES[idx];
+		}
+		return cache_access_info;
 	}
 	void Reset() override {};
 	std::pair<std::string, uint64_t> GetHumanReadableStats() override {

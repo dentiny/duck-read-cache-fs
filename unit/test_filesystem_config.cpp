@@ -38,7 +38,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 
 	// Check noop cache reader.
 	{
-		client_context->config.set_variables["cache_httpfs_type"] = Value(NOOP_CACHE_TYPE);
+		client_context->config.set_variables["cache_httpfs_type"] = Value(*NOOP_CACHE_TYPE);
 		ClientContextFileOpener file_opener {*client_context};
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ, &file_opener);
 		auto *cache_reader = cache_reader_manager.GetCacheReader();
@@ -47,7 +47,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 
 	// Check in-memory cache reader.
 	{
-		client_context->config.set_variables["cache_httpfs_type"] = Value(IN_MEM_CACHE_TYPE);
+		client_context->config.set_variables["cache_httpfs_type"] = Value(*IN_MEM_CACHE_TYPE);
 		ClientContextFileOpener file_opener {*client_context};
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ, &file_opener);
 		auto *cache_reader = cache_reader_manager.GetCacheReader();
@@ -56,7 +56,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 
 	// Check on-disk cache reader.
 	{
-		client_context->config.set_variables["cache_httpfs_type"] = Value(ON_DISK_CACHE_TYPE);
+		client_context->config.set_variables["cache_httpfs_type"] = Value(*ON_DISK_CACHE_TYPE);
 		ClientContextFileOpener file_opener {*client_context};
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ, &file_opener);
 		auto *cache_reader = cache_reader_manager.GetCacheReader();
@@ -72,7 +72,7 @@ TEST_CASE("Filesystem profile config test", "[filesystem config]") {
 
 	// Check noop profiler.
 	{
-		client_context->config.set_variables["cache_httpfs_profile_type"] = Value(NOOP_PROFILE_TYPE);
+		client_context->config.set_variables["cache_httpfs_profile_type"] = Value(*NOOP_PROFILE_TYPE);
 		ClientContextFileOpener file_opener {*client_context};
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ, &file_opener);
 		auto *profiler = cache_fs->GetProfileCollector();
@@ -81,7 +81,7 @@ TEST_CASE("Filesystem profile config test", "[filesystem config]") {
 
 	// Check temp cache reader.
 	{
-		client_context->config.set_variables["cache_httpfs_profile_type"] = Value(TEMP_PROFILE_TYPE);
+		client_context->config.set_variables["cache_httpfs_profile_type"] = Value(*TEMP_PROFILE_TYPE);
 		ClientContextFileOpener file_opener {*client_context};
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ, &file_opener);
 		auto *profiler = cache_fs->GetProfileCollector();

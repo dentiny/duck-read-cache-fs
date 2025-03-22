@@ -32,9 +32,9 @@ struct CacheReadChunk {
 	idx_t bytes_to_copy = 0;
 
 	// Copy from [content] to application-provided buffer.
-	void CopyBufferToRequestedMemory(const ImmutableBuffer &buffer) {
+	void CopyBufferToRequestedMemory(const std::string &content) {
 		const idx_t delta_offset = requested_start_offset - aligned_start_offset;
-		std::memmove(requested_start_addr, const_cast<char *>(buffer.data()) + delta_offset, bytes_to_copy);
+		std::memmove(requested_start_addr, const_cast<char *>(content.data()) + delta_offset, bytes_to_copy);
 	}
 };
 
@@ -42,7 +42,9 @@ struct CacheReadChunk {
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                        idx_t requested_bytes_to_read, idx_t file_size) {
-	std::call_once(cache_init_flag, [this]() { cache = make_uniq<InMemCache>(g_max_in_mem_cache_block_count); });
+	std::call_once(cache_init_flag, [this]() {
+		cache = make_uniq<InMemCache>(g_max_in_mem_cache_block_count, g_in_mem_cache_block_timeout_millisec);
+	});
 
 	const idx_t block_size = g_cache_block_size;
 	const idx_t aligned_start_offset = requested_start_offset / block_size * block_size;
@@ -113,46 +115,46 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			block_key.blk_size = cache_read_chunk.chunk_size;
 			auto cache_block = cache->Get(block_key);
 
-			if (!cache_block.empty()) {
+			if (cache_block != nullptr) {
 				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 				                                     BaseProfileCollector::CacheAccess::kCacheHit);
-				cache_read_chunk.CopyBufferToRequestedMemory(cache_block);
+				cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
 				return;
 			}
 
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
 			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 			                                     BaseProfileCollector::CacheAccess::kCacheMiss);
-			ImmutableBuffer content {cache_read_chunk.chunk_size};
+			auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
 			auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
 
-			const string oper_id = profile_collector->GetOperId();
-			profile_collector->RecordOperationStart(oper_id);
+			const string oper_id = profile_collector->GenerateOperId();
+			profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kRead, oper_id);
 			internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, const_cast<char *>(content.data()),
-			                          content.size(), cache_read_chunk.aligned_start_offset);
-			profile_collector->RecordOperationEnd(oper_id);
+			                          content.length(), cache_read_chunk.aligned_start_offset);
+			profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kRead, oper_id);
 
 			// Copy to destination buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory(content);
 
 			// Attempt to cache file locally.
-			cache->Put(std::move(block_key), std::move(content));
+			cache->Put(std::move(block_key), make_shared_ptr<std::string>(std::move(content)));
 		});
 	}
 	io_threads.Wait();
 }
 
-vector<CacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
+vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
 	if (cache == nullptr) {
 		return {};
 	}
 
 	auto keys = cache->Keys();
-	vector<CacheEntryInfo> cache_entries_info;
+	vector<DataCacheEntryInfo> cache_entries_info;
 	cache_entries_info.reserve(keys.size());
 	for (auto &cur_key : keys) {
-		cache_entries_info.emplace_back(CacheEntryInfo {
+		cache_entries_info.emplace_back(DataCacheEntryInfo {
 		    .cache_filepath = "(no disk cache)",
 		    .remote_filename = std::move(cur_key.fname),
 		    .start_offset = cur_key.start_off,

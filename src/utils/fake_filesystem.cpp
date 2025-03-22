@@ -1,10 +1,11 @@
 #include "duckdb/common/string_util.hpp"
 #include "fake_filesystem.hpp"
+#include "no_destructor.hpp"
 
 namespace duckdb {
 
 namespace {
-const std::string FAKE_FILESYSTEM_PREFIX = "/tmp/cache_httpfs_fake_filesystem";
+const NoDestructor<std::string> FAKE_FILESYSTEM_PREFIX {"/tmp/cache_httpfs_fake_filesystem"};
 } // namespace
 
 CacheHttpfsFakeFsHandle::CacheHttpfsFakeFsHandle(string path, unique_ptr<FileHandle> internal_file_handle_p,
@@ -13,10 +14,10 @@ CacheHttpfsFakeFsHandle::CacheHttpfsFakeFsHandle(string path, unique_ptr<FileHan
       internal_file_handle(std::move(internal_file_handle_p)) {
 }
 CacheHttpfsFakeFileSystem::CacheHttpfsFakeFileSystem() : local_filesystem(LocalFileSystem::CreateLocal()) {
-	local_filesystem->CreateDirectory(FAKE_FILESYSTEM_PREFIX);
+	local_filesystem->CreateDirectory(*FAKE_FILESYSTEM_PREFIX);
 }
 bool CacheHttpfsFakeFileSystem::CanHandleFile(const string &path) {
-	return StringUtil::StartsWith(path, FAKE_FILESYSTEM_PREFIX);
+	return StringUtil::StartsWith(path, *FAKE_FILESYSTEM_PREFIX);
 }
 
 unique_ptr<FileHandle> CacheHttpfsFakeFileSystem::OpenFile(const string &path, FileOpenFlags flags,

@@ -10,8 +10,8 @@
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
-#include "immutable_buffer.hpp"
 #include "in_mem_cache_block.hpp"
+#include "shared_lru_cache.hpp"
 
 namespace duckdb {
 
@@ -28,11 +28,10 @@ public:
 	void ClearCache(const string &fname) override;
 	void ReadAndCache(FileHandle &handle, char *buffer, uint64_t requested_start_offset,
 	                  uint64_t requested_bytes_to_read, uint64_t file_size) override;
-	vector<CacheEntryInfo> GetCacheEntriesInfo() const override;
+	vector<DataCacheEntryInfo> GetCacheEntriesInfo() const override;
 
 private:
-	using InMemCache =
-	    ThreadSafeCopiableValLruCache<InMemCacheBlock, ImmutableBuffer, InMemCacheBlockHash, InMemCacheBlockEqual>;
+	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
 
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;

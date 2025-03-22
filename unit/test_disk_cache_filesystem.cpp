@@ -1,7 +1,6 @@
 // Unit test for disk cache filesystem.
 //
-// IO operations are performed in chunks, testing senarios are listed as
-// follows:
+// IO operations are performed in chunks, testing senarios are listed as follows:
 // (1) There're one or more chunks to read;
 // (2) Chunks to read include start, middle and end parts of the file;
 // (3) Bytes to read include partial or complete part of a chunk;
@@ -41,7 +40,7 @@ const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 // Test default directory works for uncached read.
 TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") {
 	// Cleanup default cache directory before test.
-	LocalFileSystem::CreateLocal()->RemoveDirectory(DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	LocalFileSystem::CreateLocal()->RemoveDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
 	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 
 	// Uncached read.
@@ -55,14 +54,14 @@ TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") 
 		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 	}
 
-	REQUIRE(GetFileCountUnder(DEFAULT_ON_DISK_CACHE_DIRECTORY) > 0);
+	REQUIRE(GetFileCountUnder(*DEFAULT_ON_DISK_CACHE_DIRECTORY) > 0);
 }
 
 // One chunk is involved, requested bytes include only "first and last chunk".
 TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhile last chunk",
           "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 26;
-	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
 		ResetGlobalConfig();
@@ -98,7 +97,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhil
 TEST_CASE("Test on disk cache filesystem with requested chunk the first and last chunk",
           "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
 		ResetGlobalConfig();
@@ -134,7 +133,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first and last
 TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle and last chunk",
           "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
 		ResetGlobalConfig();
@@ -170,7 +169,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle 
 // doesn't involve the end of the file.
 TEST_CASE("Test on disk cache filesystem with requested chunk first and last one", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
 		ResetGlobalConfig();
@@ -205,7 +204,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk first and last one
 // Requested chunk involves the end of the file.
 TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
 		ResetGlobalConfig();
@@ -246,7 +245,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", 
 // Requested chunk involves the middle of the file.
 TEST_CASE("Test on disk cache filesystem with requested chunk at middle of file", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
 		ResetGlobalConfig();
@@ -287,7 +286,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at middle of file"
 // All chunks cached locally, later access shouldn't create new cache file.
 TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
 		ResetGlobalConfig();
@@ -367,7 +366,7 @@ TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") 
 	SCOPE_EXIT {
 		ResetGlobalConfig();
 	};
-	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
@@ -410,7 +409,7 @@ TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") 
 
 int main(int argc, char **argv) {
 	// Set global cache type for testing.
-	g_test_cache_type = ON_DISK_CACHE_TYPE;
+	*g_test_cache_type = *ON_DISK_CACHE_TYPE;
 
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
