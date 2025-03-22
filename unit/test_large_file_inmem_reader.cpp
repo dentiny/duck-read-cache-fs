@@ -37,7 +37,7 @@ const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 
 TEST_CASE("Read all bytes in one read operation", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 22; // Intentionally not a divisor of file size.
-	g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
 		ResetGlobalConfig();
@@ -71,7 +71,7 @@ TEST_CASE("Read all bytes in one read operation", "[on-disk cache filesystem tes
 
 int main(int argc, char **argv) {
 	// Set global cache type for testing.
-	g_test_cache_type = IN_MEM_CACHE_TYPE;
+	*g_test_cache_type = *IN_MEM_CACHE_TYPE;
 
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
