@@ -10,8 +10,6 @@
 
 #include "exclusive_multi_lru_cache.hpp"
 
-#include <iostream>
-
 using namespace duckdb; // NOLINT
 
 namespace {

@@ -1,6 +1,7 @@
 // This file defines mock filesystem, which is used for testing.
 // It checks a few things:
 // 1. Whether bytes to read to correct (whether request is correctly chunked and cached).
+// 2. Whether file handles are properly closed and destructed.
 
 #pragma once
 
@@ -8,23 +9,27 @@
 #include "duckdb/common/vector.hpp"
 
 #include <cstdint>
+#include <functional>
+#include <mutex>
 
 namespace duckdb {
 
 class MockFileHandle : public FileHandle {
 public:
-	MockFileHandle(FileSystem &file_system, string path, FileOpenFlags flags);
-	~MockFileHandle() override = default;
-	void Close() override {
-		close_count++;
+	MockFileHandle(FileSystem &file_system, string path, FileOpenFlags flags, std::function<void()> close_callback_p,
+	               std::function<void()> dtor_callback_p);
+	~MockFileHandle() override {
+		D_ASSERT(dtor_callback);
+		dtor_callback();
 	}
-	int64_t GetCloseCount() const {
-		return close_count;
+	void Close() override {
+		D_ASSERT(close_callback);
+		close_callback();
 	}
 
 private:
-	// Number of `Close` invocations.
-	int64_t close_count = 0;
+	std::function<void()> close_callback;
+	std::function<void()> dtor_callback;
 };
 
 class MockFileSystem : public FileSystem {
@@ -34,7 +39,9 @@ public:
 		int64_t bytes_to_read = 0;
 	};
 
-	MockFileSystem() = default;
+	MockFileSystem(std::function<void()> close_callback_p, std::function<void()> dtor_callback_p)
+	    : close_callback(std::move(close_callback_p)), dtor_callback(std::move(dtor_callback_p)) {
+	}
 	~MockFileSystem() override = default;
 
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags, optional_ptr<FileOpener> opener) override;
@@ -52,13 +59,21 @@ public:
 		file_size = file_size_p;
 	}
 	vector<ReadOper> GetSortedReadOperations();
+	uint64_t GetFileOpenInvocation() const {
+		return file_open_invocation;
+	}
 	void ClearReadOperations() {
 		read_operations.clear();
 	}
 
 private:
 	int64_t file_size = 0;
+	std::function<void()> close_callback;
+	std::function<void()> dtor_callback;
+
+	uint64_t file_open_invocation = 0; // Number of `FileOpen` gets called.
 	vector<ReadOper> read_operations;
+	std::mutex mtx;
 };
 
 bool operator<(const MockFileSystem::ReadOper &lhs, const MockFileSystem::ReadOper &rhs);
