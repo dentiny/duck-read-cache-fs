@@ -243,13 +243,13 @@ static void LoadInternal(DatabaseInstance &instance) {
 
 	// Glob cache config.
 	config.AddExtensionOption("cache_httpfs_enable_glob_cache",
-		"Whether glob cache is enable for cache filesystem. By default enabled.",
-		LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_GLOB_CACHE);
-config.AddExtensionOption("cache_httpfs_glob_cache_entry_size", "Max cache size for glob cache.",
-		LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_GLOB_CACHE_ENTRY));
-config.AddExtensionOption("cache_httpfs_glob_cache_entry_timeout_millisec",
-		"Cache entry timeout in milliseconds for glob cache.", LogicalTypeId::UBIGINT,
-		Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC));
+	                          "Whether glob cache is enable for cache filesystem. By default enabled.",
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_GLOB_CACHE);
+	config.AddExtensionOption("cache_httpfs_glob_cache_entry_size", "Max cache size for glob cache.",
+	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_GLOB_CACHE_ENTRY));
+	config.AddExtensionOption("cache_httpfs_glob_cache_entry_timeout_millisec",
+	                          "Cache entry timeout in milliseconds for glob cache.", LogicalTypeId::UBIGINT,
+	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC));
 
 	// Register cache cleanup function for both in-memory and on-disk cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},

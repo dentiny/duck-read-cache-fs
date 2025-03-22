@@ -10,6 +10,7 @@ SELECT * FROM cache_httpfs_cache_access_info_query();
 metadata	0	0
 data	0	0
 file handle	0	0
+glob	0	0
 
 # Start to record profile.
 statement ok
@@ -28,6 +29,7 @@ SELECT * FROM cache_httpfs_cache_access_info_query();
 metadata	2	1
 data	0	1
 file handle	0	1
+glob	0	1
 
 # Query second time should show cache hit.
 statement ok
@@ -39,6 +41,7 @@ SELECT * FROM cache_httpfs_cache_access_info_query();
 metadata	5	1
 data	1	1
 file handle	1	1
+glob	1	1
 
 statement ok
 SELECT cache_httpfs_clear_profile();
@@ -49,3 +52,4 @@ SELECT * FROM cache_httpfs_cache_access_info_query();
 metadata	0	0
 data	0	0
 file handle	0	0
+glob	0	0

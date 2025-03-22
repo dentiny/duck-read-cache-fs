@@ -9,9 +9,4 @@ bool operator<(const DataCacheEntryInfo &lhs, const DataCacheEntryInfo &rhs) {
 	       std::tie(rhs.cache_filepath, rhs.remote_filename, rhs.start_offset, rhs.end_offset, rhs.cache_type);
 }
 
-bool operator<(const CacheAccessInfo &lhs, const CacheAccessInfo &rhs) {
-	return std::tie(lhs.cache_type, lhs.cache_hit_count, lhs.cache_miss_count) <
-	       std::tie(rhs.cache_type, rhs.cache_hit_count, rhs.cache_miss_count);
-}
-
 } // namespace duckdb

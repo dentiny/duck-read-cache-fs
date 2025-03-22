@@ -104,6 +104,9 @@ target_link_libraries(test_in_memory_cache_filesystem ${EXTENSION_NAME})
 add_executable(test_filesystem_utils unit/test_filesystem_utils.cpp)
 target_link_libraries(test_filesystem_utils ${EXTENSION_NAME})
 
+add_executable(test_cache_filesystem unit/test_cache_filesystem.cpp)
+target_link_libraries(test_cache_filesystem ${EXTENSION_NAME})
+
 add_executable(test_histogram unit/test_histogram.cpp)
 target_link_libraries(test_histogram ${EXTENSION_NAME})
 

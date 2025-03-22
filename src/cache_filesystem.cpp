@@ -146,14 +146,13 @@ vector<string> CacheFileSystem::Glob(const string &path, FileOpener *opener) {
 	}
 
 	bool glob_cache_hit = true;
-	auto res = glob_cache->GetOrCreate(path, [this, &path, opener, &glob_cache_hit](const string& /*unused*/) {
+	auto res = glob_cache->GetOrCreate(path, [this, &path, opener, &glob_cache_hit](const string & /*unused*/) {
 		glob_cache_hit = false;
 		auto glob_res = GlobImpl(path, opener);
 		return make_shared_ptr<vector<string>>(std::move(glob_res));
 	});
-	const BaseProfileCollector::CacheAccess cache_access = glob_cache_hit
-	                                                           ? BaseProfileCollector::CacheAccess::kCacheHit
-	                                                           : BaseProfileCollector::CacheAccess::kCacheMiss;
+	const BaseProfileCollector::CacheAccess cache_access =
+	    glob_cache_hit ? BaseProfileCollector::CacheAccess::kCacheHit : BaseProfileCollector::CacheAccess::kCacheMiss;
 	GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kGlob, cache_access);
 	return *res;
 }
