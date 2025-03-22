@@ -153,10 +153,10 @@ TEST_CASE("Test on disk cache filesystem with requested last chunk", "[on-disk c
 
 		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 	}
+	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
 
 	// Second cached read.
 	{
-		REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
 		auto handle = disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 25;
 		const uint64_t bytes_to_read = 1;
@@ -164,8 +164,8 @@ TEST_CASE("Test on disk cache filesystem with requested last chunk", "[on-disk c
 		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
 		                    start_offset);
 		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-		REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
 	}
+	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
 }
 
 // Three blocks involved, which include first, last and middle chunk.
