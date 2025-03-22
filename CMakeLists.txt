@@ -32,7 +32,6 @@ set(EXTENSION_SOURCES
     src/temp_profile_collector.cpp
     src/utils/fake_filesystem.cpp
     src/utils/filesystem_utils.cpp
-    src/utils/immutable_buffer.cpp
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
     duckdb-httpfs/extension/httpfs/create_secret_functions.cpp
@@ -135,9 +134,6 @@ target_link_libraries(test_set_extension_config ${EXTENSION_NAME})
 
 add_executable(test_base_cache_filesystem unit/test_base_cache_filesystem)
 target_link_libraries(test_base_cache_filesystem ${EXTENSION_NAME})
-
-add_executable(test_string_utils unit/test_string_utils)
-target_link_libraries(test_string_utils ${EXTENSION_NAME})
 
 add_executable(test_no_destructor unit/test_no_destructor)
 target_link_libraries(test_no_destructor ${EXTENSION_NAME})
