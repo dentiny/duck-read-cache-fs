@@ -33,6 +33,7 @@ set(EXTENSION_SOURCES
     src/temp_profile_collector.cpp
     src/utils/fake_filesystem.cpp
     src/utils/filesystem_utils.cpp
+    src/utils/mock_filesystem.cpp
     src/utils/string_utils.cpp
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
@@ -140,10 +141,14 @@ target_link_libraries(test_filesystem_config ${EXTENSION_NAME})
 add_executable(test_set_extension_config unit/test_set_extension_config.cpp)
 target_link_libraries(test_set_extension_config ${EXTENSION_NAME})
 
-add_executable(test_base_cache_filesystem unit/test_base_cache_filesystem)
+add_executable(test_base_cache_filesystem unit/test_base_cache_filesystem.cpp)
 target_link_libraries(test_base_cache_filesystem ${EXTENSION_NAME})
 
-add_executable(test_no_destructor unit/test_no_destructor)
+add_executable(test_cache_filesystem_with_mock
+               unit/test_cache_filesystem_with_mock.cpp)
+target_link_libraries(test_cache_filesystem_with_mock ${EXTENSION_NAME})
+
+add_executable(test_no_destructor unit/test_no_destructor.cpp)
 target_link_libraries(test_no_destructor ${EXTENSION_NAME})
 
 # Benchmark
