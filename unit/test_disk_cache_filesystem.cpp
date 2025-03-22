@@ -23,7 +23,7 @@
 #include <utime.h>
 
 using namespace duckdb; // NOLINT
-#include <iostream>
+
 namespace {
 
 constexpr uint64_t TEST_FILE_SIZE = 26;
