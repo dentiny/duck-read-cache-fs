@@ -25,7 +25,6 @@
 
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/vector.hpp"
-#include "map_utils.hpp"
 #include "time_utils.hpp"
 
 namespace duckdb {
@@ -177,8 +176,7 @@ private:
 		typename std::list<Key>::iterator lru_iterator;
 	};
 
-	using KeyConstRef = std::reference_wrapper<const Key>;
-	using EntryMap = std::unordered_map<KeyConstRef, std::deque<Entry>, RefHash<KeyHash>, RefEq<KeyEqual>>;
+	using EntryMap = std::unordered_map<Key, std::deque<Entry>, KeyHash, KeyEqual>;
 
 	// Delete the first entry from the given [iter], return the deleted entry.
 	unique_ptr<Val> DeleteFirstEntry(typename EntryMap::iterator iter) {
