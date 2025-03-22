@@ -96,13 +96,13 @@ TEST_CASE("Test disk cache reader with mock filesystem", "[mock filesystem test]
 	TestReadWithMockFileSystem();
 }
 
-// TEST_CASE("Test in-memory cache reader with mock filesystem", "[mock filesystem test]") {
-// 	*g_test_cache_type = *IN_MEM_CACHE_TYPE;
-// 	g_cache_block_size = TEST_CHUNK_SIZE;
-// 	g_max_file_handle_cache_entry = 1;
-// 	LocalFileSystem::CreateLocal()->RemoveDirectory(*g_on_disk_cache_directory);
-// 	TestReadWithMockFileSystem();
-// }
+TEST_CASE("Test in-memory cache reader with mock filesystem", "[mock filesystem test]") {
+	*g_test_cache_type = *IN_MEM_CACHE_TYPE;
+	g_cache_block_size = TEST_CHUNK_SIZE;
+	g_max_file_handle_cache_entry = 1;
+	LocalFileSystem::CreateLocal()->RemoveDirectory(*g_on_disk_cache_directory);
+	TestReadWithMockFileSystem();
+}
 
 int main(int argc, char **argv) {
 	int result = Catch::Session().run(argc, argv);
