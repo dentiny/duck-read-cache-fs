@@ -80,10 +80,11 @@ void TestReadWithMockFileSystem() {
 
 	// Destructing the cache filesystem cleans file handle cache, which in turns close and destruct all cached file
 	// handles.
+	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 2);
+
 	cache_filesystem = nullptr;
 	REQUIRE(close_invocation == 2);
 	REQUIRE(dtor_invocation == 2);
-	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 2);
 }
 
 } // namespace
