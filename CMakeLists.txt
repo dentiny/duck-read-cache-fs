@@ -33,6 +33,7 @@ set(EXTENSION_SOURCES
     src/temp_profile_collector.cpp
     src/utils/fake_filesystem.cpp
     src/utils/filesystem_utils.cpp
+    src/utils/string_utils.cpp
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
     duckdb-httpfs/extension/httpfs/create_secret_functions.cpp
@@ -112,6 +113,9 @@ target_link_libraries(test_histogram ${EXTENSION_NAME})
 
 add_executable(test_thread_pool unit/test_thread_pool.cpp)
 target_link_libraries(test_thread_pool ${EXTENSION_NAME})
+
+add_executable(test_string_utils unit/test_string_utils.cpp)
+target_link_libraries(test_string_utils ${EXTENSION_NAME})
 
 add_executable(test_shared_lru_cache unit/test_shared_lru_cache.cpp)
 target_link_libraries(test_shared_lru_cache ${EXTENSION_NAME})

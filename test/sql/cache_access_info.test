@@ -2,6 +2,8 @@
 # description: test cache access info
 # group: [cache_httpfs]
 
+# Notice: we don't really test glob cache operation, because HTTP filesystem doesn't support real GLOB.
+
 require cache_httpfs
 
 query III
@@ -29,7 +31,7 @@ SELECT * FROM cache_httpfs_cache_access_info_query();
 metadata	2	1
 data	0	1
 file handle	0	1
-glob	0	1
+glob	0	0
 
 # Query second time should show cache hit.
 statement ok
@@ -41,7 +43,7 @@ SELECT * FROM cache_httpfs_cache_access_info_query();
 metadata	5	1
 data	1	1
 file handle	1	1
-glob	1	1
+glob	0	0
 
 statement ok
 SELECT cache_httpfs_clear_profile();

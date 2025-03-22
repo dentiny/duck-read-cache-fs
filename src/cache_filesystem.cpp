@@ -3,6 +3,7 @@
 #include "disk_cache_reader.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "noop_cache_reader.hpp"
+#include "string_utils.hpp"
 #include "temp_profile_collector.hpp"
 
 namespace duckdb {
@@ -143,6 +144,12 @@ vector<string> CacheFileSystem::Glob(const string &path, FileOpener *opener) {
 	InitializeGlobalConfig(opener);
 	if (glob_cache == nullptr) {
 		return GlobImpl(path, opener);
+	}
+
+	// If it's a string without glob expression, we neither record IO latency, nor place it into cache, otherwise
+	// latency distribution and glob cache will be populated.
+	if (!IsGlobExpression(path)) {
+		return internal_filesystem->Glob(path, opener);
 	}
 
 	bool glob_cache_hit = true;
