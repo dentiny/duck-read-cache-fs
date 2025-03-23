@@ -199,7 +199,10 @@ void ResetGlobalConfig() {
 
 uint64_t GetThreadCountForSubrequests(uint64_t io_request_count) {
 	if (g_max_subrequest_count == 0) {
-		return io_request_count;
+		// Different platforms have different limits on the number of threads, use 1000 as the hard cap, above which
+		// also increases context switch overhead.
+		static constexpr uint64_t MAX_THREAD_COUNT = 1024;
+		return MinValue<uint64_t>(io_request_count, MAX_THREAD_COUNT);
 	}
 	return MinValue<uint64_t>(io_request_count, g_max_subrequest_count);
 }
