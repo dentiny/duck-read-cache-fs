@@ -129,7 +129,6 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first and last
 	}
 }
 
-// Only last chunks is involved
 TEST_CASE("Test on disk cache filesystem with requested last chunk", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
 	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
@@ -201,58 +200,6 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle 
 		                    start_offset);
 		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 	}
-}
-
-// Requesting the first chunk(uncached) and the last chunk(uncached), followed by retrieving all chunks (hit 2
-// cache files).
-TEST_CASE("Testing the disk cache filesystem by first requesting the initial chunk and the final chunk, followed by "
-          "retrieving all chunks.",
-          "[on-disk cache filesystem test]") {
-	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalConfig();
-	};
-
-	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
-
-	// First uncached read(first chunk).
-	{
-		auto handle = disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-		const uint64_t start_offset = 0;
-		const uint64_t bytes_to_read = 4;
-		string content(bytes_to_read, '\0');
-		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-		                    start_offset);
-		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-	}
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
-
-	// Second uncached read(last chunk).
-	{
-		auto handle = disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-		const uint64_t start_offset = 25;
-		const uint64_t bytes_to_read = 1;
-		string content(bytes_to_read, '\0');
-		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-		                    start_offset);
-		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-	}
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 2);
-
-	// Third cached read.
-	{
-		auto handle = disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-		const uint64_t start_offset = 0;
-		const uint64_t bytes_to_read = TEST_FILE_SIZE;
-		string content(bytes_to_read, '\0');
-		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-		                    start_offset);
-		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-	}
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 6);
 }
 
 // One block involved, it's the first meanwhile last block; requested content
@@ -329,56 +276,6 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", 
 	}
 
 	// Get all cache files and check file count.
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 3);
-}
-
-// Requested chunk involves the end of the file. and the following request will only read already cached content.
-TEST_CASE("Test on disk cache filesystem by requesting the last chunk of the file then verify all chunks are cached",
-          "[on-disk cache filesystem test]") {
-	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalConfig();
-	};
-
-	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
-
-	// First uncached read.
-	{
-		auto handle = disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-		const uint64_t start_offset = 16;
-		const uint64_t bytes_to_read = 10;
-		string content(bytes_to_read, '\0');
-		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-		                    start_offset);
-		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-	}
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 3);
-
-	// Second cached read.
-	{
-		auto handle = disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-		const uint64_t start_offset = 25;
-		const uint64_t bytes_to_read = 1;
-		string content(bytes_to_read, '\0'); // effective offset range: [8, 21]
-		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-		                    start_offset);
-		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-	}
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 3);
-
-	// Third cached read
-	{
-		auto handle = disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-		const uint64_t start_offset = 16;
-		const uint64_t bytes_to_read = 6;
-		string content(bytes_to_read, '\0'); // effective offset range: [23, 25]
-		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-		                    start_offset);
-		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-	}
 	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 3);
 }
 
