@@ -218,11 +218,12 @@ using ExclusiveLruConstCache = ExclusiveMultiLruCache<K, const V, KeyHash, KeyEq
 template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
 class ThreadSafeExclusiveMultiLruCache {
 public:
-	using key_type = Key;
-	using mapped_type = Val;
-	using hasher = KeyHash;
-	using key_equal = KeyEqual;
-	using GetAndPopResult = typename ExclusiveMultiLruCache<Key, Val, KeyHash, KeyEqual>::GetAndPopResult;
+	using lru_impl = ExclusiveMultiLruCache<Key, Val, KeyHash, KeyEqual>;
+	using key_type = typename lru_impl::key_type;
+	using mapped_type = typename lru_impl::mapped_type;
+	using hasher = typename lru_impl::hasher;
+	using key_equal = typename lru_impl::key_equal;
+	using GetAndPopResult = typename lru_impl::GetAndPopResult;
 
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0

@@ -28,7 +28,7 @@ template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typenam
 class SharedLruCache {
 public:
 	using key_type = Key;
-	using mapped_type = Val;
+	using mapped_type = shared_ptr<Val>;
 	using hasher = KeyHash;
 	using key_equal = KeyEqual;
 
@@ -176,10 +176,11 @@ using SharedLruConstCache = SharedLruCache<K, const V, KeyHash, KeyEqual>;
 template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
 class ThreadSafeSharedLruCache {
 public:
-	using key_type = Key;
-	using mapped_type = Val;
-	using hasher = KeyHash;
-	using key_equal = KeyEqual;
+	using lru_impl = SharedLruCache<Key, Val, KeyHash, KeyEqual>;
+	using key_type = typename lru_impl::key_type;
+	using mapped_type = typename lru_impl::mapped_type;
+	using hasher = typename lru_impl::hasher;
+	using key_equal = typename lru_impl::key_equal;
 
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
