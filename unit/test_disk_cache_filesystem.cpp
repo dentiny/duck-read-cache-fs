@@ -129,7 +129,8 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first and last
 	}
 }
 
-TEST_CASE("Test on disk cache filesystem with requested last chunk", "[on-disk cache filesystem test]") {
+TEST_CASE("Test on disk cache filesystem with request for the last part of the file",
+          "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
 	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
 	g_cache_block_size = test_block_size;
