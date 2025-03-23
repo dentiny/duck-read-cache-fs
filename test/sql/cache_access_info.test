@@ -55,3 +55,40 @@ metadata	0	0
 data	0	0
 file handle	0	0
 glob	0	0
+
+# Disable all non data cache fron now on.
+statement ok
+SET cache_httpfs_enable_metadata_cache=false;
+
+statement ok
+SET cache_httpfs_enable_glob_cache=false;
+
+statement ok
+SET cache_httpfs_enable_file_handle_cache=false;
+
+statement ok
+SET cache_httpfs_type='noop';
+
+# After disabling cache, uncached read first time.
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+query III
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	0	0
+data	0	0
+file handle	0	0
+glob	0	0
+
+# After disabling cache, uncached read second time.
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+query III
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	0	0
+data	0	0
+file handle	0	0
+glob	0	0

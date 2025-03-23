@@ -18,12 +18,18 @@ FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
 }
 
 CacheFileSystemHandle::~CacheFileSystemHandle() {
+	// For read file handles, we place them back to file handle cache if file handle enabled.
 	if (flags.OpenForReading()) {
 		auto &cache_filesystem = file_system.Cast<CacheFileSystem>();
+		if (cache_filesystem.file_handle_cache == nullptr) {
+			return;
+		}
+
 		CacheFileSystem::FileHandleCacheKey cache_key {
 		    .path = GetPath(),
 		    .flags = GetFlags() | FileFlags::FILE_FLAGS_PARALLEL_ACCESS,
 		};
+
 		// Reset file handle state (i.e. file offset) before placing into cache.
 		internal_file_handle->Reset();
 		auto evicted_handle =
