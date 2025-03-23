@@ -1,0 +1,28 @@
+# name: test/sql/insufficient_disk_space.test
+# description: test cache_httpfs behavior when there's no sufficent disk space for disk cache reader
+# group: [cache_httpfs]
+
+require cache_httpfs
+
+statement ok
+SET cache_httpfs_type='on_disk';
+
+# Set requires disk space to be max value of uint64_t, which means we cannot leverage disk cache
+statement ok
+SET cache_httpfs_min_disk_bytes_for_cache=18446744073709551615
+
+statement ok
+SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_cache';
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+query I
+SELECT COUNT(*) FROM glob('/tmp/duckdb_cache_httpfs_cache/*');
+----
+0

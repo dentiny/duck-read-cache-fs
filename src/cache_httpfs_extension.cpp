@@ -48,7 +48,8 @@ static void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vec
 	result.Reference(Value(SUCCESS));
 }
 
-static void GetOnDiskCacheSize(const DataChunk &args, ExpressionState &state, Vector &result) {
+// Get on-disk data cache file size for all cache filesystems.
+static void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 
 	int64_t total_cache_size = 0;
@@ -274,10 +275,10 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                                              /*return_type=*/LogicalTypeId::BOOLEAN, WrapCacheFileSystem);
 	ExtensionUtil::RegisterFunction(instance, wrap_cache_filesystem_function);
 
-	// Register on-disk cache file size stat function.
-	ScalarFunction get_cache_size_function("cache_httpfs_get_cache_size", /*arguments=*/ {},
-	                                       /*return_type=*/LogicalType::BIGINT, GetOnDiskCacheSize);
-	ExtensionUtil::RegisterFunction(instance, get_cache_size_function);
+	// Register on-disk data cache file size stat function.
+	ScalarFunction get_ondisk_data_cache_size_function("cache_httpfs_get_ondisk_data_cache_size", /*arguments=*/ {},
+	                                                   /*return_type=*/LogicalType::BIGINT, GetOnDiskDataCacheSize);
+	ExtensionUtil::RegisterFunction(instance, get_ondisk_data_cache_size_function);
 
 	// Register on-disk cache file display.
 	ExtensionUtil::RegisterFunction(instance, GetDataCacheStatusQueryFunc());

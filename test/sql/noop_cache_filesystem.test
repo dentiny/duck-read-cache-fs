@@ -531,7 +531,7 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 
 # Verify no cache if disabled caching.
 query I
-SELECT cache_httpfs_get_cache_size();
+SELECT cache_httpfs_get_ondisk_data_cache_size();
 ----
 0
 
@@ -568,7 +568,7 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 
 # Verify no cache if disabled caching.
 query I
-SELECT cache_httpfs_get_cache_size();
+SELECT cache_httpfs_get_ondisk_data_cache_size();
 ----
 0
 

@@ -1,0 +1,59 @@
+# name: test/sql/insufficient_disk_space.test
+# description: test cache_httpfs behavior when max fanout subrequests number configured
+# group: [cache_httpfs]
+
+require cache_httpfs
+
+statement ok
+SET cache_httpfs_type='noop';
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+statement ok
+SET cache_httpfs_cache_block_size=1;
+
+# Test max fanout subrequests size for a few possible values.
+# //===--------------------------------------------------------------------===//
+# // Unlimited subrequest number
+# //===--------------------------------------------------------------------===//
+statement ok
+SET cache_httpfs_max_fanout_subrequest=0
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+# //===--------------------------------------------------------------------===//
+# // Subrequest number 1, which means no parallelism
+# //===--------------------------------------------------------------------===//
+statement ok
+SET cache_httpfs_max_fanout_subrequest=1
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+# //===--------------------------------------------------------------------===//
+# // Subrequest number 10, which means little parallelism
+# //===--------------------------------------------------------------------===//
+statement ok
+SET cache_httpfs_max_fanout_subrequest=1
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+# //===--------------------------------------------------------------------===//
+# // Subrequest number 200, which means large parallelism
+# //===--------------------------------------------------------------------===//
+statement ok
+SET cache_httpfs_max_fanout_subrequest=200
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
