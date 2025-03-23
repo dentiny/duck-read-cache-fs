@@ -1,7 +1,6 @@
 // Unit test for disk cache filesystem.
 //
-// IO operations are performed in chunks, testing senarios are listed as
-// follows:
+// IO operations are performed in chunks, testing senarios are listed as follows:
 // (1) There're one or more chunks to read;
 // (2) Chunks to read include start, middle and end parts of the file;
 // (3) Bytes to read include partial or complete part of a chunk;

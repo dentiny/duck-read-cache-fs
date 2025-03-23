@@ -3,6 +3,7 @@
 #include "disk_cache_reader.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "noop_cache_reader.hpp"
+#include "string_utils.hpp"
 #include "temp_profile_collector.hpp"
 
 namespace duckdb {
@@ -47,6 +48,16 @@ void CacheFileSystem::SetMetadataCache() {
 	}
 	if (metadata_cache == nullptr) {
 		metadata_cache = make_uniq<MetadataCache>(g_max_metadata_cache_entry, g_metadata_cache_entry_timeout_millisec);
+	}
+}
+
+void CacheFileSystem::SetGlobCache() {
+	if (!g_enable_glob_cache) {
+		glob_cache = nullptr;
+		return;
+	}
+	if (glob_cache == nullptr) {
+		glob_cache = make_uniq<GlobCache>(g_max_glob_cache_entry, g_glob_cache_entry_timeout_millisec);
 	}
 }
 
@@ -121,13 +132,36 @@ std::string CacheFileSystem::GetName() const {
 	return StringUtil::Format("cache_httpfs with %s", internal_filesystem->GetName());
 }
 
-vector<string> CacheFileSystem::Glob(const string &path, FileOpener *opener) {
-	InitializeGlobalConfig(opener);
+vector<string> CacheFileSystem::GlobImpl(const string &path, FileOpener *opener) {
 	const auto oper_id = profile_collector->GenerateOperId();
 	profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kGlob, oper_id);
 	auto filenames = internal_filesystem->Glob(path, opener);
 	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kGlob, oper_id);
 	return filenames;
+}
+
+vector<string> CacheFileSystem::Glob(const string &path, FileOpener *opener) {
+	InitializeGlobalConfig(opener);
+	if (glob_cache == nullptr) {
+		return GlobImpl(path, opener);
+	}
+
+	// If it's a string without glob expression, we neither record IO latency, nor place it into cache, otherwise
+	// latency distribution and glob cache will be populated.
+	if (!IsGlobExpression(path)) {
+		return internal_filesystem->Glob(path, opener);
+	}
+
+	bool glob_cache_hit = true;
+	auto res = glob_cache->GetOrCreate(path, [this, &path, opener, &glob_cache_hit](const string & /*unused*/) {
+		glob_cache_hit = false;
+		auto glob_res = GlobImpl(path, opener);
+		return make_shared_ptr<vector<string>>(std::move(glob_res));
+	});
+	const BaseProfileCollector::CacheAccess cache_access =
+	    glob_cache_hit ? BaseProfileCollector::CacheAccess::kCacheHit : BaseProfileCollector::CacheAccess::kCacheMiss;
+	GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kGlob, cache_access);
+	return *res;
 }
 
 void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
@@ -140,6 +174,7 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	cache_reader_manager.SetCacheReader();
 	SetMetadataCache();
 	SetFileHandleCache();
+	SetGlobCache();
 	D_ASSERT(profile_collector != nullptr);
 	cache_reader_manager.GetCacheReader()->SetProfileCollector(profile_collector.get());
 }

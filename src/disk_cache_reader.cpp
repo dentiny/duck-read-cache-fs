@@ -37,13 +37,18 @@ struct CacheReadChunk {
 	idx_t chunk_size = 0;
 
 	// Always allocate block size of memory for first and last chunk.
-	// For middle chunks, if local cache is not hit, we also allocate memory for [content] as intermediate buffer.
-	//
-	// TODO(hjiang): For middle chunks, the performance could be improved further: remote IO operation directly read
-	// into [requested_start_addr] then write to local cache file; but for code simplicity we also allocate here.
+	// For middle chunks, [content] is not allocated, and bytes directly reading into [requested_start_addr] to save
+	// memory allocation.
 	string content;
 	// Number of bytes to copy from [content] to requested memory address.
 	idx_t bytes_to_copy = 0;
+
+	// For first or last blocks, [content] is always allocated and bytes are read into [content] first then copied to
+	// user-provided buffer. Otherwise (middle block), bytes are directly read into user-provided buffer to save memory
+	// allocation.
+	char *GetAddressToReadTo() const {
+		return content.empty() ? requested_start_addr : const_cast<char *>(content.data());
+	}
 
 	// Copy from [content] to application-provided buffer.
 	void CopyBufferToRequestedMemory() {
@@ -140,8 +145,8 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 	{
 		auto file_handle = local_filesystem.OpenFile(local_temp_file, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                  FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-		local_filesystem.Write(*file_handle, const_cast<char *>(chunk.content.data()),
-		                       /*nr_bytes=*/chunk.content.length(),
+		local_filesystem.Write(*file_handle, chunk.GetAddressToReadTo(),
+		                       /*nr_bytes=*/chunk.chunk_size,
 		                       /*location=*/0);
 		file_handle->Sync();
 	}
@@ -270,20 +275,16 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
 			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 			                                     BaseProfileCollector::CacheAccess::kCacheMiss);
-			if (cache_read_chunk.content.empty()) {
-				cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
-			}
 			auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 			auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
 
 			const string oper_id = profile_collector->GenerateOperId();
 			profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kRead, oper_id);
-			internal_filesystem->Read(*disk_cache_handle.internal_file_handle,
-			                          const_cast<char *>(cache_read_chunk.content.data()),
-			                          cache_read_chunk.content.length(), cache_read_chunk.aligned_start_offset);
+			internal_filesystem->Read(*disk_cache_handle.internal_file_handle, cache_read_chunk.GetAddressToReadTo(),
+			                          cache_read_chunk.chunk_size, cache_read_chunk.aligned_start_offset);
 			profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kRead, oper_id);
 
-			// Copy to destination buffer.
+			// Copy to destination buffer, if bytes are read into [content] buffer rather than user-provided buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory();
 
 			// Attempt to cache file locally.
