@@ -15,11 +15,13 @@ See the [cache httpfs community extension page](https://community-extensions.duc
 This repository is made as read-only filesystem for remote access, which serves as cache layer above duckdb [httpfs](https://github.com/duckdb/duckdb-httpfs).
 
 Key features:
-- Caching, which adds support for remote file access to improve IO performance and reduce egress cost; several caching options are supported
+- Caching for data, which adds support for remote file access to improve IO performance and reduce egress cost; several caching options and entities are supported
   + in-memory, cache fetched file content into blocks and leverages a LRU cache to evict stale blocks
   + on-disk (default), already read blocks are stored to load filesystem, and evicted on insufficient disk space based on their access timestamp
   + no cache, it's allowed to disable cache and fallback to httpfs without any side effects
 - Parallel read, read operations are split into size-tunable chunks to increase cache hit rate and improve performance
+- Apart from data blocks, the extension also supports cache file handle, file metadata and glob operation
+  + The cache for these entities are enabled by default.
 - Profiling helps us to understand system better, key metrics measured include cache access stats, and IO operation latency, we plan to support multiple types of profile result access; as of now there're three types of profiling
   + temp, all access stats are stored in memory, which could be retrieved via `SELECT cache_httpfs_get_profile();`
   + duckdb (under work), stats are stored in duckdb so we could leverage its rich feature for analysis purpose (i.e. use histogram to understant latency distribution)

@@ -11,6 +11,9 @@ D SET cache_httpfs_profile_type='noop';
 D SET cache_httpfs_profile_type='on_disk';
 -- By default cache files will be found under `/tmp/duckdb_cache_httpfs_cache`.
 D SET cache_httpfs_cache_directory='/tmp/mounted_cache_directory';
+-- Update min required disk space to enable on-disk cache; by default 5% of disk space is required.
+-- Here we set 1GB as the min requried disk size.
+D SET cache_httpfs_min_disk_bytes_for_cache=1000000000;
 ```
 
 - For the extension, filesystem requests are split into multiple sub-requests and aligned with block size for parallel IO requests and cache efficiency.
@@ -55,4 +58,14 @@ Notice the query could be slow.
 - The extension supports not only httpfs, but also ALL filesystems compatible with duckdb.
 ```sql
 D SELECT cache_httpfs_wrap_cache_filesystem('filesystem-name');
+```
+
+- Apart from data block cache, the extension also supports caching other entities, including file handle, file metadata and glob operations. The cache options are turned on by default, users are able to opt off.
+```sql
+D SET cache_httpfs_enable_metadata_cache=false;
+D SET cache_httpfs_enable_glob_cache=false;
+D SET cache_httpfs_enable_file_handle_cache=false;
+
+-- Users are able to check cache access information.
+D SELECT * FROM cache_httpfs_cache_access_info_query();
 ```
