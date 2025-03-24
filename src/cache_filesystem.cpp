@@ -230,7 +230,9 @@ void CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, i
 	ReadImpl(handle, buffer, nr_bytes, location);
 }
 int64_t CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes) {
-	const int64_t bytes_read = ReadImpl(handle, buffer, nr_bytes, handle.SeekPosition());
+	const idx_t offset = handle.SeekPosition();
+	const int64_t bytes_read = ReadImpl(handle, buffer, nr_bytes, offset);
+	Seek(handle, offset + bytes_read);
 	return bytes_read;
 }
 
@@ -281,14 +283,6 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	                          bytes_to_read, location);
 	D_ASSERT(check_buffer == string(const_cast<char *>(check_buffer.data()), bytes_to_read));
 #endif
-
-	// TODO(hjiang): there're some unresolved problems with duckdb's filesystem, for example, it's not clear on `Read`
-	// and `PRead`'s behavior. Related issue:
-	// - https://github.com/duckdb/duckdb/issues/16362
-	// - https://github.com/duckdb/duckdb-httpfs/issues/16
-	//
-	// Here we adhere to httpfs's behavior.
-	Seek(handle, location + bytes_to_read);
 
 	return bytes_to_read;
 }

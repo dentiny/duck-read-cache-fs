@@ -63,7 +63,9 @@ public:
 		ClearFileHandleCache();
 	}
 
+	// Doesn't update file offset (which acts as `PRead` semantics).
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
+	// Does update file offset (which acts as `Read` semantics).
 	int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags, optional_ptr<FileOpener> opener = nullptr);
 	std::string GetName() const override;
@@ -217,6 +219,7 @@ private:
 
 	// Read from [location] on [nr_bytes] for the given [handle] into [buffer].
 	// Return the actual number of bytes to read.
+	// It's worth noting file offset won't be updated.
 	int64_t ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location);
 
 	// Internal implementation for glob operation.
