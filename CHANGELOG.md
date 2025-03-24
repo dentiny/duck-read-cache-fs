@@ -34,6 +34,10 @@
 
 [#151]: https://github.com/dentiny/duck-read-cache-fs/pull/151
 
+- Fix file offset update from httpfs extension upstream change ([#158])
+
+[#158]: https://github.com/dentiny/duck-read-cache-fs/pull/158
+
 ## Improved
 
 - Avoid unnecessary string creation for on-disk cache reader. ([#114])
