@@ -81,6 +81,14 @@ public:
 		return internal_filesystem.get();
 	}
 
+	// Clear all cache inside of cache filesystem (i.e. glob cache, file handle cache, metadata cache).
+	// It's worth noting data block cache won't get deleted.
+	void ClearCache();
+
+	// Clear cache entries inside of cache filesystem (i.e. glob cache, file handle cache, metadata cache).
+	// It's worth noting data block cache won't get deleted.
+	void ClearCache(const std::string &filepath);
+
 	// For other API calls, delegate to [internal_filesystem] to handle.
 	unique_ptr<FileHandle> OpenCompressedFile(unique_ptr<FileHandle> handle, bool write) override {
 		auto file_handle = internal_filesystem->OpenCompressedFile(std::move(handle), write);
@@ -242,6 +250,9 @@ private:
 
 	// Clear file handle cache and close all file handle resource inside.
 	void ClearFileHandleCache();
+
+	// Clear file handle cache by filepath, and close deleted file handle resource inside.
+	void ClearFileHandleCache(const std::string &filepath);
 
 	// Get file handle from cache, or open if it doesn't exist.
 	// Return cached file handle.

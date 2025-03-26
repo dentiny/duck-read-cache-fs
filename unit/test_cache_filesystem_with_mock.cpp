@@ -12,6 +12,7 @@ using namespace duckdb; // NOLINT
 
 namespace {
 const std::string TEST_FILENAME = "filename";
+const std::string TEST_GLOB_NAME = "*"; // Need to contain glob characters.
 constexpr int64_t TEST_FILESIZE = 26;
 constexpr int64_t TEST_CHUNK_SIZE = 5;
 
@@ -48,6 +49,9 @@ void TestReadWithMockFileSystem() {
 			REQUIRE(read_operations[idx].bytes_to_read ==
 			        MinValue<int64_t>(TEST_CHUNK_SIZE, TEST_FILESIZE - idx * TEST_CHUNK_SIZE));
 		}
+
+		// Glob operation.
+		REQUIRE(cache_filesystem->Glob(TEST_GLOB_NAME).empty());
 	}
 
 	// Cache read.
@@ -70,6 +74,9 @@ void TestReadWithMockFileSystem() {
 		auto read_operations = mock_filesystem_ptr->GetSortedReadOperations();
 		REQUIRE(read_operations.empty());
 
+		// Glob operation.
+		REQUIRE(cache_filesystem->Glob(TEST_GLOB_NAME).empty());
+
 		// [handle] and [another_handle] go out of scope and place back to file handle, but due to insufficient capacity
 		// only one of them will be cached and another one closed and destructed.
 	}
@@ -77,6 +84,7 @@ void TestReadWithMockFileSystem() {
 	// One of the file handles resides in cache, another one gets closed and destructed.
 	REQUIRE(close_invocation == 1);
 	REQUIRE(dtor_invocation == 1);
+	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 1);
 
 	// Destructing the cache filesystem cleans file handle cache, which in turns close and destruct all cached file
 	// handles.
@@ -103,6 +111,52 @@ TEST_CASE("Test in-memory cache reader with mock filesystem", "[mock filesystem 
 	g_max_file_handle_cache_entry = 1;
 	LocalFileSystem::CreateLocal()->RemoveDirectory(*g_on_disk_cache_directory);
 	TestReadWithMockFileSystem();
+}
+
+TEST_CASE("Test clear cache", "[mock filesystem test]") {
+	g_max_file_handle_cache_entry = 1;
+
+	uint64_t close_invocation = 0;
+	uint64_t dtor_invocation = 0;
+	auto close_callback = [&close_invocation]() {
+		++close_invocation;
+	};
+	auto dtor_callback = [&dtor_invocation]() {
+		++dtor_invocation;
+	};
+
+	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_callback), std::move(dtor_callback));
+	mock_filesystem->SetFileSize(TEST_FILESIZE);
+	auto *mock_filesystem_ptr = mock_filesystem.get();
+	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(mock_filesystem));
+
+	auto perform_io_operation = [&]() {
+		auto handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		REQUIRE(cache_filesystem->Glob(TEST_GLOB_NAME).empty());
+	};
+
+	// Uncached IO operations.
+	perform_io_operation();
+	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 1);
+	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 1);
+
+	// Clear cache and perform IO operations.
+	cache_filesystem->ClearCache();
+	perform_io_operation();
+	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 2);
+	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 2);
+
+	// Clear cache by filepath and perform IO operation.
+	cache_filesystem->ClearCache(TEST_FILENAME);
+	cache_filesystem->ClearCache(TEST_GLOB_NAME);
+	perform_io_operation();
+	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 3);
+	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 3);
+
+	// Retry one cached IO operation.
+	perform_io_operation();
+	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 3);
+	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 3);
 }
 
 int main(int argc, char **argv) {
