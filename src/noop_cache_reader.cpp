@@ -1,5 +1,6 @@
-#include "cache_filesystem.hpp"
 #include "noop_cache_reader.hpp"
+
+#include "cache_filesystem.hpp"
 
 namespace duckdb {
 

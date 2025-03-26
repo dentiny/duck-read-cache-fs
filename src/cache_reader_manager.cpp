@@ -1,5 +1,6 @@
-#include "base_cache_reader.hpp"
 #include "cache_reader_manager.hpp"
+
+#include "base_cache_reader.hpp"
 #include "disk_cache_reader.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "noop_cache_reader.hpp"
@@ -7,8 +8,8 @@
 namespace duckdb {
 
 /*static*/ CacheReaderManager &CacheReaderManager::Get() {
-	static CacheReaderManager cache_reader_manager {};
-	return cache_reader_manager;
+	static auto *cache_reader_manager = new CacheReaderManager();
+	return *cache_reader_manager;
 }
 
 void CacheReaderManager::InitializeDiskCacheReader() {

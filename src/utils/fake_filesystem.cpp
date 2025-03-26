@@ -1,5 +1,6 @@
-#include "duckdb/common/string_util.hpp"
 #include "fake_filesystem.hpp"
+
+#include "duckdb/common/string_util.hpp"
 #include "no_destructor.hpp"
 
 namespace duckdb {

@@ -1,9 +1,10 @@
 #define DUCKDB_EXTENSION_MAIN
 
+#include "cache_httpfs_extension.hpp"
+
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_ref_registry.hpp"
-#include "cache_httpfs_extension.hpp"
 #include "cache_reader_manager.hpp"
 #include "cache_status_query_function.hpp"
 #include "crypto.hpp"

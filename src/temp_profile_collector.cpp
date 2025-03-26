@@ -1,5 +1,6 @@
-#include "duckdb/common/types/uuid.hpp"
 #include "temp_profile_collector.hpp"
+
+#include "duckdb/common/types/uuid.hpp"
 #include "utils/include/no_destructor.hpp"
 #include "utils/include/time_utils.hpp"
 

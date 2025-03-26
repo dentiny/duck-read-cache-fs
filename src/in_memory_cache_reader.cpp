@@ -1,8 +1,9 @@
-#include "duckdb/common/thread.hpp"
+#include "in_memory_cache_reader.hpp"
+
 #include "crypto.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
-#include "in_memory_cache_reader.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/thread_pool.hpp"

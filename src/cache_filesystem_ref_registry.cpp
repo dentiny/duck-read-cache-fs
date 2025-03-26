@@ -5,8 +5,8 @@
 namespace duckdb {
 
 /*static*/ CacheFsRefRegistry &CacheFsRefRegistry::Get() {
-	static CacheFsRefRegistry registry;
-	return registry;
+	static auto *registry = new CacheFsRefRegistry();
+	return *registry;
 }
 
 void CacheFsRefRegistry::Register(CacheFileSystem *fs) {
