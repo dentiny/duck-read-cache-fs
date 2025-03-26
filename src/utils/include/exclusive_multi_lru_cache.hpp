@@ -135,6 +135,33 @@ public:
 		}
 		entry_map.clear();
 		lru_list.clear();
+		cur_entries_num = 0;
+		return values;
+	}
+
+	// Clear the cache entries which matches the given [key_pred] and return all the deleted values.
+	template <typename KeyPred>
+	vector<unique_ptr<Val>> ClearAndGetValues(KeyPred &&key_pred) {
+		vector<Key> keys_to_delete;
+		for (const auto &[key, _] : entry_map) {
+			if (key_pred(key)) {
+				keys_to_delete.emplace_back(key);
+			}
+		}
+
+		vector<unique_ptr<Val>> values;
+		for (const auto &key : keys_to_delete) {
+			auto entry_map_iter = entry_map.find(key);
+			D_ASSERT(entry_map_iter != entry_map.end());
+			auto &entries = entry_map_iter->second;
+			for (auto &cur_entry : entries) {
+				values.emplace_back(std::move(cur_entry.value));
+				lru_list.erase(cur_entry.lru_iterator);
+				--cur_entries_num;
+			}
+			entry_map.erase(entry_map_iter);
+		}
+
 		return values;
 	}
 
@@ -256,6 +283,13 @@ public:
 	vector<unique_ptr<Val>> ClearAndGetValues() {
 		std::unique_lock<std::mutex> lock(mu);
 		return internal_cache.ClearAndGetValues();
+	}
+
+	// Clear the cache entries which matches the given [key_pred] and return all the deleted values.
+	template <typename KeyPred>
+	vector<unique_ptr<Val>> ClearAndGetValues(KeyPred &&key_pred) {
+		std::unique_lock<std::mutex> lock(mu);
+		return internal_cache.ClearAndGetValues(std::forward<KeyPred>(key_pred));
 	}
 
 	// Check invariant.

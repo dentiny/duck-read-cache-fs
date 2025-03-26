@@ -198,6 +198,28 @@ TEST_CASE("Evicted value test", "[exclusive multi-lru test]") {
 	auto values = cache.ClearAndGetValues();
 	REQUIRE(values.size() == 1);
 	REQUIRE(*values[0] == "val3");
+	REQUIRE(cache.Verify());
+}
+
+TEST_CASE("Clear entries with key predicate", "[exclusive multi-lru test]") {
+	using CacheType = ThreadSafeExclusiveMultiLruCache<std::string, std::string>;
+
+	CacheType cache {/*max_entries_p=*/3, /*timeout_millisec_p=*/0};
+	auto evicted = cache.Put("key1", make_uniq<std::string>("val1"));
+	REQUIRE(evicted == nullptr);
+
+	evicted = cache.Put("key1", make_uniq<std::string>("val2"));
+	REQUIRE(evicted == nullptr);
+
+	evicted = cache.Put("key2", make_uniq<std::string>("val3"));
+	REQUIRE(evicted == nullptr);
+
+	// Delete keys with predicate and get values.
+	auto values = cache.ClearAndGetValues([](const std::string &key) { return key == "key1"; });
+	REQUIRE(values.size() == 2);
+	REQUIRE(*values[0] == "val1");
+	REQUIRE(*values[1] == "val2");
+	REQUIRE(cache.Verify());
 }
 
 int main(int argc, char **argv) {
