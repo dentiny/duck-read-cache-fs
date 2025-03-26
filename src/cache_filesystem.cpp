@@ -5,8 +5,6 @@
 #include "noop_cache_reader.hpp"
 #include "temp_profile_collector.hpp"
 
-#include <fstream>
-
 namespace duckdb {
 
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs)
@@ -181,14 +179,6 @@ vector<string> CacheFileSystem::GlobImpl(const string &path, FileOpener *opener)
 
 vector<string> CacheFileSystem::Glob(const string &path, FileOpener *opener) {
 	InitializeGlobalConfig(opener);
-
-	{
-		std::fstream f {"/tmp/debug-glob-cache.log", std::ios::app | std::ios::out};
-		f << "glob cache null ? " << (glob_cache == nullptr) << std::endl;
-		f.flush();
-		f.close();
-	}
-
 	if (glob_cache == nullptr) {
 		return GlobImpl(path, opener);
 	}
