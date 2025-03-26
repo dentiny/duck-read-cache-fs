@@ -1,0 +1,72 @@
+# name: test/sql/clear_cache.test
+# description: test SQL queries with cache cleared
+# group: [cache_httpfs]
+
+require cache_httpfs
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+# Cannot use on-disk cache, because it doesn't support clear cache by filepath.
+statement ok
+SET cache_httpfs_type='in_mem';
+
+# Start to record profile.
+statement ok
+SET cache_httpfs_profile_type='temp';
+
+# ==========================
+# Uncached query
+# ==========================
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+query III
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	2	1
+data	0	1
+file handle	0	1
+glob	0	0
+
+# ==========================
+# Clear all cache
+# ==========================
+# Clear all cache and re-execute the query.
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+query III
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	4	2
+data	0	2
+file handle	0	2
+glob	0	0
+
+# ==========================
+# Clear cache by filepath
+# ==========================
+# Clear cache key-ed by the filepath and re-execute the query.
+statement ok
+SELECT cache_httpfs_clear_cache_for_file('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+query III
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	6	3
+data	0	3
+file handle	0	3
+glob	0	0

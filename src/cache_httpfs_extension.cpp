@@ -30,8 +30,14 @@ static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector 
 	local_filesystem->RemoveDirectory(*g_on_disk_cache_directory);
 	local_filesystem->CreateDirectory(*g_on_disk_cache_directory);
 
-	// Clear cache for all initialized cache readers.
+	// Clear data block cache for all initialized cache readers.
 	CacheReaderManager::Get().ClearCache();
+
+	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
+	auto cache_filesystem_instances = CacheFsRefRegistry::Get().GetAllCacheFs();
+	for (auto *cur_cache_fs : cache_filesystem_instances) {
+		cur_cache_fs->ClearCache();
+	}
 
 	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
@@ -39,10 +45,16 @@ static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector 
 
 static void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
 	D_ASSERT(args.ColumnCount() == 1);
-	const string fname = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
+	const string filepath = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
-	// Clear cache on the given [fname] for all initialized filesystems.
-	CacheReaderManager::Get().ClearCache(fname);
+	// Clear data block cache on the given [fname] for all initialized filesystems.
+	CacheReaderManager::Get().ClearCache(filepath);
+
+	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
+	auto cache_filesystem_instances = CacheFsRefRegistry::Get().GetAllCacheFs();
+	for (auto *cur_cache_fs : cache_filesystem_instances) {
+		cur_cache_fs->ClearCache(filepath);
+	}
 
 	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
