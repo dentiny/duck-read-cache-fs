@@ -15,6 +15,9 @@ format-all: format
 test_unit: all
 	find build/release/extension/cache_httpfs/ -type f -name "test*" -not -name "*.o" -not -name "*.cpp" -not -name "*.d" -exec {} \;
 
+test_reldebug_unit: all
+	find build/reldebug/extension/cache_httpfs/ -type f -name "test*" -not -name "*.o" -not -name "*.cpp" -not -name "*.d" -exec {} \;
+
 test_debug_unit: debug
 	find build/debug/extension/cache_httpfs/ -type f -name "test*" -not -name "*.o" -not -name "*.cpp" -not -name "*.d" -exec {} \;
 
