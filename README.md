@@ -32,7 +32,8 @@ Key features:
 
 Caveat:
 - The extension is implemented for object storage, which is expected to be read-heavy workload and (mostly) immutable, so it only supports read cache (at the moment), cache won't be cleared on write operation for the same object.
-  We provide workaround for overwrite -- user could call `cache_httpfs_clear_cache` to delete all cache content, and `cache_httpfs_clear_cache_for_file` for a certain object.
+  + We provide workaround for overwrite -- user could call `cache_httpfs_clear_cache` to delete all cache content, and `cache_httpfs_clear_cache_for_file` for a certain object.
+  + All types of cache provides eventual consistency guarantee, which gets evicted after a tunable timeout.
 - Filesystem requests are split into multiple sub-requests and aligned with block size for parallel IO requests and cache efficiency, so for small requests (i.e. read 1 byte) could suffer read amplification.
   A workaround for reducing amplification is to tune down block size via `cache_httpfs_cache_block_size` or fallback to native httpfs.
 

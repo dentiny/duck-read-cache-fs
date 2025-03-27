@@ -216,6 +216,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	    LogicalTypeId::BOOLEAN, DEFAULT_IGNORE_SIGPIPE);
 
 	// On disk cache config.
+	// TODO(hjiang): Add a new configurable for on-disk cache staleness.
 	config.AddExtensionOption("cache_httpfs_cache_directory", "The disk cache directory that stores cached data",
 	                          LogicalType::VARCHAR, *DEFAULT_ON_DISK_CACHE_DIRECTORY);
 	config.AddExtensionOption("cache_httpfs_min_disk_bytes_for_cache",
@@ -265,7 +266,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                          "Cache entry timeout in milliseconds for glob cache.", LogicalTypeId::UBIGINT,
 	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC));
 
-	// Register cache cleanup function for both in-memory and on-disk cache.
+	// Register cache cleanup function for data cache (both in-memory and on-disk cache) and other types of cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},
 	                                    /*return_type=*/LogicalType::BOOLEAN, ClearAllCache);
 	ExtensionUtil::RegisterFunction(instance, clear_cache_function);
