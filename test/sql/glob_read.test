@@ -21,11 +21,11 @@ SELECT * FROM read_csv_auto(['https://github.com/duckdb/duckdb/raw/refs/heads/v1
 ----
 1	2	3	NULL
 3	4	5	NULL
-4	5	6	NULL
-test	88	NULL	2020-12-30 00:25:58.745232+00
-8cb123cb8	90	NULL	2020-12-30 01:25:58.745232+00
 34fd321	91	NULL	2020-12-30 02:25:58.745232+00
+4	5	6	NULL
+8cb123cb8	90	NULL	2020-12-30 01:25:58.745232+00
 fg5391jn4	92	NULL	2020-12-30 03:25:58.745232+00
+test	88	NULL	2020-12-30 00:25:58.745232+00
 
 query IIIII
 SELECT * FROM cache_httpfs_cache_status_query() ORDER BY remote_filename;
@@ -39,11 +39,11 @@ SELECT * FROM read_csv_auto(['https://github.com/duckdb/duckdb/raw/refs/heads/v1
 ----
 1	2	3	NULL
 3	4	5	NULL
-4	5	6	NULL
-test	88	NULL	2020-12-30 00:25:58.745232+00
-8cb123cb8	90	NULL	2020-12-30 01:25:58.745232+00
 34fd321	91	NULL	2020-12-30 02:25:58.745232+00
+4	5	6	NULL
+8cb123cb8	90	NULL	2020-12-30 01:25:58.745232+00
 fg5391jn4	92	NULL	2020-12-30 03:25:58.745232+00
+test	88	NULL	2020-12-30 00:25:58.745232+00
 
 # Clear cache after test.
 statement ok
