@@ -1,0 +1,80 @@
+# name: test/sql/glob_read.test
+# description: test cached_fs read multiple files
+# group: [cache_httpfs]
+
+require cache_httpfs
+
+require parquet
+
+statement ok
+SET cache_httpfs_type='on_disk';
+
+
+##### parquet read test ##### 
+statement ok
+SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_cache';
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+query I
+SELECT COUNT(*) FROM cache_httpfs_cache_status_query();
+----
+0
+
+# Test uncached query.
+query II
+SELECT * FROM read_parquet(['https://github.com/duckdb/duckdb/raw/refs/heads/main/data/parquet-testing/glob/t1.parquet', 'https://github.com/duckdb/duckdb/raw/refs/heads/main/data/parquet-testing/glob/t2.parquet']);
+----
+1	a
+2	b
+
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
+----
+/tmp/duckdb_cache_httpfs_cache/68f955900b31820a453522ed37701392eb000958308950e3bd7c8608ef1d4f03-t1.parquet-0-229	t1.parquet	0	229	on-disk
+/tmp/duckdb_cache_httpfs_cache/a9ee6c8da0ccbb6d85c5b28f154b4dea806e9f5e47090d1528822bc43f63622e-t2.parquet-0-229	t2.parquet	0	229	on-disk
+
+# Test cached query.
+query II
+SELECT * FROM read_parquet(['https://github.com/duckdb/duckdb/raw/refs/heads/main/data/parquet-testing/glob/t1.parquet', 'https://github.com/duckdb/duckdb/raw/refs/heads/main/data/parquet-testing/glob/t2.parquet']);
+----
+1	a
+2	b
+
+
+##### csv read and union by name test #####
+
+
+statement ok 
+SELECT cache_httpfs_clear_cache();
+
+# Test uncached query.
+query IIII
+SELECT * FROM read_csv_auto(['https://github.com/duckdb/duckdb/raw/refs/heads/main/data/csv/union-by-name/ubn1.csv', 'https://github.com/duckdb/duckdb/raw/refs/heads/main/data/csv/union-by-name/ubn2.csv'] , union_by_name = true);
+----
+1	2	3	NULL
+3	4	5	NULL
+4	5	6	NULL
+test	88	NULL	2020-12-30 00:25:58.745232+00
+8cb123cb8	90	NULL	2020-12-30 01:25:58.745232+00
+34fd321	91	NULL	2020-12-30 02:25:58.745232+00
+fg5391jn4	92	NULL	2020-12-30 03:25:58.745232+00
+
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
+----
+/tmp/duckdb_cache_httpfs_cache/54e37fc7de438ca2b5033b494caff03672a100dfb45ab01e436a6f4b9761d406-ubn1.csv-0-23	ubn1.csv	0	23	on-disk
+/tmp/duckdb_cache_httpfs_cache/a62b4ab5259ff53233fd25f97c8d20a95c5f920ce2bc0d74d547fdadc17692ab-ubn2.csv-0-171	ubn2.csv	0	171	on-disk
+
+# Test cached query.
+query IIII
+SELECT * FROM read_csv_auto(['https://github.com/duckdb/duckdb/raw/refs/heads/main/data/csv/union-by-name/ubn1.csv', 'https://github.com/duckdb/duckdb/raw/refs/heads/main/data/csv/union-by-name/ubn2.csv'] , union_by_name = true);
+----
+1	2	3	NULL
+3	4	5	NULL
+4	5	6	NULL
+test	88	NULL	2020-12-30 00:25:58.745232+00
+8cb123cb8	90	NULL	2020-12-30 01:25:58.745232+00
+34fd321	91	NULL	2020-12-30 02:25:58.745232+00
+fg5391jn4	92	NULL	2020-12-30 03:25:58.745232+00
