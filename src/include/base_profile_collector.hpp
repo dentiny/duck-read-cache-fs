@@ -35,19 +35,9 @@ public:
 	static constexpr auto kIoOperationCount = static_cast<idx_t>(IoOperation::kUnknown);
 
 	// Operation names, indexed by operation enums.
-	inline static constexpr std::array<const char *, kIoOperationCount> OPER_NAMES = {
-	    "open",
-	    "read",
-	    "glob",
-	};
-
+	static const std::array<const char *, kIoOperationCount> OPER_NAMES;
 	// Cache entity name, indexed by cache entity enum.
-	inline static constexpr std::array<const char *, kCacheEntityCount> CACHE_ENTITY_NAMES = {
-	    "metadata",
-	    "data",
-	    "file handle",
-	    "glob",
-	};
+	static const std::array<const char *, kCacheEntityCount> CACHE_ENTITY_NAMES;
 
 	BaseProfileCollector() = default;
 	virtual ~BaseProfileCollector() = default;
