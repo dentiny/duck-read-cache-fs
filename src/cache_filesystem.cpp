@@ -306,7 +306,7 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
 	cache_reader_manager.GetCacheReader()->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read,
 	                                                    file_size);
-														
+
 	return bytes_to_read;
 }
 
