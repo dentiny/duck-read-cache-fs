@@ -306,17 +306,7 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
 	cache_reader_manager.GetCacheReader()->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read,
 	                                                    file_size);
-
-// Check actually read content with bytes read from internal filesystem. Only enabled in DEBUG build.
-#if defined(DEBUG)
-	string check_buffer(bytes_to_read, '\0');
-	auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
-	auto *internal_filesystem = cache_handle.GetInternalFileSystem();
-	internal_filesystem->Read(*cache_handle.internal_file_handle, const_cast<char *>(check_buffer.data()),
-	                          bytes_to_read, location);
-	D_ASSERT(check_buffer == string(const_cast<char *>(check_buffer.data()), bytes_to_read));
-#endif
-
+														
 	return bytes_to_read;
 }
 
