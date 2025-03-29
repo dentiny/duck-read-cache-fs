@@ -31,8 +31,8 @@ public:
 		kGlob,
 		kUnknown,
 	};
-	static constexpr auto kCacheEntityCount = static_cast<idx_t>(CacheEntity::kUnknown);
-	static constexpr auto kIoOperationCount = static_cast<idx_t>(IoOperation::kUnknown);
+	static constexpr auto kCacheEntityCount = static_cast<size_t>(CacheEntity::kUnknown);
+	static constexpr auto kIoOperationCount = static_cast<size_t>(IoOperation::kUnknown);
 
 	// Operation names, indexed by operation enums.
 	static const std::array<const char *, kIoOperationCount> OPER_NAMES;
@@ -101,7 +101,7 @@ public:
 	vector<CacheAccessInfo> GetCacheAccessInfo() const override {
 		vector<CacheAccessInfo> cache_access_info;
 		cache_access_info.resize(kCacheEntityCount);
-		for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
+		for (size_t idx = 0; idx < kCacheEntityCount; ++idx) {
 			cache_access_info[idx].cache_type = CACHE_ENTITY_NAMES[idx];
 		}
 		return cache_access_info;
