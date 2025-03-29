@@ -98,7 +98,7 @@ vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
 	cache_access_info.reserve(kCacheEntityCount);
 	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
 		cache_access_info.emplace_back(CacheAccessInfo {
-		    .cache_type = CACHE_ENTITY_NAMES[idx],
+		    .cache_type = (*CACHE_ENTITY_NAMES)[idx],
 		    .cache_hit_count = cache_access_count[idx * 2],
 		    .cache_miss_count = cache_access_count[idx * 2 + 1],
 		});
@@ -117,8 +117,8 @@ std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 		stats = StringUtil::Format("%s\n"
 		                           "%s cache hit count = %d\n"
 		                           "%s cache miss count = %d\n",
-		                           stats, CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * 2],
-		                           CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * 2 + 1]);
+		                           stats, (*CACHE_ENTITY_NAMES)[cur_entity_idx], cache_access_count[cur_entity_idx * 2],
+		                           (*CACHE_ENTITY_NAMES)[cur_entity_idx], cache_access_count[cur_entity_idx * 2 + 1]);
 	}
 
 	// Record IO operation latency.
@@ -129,7 +129,7 @@ std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 		}
 		stats = StringUtil::Format("%s\n"
 		                           "%s operation latency is %s",
-		                           stats, OPER_NAMES[cur_oper_idx], cur_histogram->FormatString());
+		                           stats, (*OPER_NAMES)[cur_oper_idx], cur_histogram->FormatString());
 	}
 
 	return std::make_pair(std::move(stats), latest_timestamp);

@@ -5,6 +5,8 @@
 
 #include "cache_entry_info.hpp"
 #include "cache_filesystem_config.hpp"
+#include "duckdb/common/vector.hpp"
+#include "no_destructor.hpp"
 
 namespace duckdb {
 
@@ -31,13 +33,13 @@ public:
 		kGlob,
 		kUnknown,
 	};
-	static constexpr auto kCacheEntityCount = static_cast<size_t>(CacheEntity::kUnknown);
-	static constexpr auto kIoOperationCount = static_cast<size_t>(IoOperation::kUnknown);
+	static constexpr auto kCacheEntityCount = static_cast<idx_t>(CacheEntity::kUnknown);
+	static constexpr auto kIoOperationCount = static_cast<idx_t>(IoOperation::kUnknown);
 
 	// Operation names, indexed by operation enums.
-	static const std::array<const char *, kIoOperationCount> OPER_NAMES;
+	static const NoDestructor<vector<std::string>> OPER_NAMES;
 	// Cache entity name, indexed by cache entity enum.
-	static const std::array<const char *, kCacheEntityCount> CACHE_ENTITY_NAMES;
+	static const NoDestructor<vector<std::string>> CACHE_ENTITY_NAMES;
 
 	BaseProfileCollector() = default;
 	virtual ~BaseProfileCollector() = default;
@@ -102,7 +104,7 @@ public:
 		vector<CacheAccessInfo> cache_access_info;
 		cache_access_info.resize(kCacheEntityCount);
 		for (size_t idx = 0; idx < kCacheEntityCount; ++idx) {
-			cache_access_info[idx].cache_type = CACHE_ENTITY_NAMES[idx];
+			cache_access_info[idx].cache_type = (*CACHE_ENTITY_NAMES)[idx];
 		}
 		return cache_access_info;
 	}
