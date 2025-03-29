@@ -164,7 +164,7 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 
 	// Set cache type, because there could be no cache readers available.
 	for (idx_t idx = 0; idx < BaseProfileCollector::kCacheEntityCount; ++idx) {
-		aggregated_cache_access_infos[idx].cache_type = BaseProfileCollector::CACHE_ENTITY_NAMES[idx];
+		aggregated_cache_access_infos[idx].cache_type = (*BaseProfileCollector::CACHE_ENTITY_NAMES)[idx];
 	}
 
 	// Get cache access info from all initialized cache readers.
