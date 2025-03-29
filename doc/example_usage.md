@@ -68,4 +68,14 @@ D SET cache_httpfs_enable_file_handle_cache=false;
 
 -- Users are able to check cache access information.
 D SELECT * FROM cache_httpfs_cache_access_info_query();
+
+┌─────────────┬─────────────────┬──────────────────┐
+│ cache_type  │ cache_hit_count │ cache_miss_count │
+│   varchar   │     uint64      │      uint64      │
+├─────────────┼─────────────────┼──────────────────┤
+│ metadata    │               0 │                0 │
+│ data        │               0 │                0 │
+│ file handle │               0 │                0 │
+│ glob        │               0 │                0 │
+└─────────────┴─────────────────┴──────────────────┘
 ```
