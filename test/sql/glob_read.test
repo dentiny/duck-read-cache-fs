@@ -44,3 +44,7 @@ test	88	NULL	2020-12-30 00:25:58.745232+00
 8cb123cb8	90	NULL	2020-12-30 01:25:58.745232+00
 34fd321	91	NULL	2020-12-30 02:25:58.745232+00
 fg5391jn4	92	NULL	2020-12-30 03:25:58.745232+00
+
+# Clear cache after test.
+statement ok
+SELECT cache_httpfs_clear_cache();
