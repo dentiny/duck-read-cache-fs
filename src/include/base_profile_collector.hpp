@@ -5,6 +5,7 @@
 
 #include "cache_entry_info.hpp"
 #include "cache_filesystem_config.hpp"
+#include "duckdb/common/vector.hpp"
 
 namespace duckdb {
 
@@ -33,11 +34,6 @@ public:
 	};
 	static constexpr auto kCacheEntityCount = static_cast<size_t>(CacheEntity::kUnknown);
 	static constexpr auto kIoOperationCount = static_cast<size_t>(IoOperation::kUnknown);
-
-	// Operation names, indexed by operation enums.
-	static const std::array<const char *, kIoOperationCount> OPER_NAMES;
-	// Cache entity name, indexed by cache entity enum.
-	static const std::array<const char *, kCacheEntityCount> CACHE_ENTITY_NAMES;
 
 	BaseProfileCollector() = default;
 	virtual ~BaseProfileCollector() = default;
@@ -76,6 +72,29 @@ public:
 		DynamicCastCheck<TARGET>(this);
 		return reinterpret_cast<const TARGET &>(*this);
 	}
+
+	// Some platforms supports musl libc, which doesn't support operator[], so we use `vector<>` instead of `constexpr
+	// static std::array<>` here.
+	//
+	// Cache entity name, indexed by cache entity enum.
+	inline static const vector<const char *> CACHE_ENTITY_NAMES = []() {
+		vector<const char *> cache_entity_names;
+		cache_entity_names.reserve(kIoOperationCount);
+		cache_entity_names.emplace_back("metadata");
+		cache_entity_names.emplace_back("data");
+		cache_entity_names.emplace_back("file handle");
+		cache_entity_names.emplace_back("glob");
+		return cache_entity_names;
+	}();
+	// Operation names, indexed by operation enums.
+	inline static const vector<const char *> OPER_NAMES = []() {
+		vector<const char *> oper_names;
+		oper_names.reserve(kIoOperationCount);
+		oper_names.emplace_back("open");
+		oper_names.emplace_back("read");
+		oper_names.emplace_back("glob");
+		return oper_names;
+	}();
 
 protected:
 	std::string cache_reader_type = "";
