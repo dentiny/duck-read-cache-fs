@@ -110,3 +110,4 @@ ubuntu@hjiang-devbox-pg$ docker run -it duckdb-ci-linux-amd64-musl
 /duckdb_build_dir/duck-read-cache-fs # git submodule update --init --recursive
 /duckdb_build_dir/duck-read-cache-fs # CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) make
 ```
+See [link](https://github.com/duckdb/extension-ci-tools/tree/main/docker) for all required environments and docker files.
