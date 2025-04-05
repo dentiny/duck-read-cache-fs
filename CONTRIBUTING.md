@@ -90,3 +90,23 @@
 * Functions: CamelCase starting with uppercase letter, e.g., GetChunk
 * Avoid `i`, `j`, etc. in **nested** loops. Prefer to use e.g. **column_idx**, **check_idx**. In a **non-nested** loop it is permissible to use **i** as iterator index.
 * These rules are partially enforced by `clang-tidy`.
+
+## Release process
+
+Extension is released to [duckdb community extension](https://github.com/duckdb/community-extensions) periodically to pick up latest changes.
+
+Before submitting a PR to the repo, we need to make sure extension builds and runs well in **ALL** platforms.
+
+Use Linux (operating system), amd64 (ISA) and musl (lib) as an example,
+```sh
+ubuntu@hjiang-devbox-pg$ git@github.com:duckdb/extension-ci-tools.git
+ubuntu@hjiang-devbox-pg$ cd extension-ci-tools/docker/linux_amd64_musl
+# Build docker image with the Dockerfile of a specific platform.
+ubuntu@hjiang-devbox-pg$ docker build -t duckdb-ci-linux-amd64-musl  .
+# Start docker container and build the extension.
+ubuntu@hjiang-devbox-pg$ docker run -it duckdb-ci-linux-amd64-musl
+# Inside of the container.
+/duckdb_build_dir # git clone https://github.com/dentiny/duck-read-cache-fs.git && cd duck-read-cache-fs
+/duckdb_build_dir/duck-read-cache-fs # git submodule update --init --recursive
+/duckdb_build_dir/duck-read-cache-fs # CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) make
+```
