@@ -12,7 +12,7 @@
 
 ## Changed
 
-- Temporarily disable filesystem wrap SQL query, and hold until duckdb later release. ([#175])
+- Temporarily disable filesystem wrap SQL query until a later DuckDB release is available. ([#175])
 
 [#175]: https://github.com/dentiny/duck-read-cache-fs/pull/175
 
