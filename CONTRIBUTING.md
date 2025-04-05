@@ -111,3 +111,15 @@ ubuntu@hjiang-devbox-pg$ docker run -it duckdb-ci-linux-amd64-musl
 /duckdb_build_dir/duck-read-cache-fs # CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) make
 ```
 See [link](https://github.com/duckdb/extension-ci-tools/tree/main/docker) for all required environments and docker files.
+
+## Update duckdb version
+
+Community extension should use latest released duckdb, see [thread](https://github.com/duckdb/community-extensions/pull/346#issuecomment-2780398504) for details.
+
+Steps to update duckdb commit and version:
+```sh
+# Switch to the desired version
+ubuntu@hjiang-devbox-pg$ cd duckdb && git checkout tags/v1.2.1
+# Commit updated duckdb.
+ubuntu@hjiang-devbox-pg$ cd - && git add duckdb
+```
