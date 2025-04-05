@@ -296,16 +296,14 @@ SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/du
 ----
 251
 
-# Query parquet file.
-query I
-SELECT COUNT(*) FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.parquet');
-----
-7433139
+# Query parquet file, query all rows to read whole file and cache.
+statement ok
+SELECT * FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.parquet');
 
 query I
 SELECT COUNT(*) FROM cache_httpfs_cache_status_query() WHERE remote_filename = 'https://blobs.duckdb.org/data/taxi_2019_04.parquet';
 ----
-2
+128
 
 query IIIII
 SELECT * FROM cache_httpfs_cache_status_query() WHERE remote_filename = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv';
