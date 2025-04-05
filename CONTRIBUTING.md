@@ -99,7 +99,7 @@ Before submitting a PR to the repo, we need to make sure extension builds and ru
 
 Use Linux (operating system), amd64 (ISA) and musl (lib) as an example,
 ```sh
-ubuntu@hjiang-devbox-pg$ git@github.com:duckdb/extension-ci-tools.git
+ubuntu@hjiang-devbox-pg$ git clone git@github.com:duckdb/extension-ci-tools.git
 ubuntu@hjiang-devbox-pg$ cd extension-ci-tools/docker/linux_amd64_musl
 # Build docker image with the Dockerfile of a specific platform.
 ubuntu@hjiang-devbox-pg$ docker build -t duckdb-ci-linux-amd64-musl  .
