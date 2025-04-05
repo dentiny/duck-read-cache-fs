@@ -1,3 +1,21 @@
+# 0.2.1
+
+## Fixed
+
+- Fix extension compilation with musl libc. ([#174])
+
+[#174]: https://github.com/dentiny/duck-read-cache-fs/pull/174
+
+- Update (aka, revert) duckdb to stable release v1.2.1. ([#176])
+
+[#176]: https://github.com/dentiny/duck-read-cache-fs/pull/176
+
+## Changed
+
+- Temporarily disable filesystem wrap SQL query, and hold until duckdb later release. ([#175])
+
+[#175]: https://github.com/dentiny/duck-read-cache-fs/pull/175
+
 # 0.2.0
 
 ## Added
