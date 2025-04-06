@@ -6,6 +6,7 @@ A DuckDB extension for remote filesystem access cache.
 Since DuckDB v1.0.0, cache httpfs can be loaded as a community extension without requiring the `unsigned` flag. From any DuckDB instance, the following two commands will allow you to install and load the extension:
 ```sql
 INSTALL cache_httpfs from community;
+-- Or upgrade to latest version with `FORCE INSTALL cache_httpfs from community;`
 LOAD cache_httpfs;
 ```
 See the [cache httpfs community extension page](https://community-extensions.duckdb.org/extensions/cache_httpfs.html) for more information.
@@ -76,6 +77,10 @@ For more example usage, checkout [example usage](/doc/example_usage.md)
 ![sequential-read.cpp](benchmark-graph/seq-performance-barchart.svg)
 
 ![random-read.cpp](benchmark-graph/random-performance-barchart.svg)
+
+## Platform support
+
+At the moment macos and linux are supported, shoot us a [feature request](https://github.com/dentiny/duck-read-cache-fs/issues/new?template=feature_request.md) if you would like to run extension on other platforms.
 
 ## Development
 
