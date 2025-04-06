@@ -80,7 +80,7 @@ For more example usage, checkout [example usage](/doc/example_usage.md)
 
 ## Platform support
 
-At the moment macos and linux are supported, shoot us a [feature request](https://github.com/dentiny/duck-read-cache-fs/issues/new?template=feature_request.md) if you would like to run extension on other platforms.
+At the moment macOS and Linux are supported, shoot us a [feature request](https://github.com/dentiny/duck-read-cache-fs/issues/new?template=feature_request.md) if you would like to run extension on other platforms.
 
 ## Development
 
