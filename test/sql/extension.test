@@ -9,8 +9,9 @@ Catalog Error: Scalar Function with name cache_httpfs_get_ondisk_data_cache_size
 
 require cache_httpfs
 
+# Make sure extension description is correctly populated.
 query I
-SELECT COUNT(*) FROM duckdb_extensions() WHERE extension_name = 'cache_httpfs';
+SELECT COUNT(*) FROM duckdb_extensions() WHERE extension_name = 'cache_httpfs' AND description IS NOT NULL AND description <> '';
 ----
 1
 
