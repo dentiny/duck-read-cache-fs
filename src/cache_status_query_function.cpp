@@ -215,6 +215,66 @@ void CacheAccessInfoQueryTableFunc(ClientContext &context, TableFunctionInput &d
 	output.SetCardinality(count);
 }
 
+//===--------------------------------------------------------------------===//
+// Wrapped cache filesystem query function
+//===--------------------------------------------------------------------===//
+struct WrappedFilesystemsData : public GlobalTableFunctionState {
+	vector<string> wrapped_filesystems;
+
+	// Used to record the progress of emission.
+	uint64_t offset = 0;
+};
+
+unique_ptr<FunctionData> WrappedCacheFileSystemsFuncBind(ClientContext &context, TableFunctionBindInput &input,
+                                                         vector<LogicalType> &return_types, vector<string> &names) {
+	D_ASSERT(return_types.empty());
+	D_ASSERT(names.empty());
+
+	return_types.reserve(1);
+	names.reserve(1);
+
+	// Wrapped cache filesystem name.
+	return_types.emplace_back(LogicalType::VARCHAR);
+	names.emplace_back("wrapped_filesystems");
+
+	return nullptr;
+}
+
+unique_ptr<GlobalTableFunctionState> WrappedCacheFileSystemsFuncInit(ClientContext &context,
+                                                                     TableFunctionInitInput &input) {
+	auto result = make_uniq<WrappedFilesystemsData>();
+	auto &wrapped_filesystems = result->wrapped_filesystems;
+	auto cache_filesystem_instances = CacheFsRefRegistry::Get().GetAllCacheFs();
+	wrapped_filesystems.reserve(cache_filesystem_instances.size());
+
+	for (auto *cur_cache_fs : cache_filesystem_instances) {
+		wrapped_filesystems.emplace_back(cur_cache_fs->GetInternalFileSystem()->GetName());
+	}
+
+	return std::move(result);
+}
+
+void WrappedCacheFileSystemsTableFunc(ClientContext &context, TableFunctionInput &data_p, DataChunk &output) {
+	auto &data = data_p.global_state->Cast<WrappedFilesystemsData>();
+
+	// All entries have been emitted.
+	if (data.offset >= data.wrapped_filesystems.size()) {
+		return;
+	}
+
+	// Start filling in the result buffer.
+	idx_t count = 0;
+	while (data.offset < data.wrapped_filesystems.size() && count < STANDARD_VECTOR_SIZE) {
+		auto &entry = data.wrapped_filesystems[data.offset++];
+		idx_t col = 0;
+
+		// Wrapped cache filesystem name.
+		output.SetValue(col, count, entry);
+
+		count++;
+	}
+	output.SetCardinality(count);
+}
 } // namespace
 
 TableFunction GetDataCacheStatusQueryFunc() {
@@ -235,4 +295,12 @@ TableFunction GetCacheAccessInfoQueryFunc() {
 	return cache_access_info_query_func;
 }
 
+TableFunction GetWrappedCacheFileSystemsFunc() {
+	TableFunction wrapped_cache_filesystems_query_func {/*name=*/"cache_httpfs_get_cache_filesystems",
+	                                                    /*arguments=*/ {},
+	                                                    /*function=*/WrappedCacheFileSystemsTableFunc,
+	                                                    /*bind=*/WrappedCacheFileSystemsFuncBind,
+	                                                    /*init_global=*/WrappedCacheFileSystemsFuncInit};
+	return wrapped_cache_filesystems_query_func;
+}
 } // namespace duckdb

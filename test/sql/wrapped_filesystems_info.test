@@ -1,0 +1,13 @@
+# name: test/sql/wrapped_filesystems_info.test
+# description: test wrapped filesystems info
+# group: [cache_httpfs]
+
+require cache_httpfs
+
+query I
+SELECT * FROM cache_httpfs_get_cache_filesystems() ORDER BY wrapped_filesystems;
+----
+HTTPFileSystem
+HuggingFaceFileSystem
+S3FileSystem
+
