@@ -314,8 +314,7 @@ static void LoadInternal(DatabaseInstance &instance) {
 	// Create default cache directory.
 	LocalFileSystem::CreateLocal()->CreateDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
 
-	// Register wrapped cache filesystems.
-
+	// Register wrapped cache filesystems info.
 	ExtensionUtil::RegisterFunction(instance, GetWrappedCacheFileSystemsFunc());
 
 	// Fill in extension load information.
