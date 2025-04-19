@@ -12,4 +12,6 @@ TableFunction GetDataCacheStatusQueryFunc();
 // Get the table function to query cache access status.
 TableFunction GetCacheAccessInfoQueryFunc();
 
+TableFunction GetWrappedCacheFileSystemsFunc();
+
 } // namespace duckdb

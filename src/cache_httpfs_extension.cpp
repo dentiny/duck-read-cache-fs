@@ -314,6 +314,10 @@ static void LoadInternal(DatabaseInstance &instance) {
 	// Create default cache directory.
 	LocalFileSystem::CreateLocal()->CreateDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
 
+	// Register wrapped cache filesystems.
+
+	ExtensionUtil::RegisterFunction(instance, GetWrappedCacheFileSystemsFunc());
+
 	// Fill in extension load information.
 	std::string description = StringUtil::Format(
 	    "Adds a read cache filesystem to DuckDB, which acts as a wrapper of duckdb-compatible filesystems.");
