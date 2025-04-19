@@ -5,9 +5,9 @@
 require cache_httpfs
 
 query I
-SELECT * FROM cache_httpfs_get_cache_filesystems();
+SELECT * FROM cache_httpfs_get_cache_filesystems() ORDER BY wrapped_filesystems;
 ----
-cache_httpfs with HTTPFileSystem
-cache_httpfs with HuggingFaceFileSystem
-cache_httpfs with S3FileSystem
+HTTPFileSystem
+HuggingFaceFileSystem
+S3FileSystem
 

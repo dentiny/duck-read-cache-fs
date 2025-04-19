@@ -245,9 +245,10 @@ unique_ptr<GlobalTableFunctionState> WrappedCacheFileSystemsFuncInit(ClientConte
 	auto result = make_uniq<WrappedFilesystemsData>();
 	auto &wrapped_filesystems = result->wrapped_filesystems;
 	auto cache_filesystem_instances = CacheFsRefRegistry::Get().GetAllCacheFs();
+	wrapped_filesystems.reserve(cache_filesystem_instances.size());
 
 	for (auto *cur_cache_fs : cache_filesystem_instances) {
-		wrapped_filesystems.emplace_back(cur_cache_fs->GetName());
+		wrapped_filesystems.emplace_back(cur_cache_fs->GetInternalFileSystem()->GetName());
 	}
 
 	return std::move(result);
