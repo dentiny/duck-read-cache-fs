@@ -1,0 +1,20 @@
+{
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "eamodio.gitlens",
+            ]
+        }
+    },
+    "runArgs": [
+        "--cap-add=SYS_PTRACE"
+    ],
+    "features": {
+        "ghcr.io/devcontainers/features/sshd:1": {}
+    }
+}
+
