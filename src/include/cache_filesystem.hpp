@@ -6,6 +6,7 @@
 #include "base_profile_collector.hpp"
 #include "cache_reader_manager.hpp"
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/open_file_info.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "exclusive_multi_lru_cache.hpp"
 #include "shared_lru_cache.hpp"
@@ -156,7 +157,7 @@ public:
 	string PathSeparator(const string &path) override {
 		return internal_filesystem->PathSeparator(path);
 	}
-	vector<string> Glob(const string &path, FileOpener *opener = nullptr) override;
+	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override;
 	void RegisterSubSystem(unique_ptr<FileSystem> sub_fs) override {
 		internal_filesystem->RegisterSubSystem(std::move(sub_fs));
 	}
@@ -231,7 +232,7 @@ private:
 	int64_t ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location);
 
 	// Internal implementation for glob operation.
-	vector<string> GlobImpl(const string &path, FileOpener *opener);
+	vector<OpenFileInfo> GlobImpl(const string &path, FileOpener *opener);
 
 	// Initialize cache reader data member, and set to [internal_cache_reader].
 	void SetAndGetCacheReader();

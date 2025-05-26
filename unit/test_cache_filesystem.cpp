@@ -28,7 +28,9 @@ const auto TEST_FILENAME = StringUtil::Format("/tmp/duckdb_test_cache/%s", UUID:
 
 void PerformIoOperation(CacheFileSystem *cache_filesystem) {
 	// Perform glob operation.
-	REQUIRE(cache_filesystem->Glob(TEST_FILENAME) == vector<string> {TEST_FILENAME});
+	auto open_file_info = cache_filesystem->Glob(TEST_FILENAME);
+	REQUIRE(open_file_info.size() == 1);
+	REQUIRE(open_file_info[0].path == TEST_FILENAME);
 	// Perform open file operation.
 	auto file_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
 	// Perform get file size operation.
@@ -44,8 +46,19 @@ TEST_CASE("Test glob operation", "[cache filesystem test]") {
 	g_enable_glob_cache = true;
 
 	auto cache_filesystem = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
-	REQUIRE(cache_filesystem->Glob(TEST_FILENAME) == vector<string> {TEST_FILENAME});
-	REQUIRE(cache_filesystem->Glob("/tmp/duckdb_test_cache/*") == vector<string> {TEST_FILENAME});
+
+	// Glob by filename.
+	{
+		auto open_file_info = cache_filesystem->Glob(TEST_FILENAME);
+		REQUIRE(open_file_info.size() == 1);
+		REQUIRE(open_file_info[0].path == TEST_FILENAME);
+	}
+	// Glob by pattern.
+	{
+		auto open_file_info = cache_filesystem->Glob("/tmp/duckdb_test_cache/*");
+		REQUIRE(open_file_info.size() == 1);
+		REQUIRE(open_file_info[0].path == TEST_FILENAME);
+	}
 }
 
 TEST_CASE("Test clear cache", "[cache filesystem test]") {

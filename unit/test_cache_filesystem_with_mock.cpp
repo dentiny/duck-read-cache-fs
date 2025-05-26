@@ -84,7 +84,9 @@ void TestReadWithMockFileSystem() {
 	// One of the file handles resides in cache, another one gets closed and destructed.
 	REQUIRE(close_invocation == 1);
 	REQUIRE(dtor_invocation == 1);
-	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 1);
+	// TODO(hjiang): Re-implement glob cache, revert the change after that.
+	// REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 1);
+	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 2);
 
 	// Destructing the cache filesystem cleans file handle cache, which in turns close and destruct all cached file
 	// handles.
@@ -155,7 +157,9 @@ TEST_CASE("Test clear cache", "[mock filesystem test]") {
 
 	// Retry one cached IO operation.
 	perform_io_operation();
-	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 3);
+	// TODO(hjiang): Re-implement glob cache, revert the change after that.
+	// REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 3);
+	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 4);
 	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 3);
 }
 
