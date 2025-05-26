@@ -38,9 +38,10 @@ set(EXTENSION_SOURCES
     duckdb-httpfs/extension/httpfs/create_secret_functions.cpp
     duckdb-httpfs/extension/httpfs/crypto.cpp
     duckdb-httpfs/extension/httpfs/hffs.cpp
-    duckdb-httpfs/extension/httpfs/http_state.cpp
+    duckdb-httpfs/extension/httpfs/httpfs_client.cpp
     duckdb-httpfs/extension/httpfs/httpfs.cpp
     duckdb-httpfs/extension/httpfs/httpfs_extension.cpp
+    duckdb-httpfs/extension/httpfs/http_state.cpp
     duckdb-httpfs/extension/httpfs/s3fs.cpp)
 
 # Avoid building tooling we won't need for release.

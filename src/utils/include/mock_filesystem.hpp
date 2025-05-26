@@ -6,6 +6,7 @@
 #pragma once
 
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/open_file_info.hpp"
 #include "duckdb/common/vector.hpp"
 
 #include <cstdint>
@@ -46,7 +47,7 @@ public:
 
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags, optional_ptr<FileOpener> opener) override;
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
-	vector<string> Glob(const string &path, FileOpener *opener = nullptr) override {
+	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override {
 		++glob_invocation;
 		return {};
 	}
