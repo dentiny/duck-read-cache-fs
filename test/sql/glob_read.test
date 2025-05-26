@@ -1,6 +1,6 @@
 # name: test/sql/glob_read.test
 # description: test cached_fs read multiple files
-# group: [cache_httpfs]
+# group: [sql]
 
 require cache_httpfs
 

@@ -1,6 +1,6 @@
 # name: test/sql/extension.test
 # description: test cached_fs extension loading
-# group: [cache_httpfs]
+# group: [sql]
 
 statement error
 SELECT cache_httpfs_get_ondisk_data_cache_size();
