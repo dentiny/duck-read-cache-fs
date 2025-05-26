@@ -1,6 +1,6 @@
 # name: test/sql/cache_access_info.test
 # description: test cache access info
-# group: [cache_httpfs]
+# group: [sql]
 
 # Notice: we don't really test glob cache operation, because HTTP filesystem doesn't support real GLOB.
 

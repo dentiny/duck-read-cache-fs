@@ -1,6 +1,6 @@
 # name: test/sql/wrapped_filesystems_info.test
 # description: test wrapped filesystems info
-# group: [cache_httpfs]
+# group: [sql]
 
 require cache_httpfs
 

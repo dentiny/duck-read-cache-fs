@@ -201,7 +201,8 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 	// 	return make_shared_ptr<vector<string>>(std::move(glob_res));
 	// });
 	// const BaseProfileCollector::CacheAccess cache_access =
-	//     glob_cache_hit ? BaseProfileCollector::CacheAccess::kCacheHit : BaseProfileCollector::CacheAccess::kCacheMiss;
+	//     glob_cache_hit ? BaseProfileCollector::CacheAccess::kCacheHit :
+	//     BaseProfileCollector::CacheAccess::kCacheMiss;
 	// GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kGlob, cache_access);
 	// return *res;
 }

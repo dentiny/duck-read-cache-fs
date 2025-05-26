@@ -1,6 +1,6 @@
-# name: test/sql/insufficient_disk_space.test
+# name: test/sql/max_subrequest_fanout.test
 # description: test cache_httpfs behavior when max fanout subrequests number configured
-# group: [cache_httpfs]
+# group: [sql]
 
 require cache_httpfs
 

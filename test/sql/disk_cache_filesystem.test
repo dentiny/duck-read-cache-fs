@@ -1,6 +1,6 @@
-# name: test/sql/inmem_cache_filesystem.test
+# name: test/sql/disk_cache_filesystem.test
 # description: test cached_fs in-memory read and cache
-# group: [cache_httpfs]
+# group: [sql]
 
 require cache_httpfs
 

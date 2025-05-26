@@ -1,6 +1,6 @@
 # name: test/sql/clear_cache.test
 # description: test SQL queries with cache cleared
-# group: [cache_httpfs]
+# group: [sql]
 
 require cache_httpfs
 
