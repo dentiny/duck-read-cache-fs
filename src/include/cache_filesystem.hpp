@@ -277,7 +277,7 @@ private:
 	                                                         FileHandleCacheKeyEqual>;
 	unique_ptr<FileHandleCache> file_handle_cache;
 	// Glob cache, which maps from path to filenames.
-	using GlobCache = ThreadSafeSharedLruConstCache<string, vector<string>>;
+	using GlobCache = ThreadSafeSharedLruConstCache<string, vector<OpenFileInfo>>;
 	unique_ptr<GlobCache> glob_cache;
 };
 

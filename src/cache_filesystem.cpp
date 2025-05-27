@@ -190,21 +190,16 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 		return internal_filesystem->Glob(path, opener);
 	}
 
-	return GlobImpl(path, opener);
-
-	// TODO(hjiang): Enable glob cache in the followup PR.
-	//
-	// bool glob_cache_hit = true;
-	// auto res = glob_cache->GetOrCreate(path, [this, &path, opener, &glob_cache_hit](const string & /*unused*/) {
-	// 	glob_cache_hit = false;
-	// 	auto glob_res = GlobImpl(path, opener);
-	// 	return make_shared_ptr<vector<string>>(std::move(glob_res));
-	// });
-	// const BaseProfileCollector::CacheAccess cache_access =
-	//     glob_cache_hit ? BaseProfileCollector::CacheAccess::kCacheHit :
-	//     BaseProfileCollector::CacheAccess::kCacheMiss;
-	// GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kGlob, cache_access);
-	// return *res;
+	bool glob_cache_hit = true;
+	auto res = glob_cache->GetOrCreate(path, [this, &path, opener, &glob_cache_hit](const string & /*unused*/) {
+		glob_cache_hit = false;
+		auto glob_res = GlobImpl(path, opener);
+		return make_shared_ptr<vector<OpenFileInfo>>(std::move(glob_res));
+	});
+	const BaseProfileCollector::CacheAccess cache_access =
+	    glob_cache_hit ? BaseProfileCollector::CacheAccess::kCacheHit : BaseProfileCollector::CacheAccess::kCacheMiss;
+	GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kGlob, cache_access);
+	return *res;
 }
 
 void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
