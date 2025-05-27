@@ -1,3 +1,15 @@
+# 0.3.0
+
+## Changed
+
+- Upgrade duckdb v1.3.0 and httpfs ([#198])
+
+[#198]: https://github.com/dentiny/duck-read-cache-fs/pull/198
+
+- Re-enable filesystem wrap ([#199])
+
+[#199]: https://github.com/dentiny/duck-read-cache-fs/pull/199
+
 # 0.2.1
 
 ## Fixed
