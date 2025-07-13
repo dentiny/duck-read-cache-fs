@@ -20,10 +20,10 @@ RUN apt update \
     locales \
     man \
     pkg-config \
+    python3-pip \
     sudo \
     vim \
-    zlib1g-dev \
- && rm -rf /var/lib/apt/lists/*
+    zlib1g-dev
 
 RUN locale-gen en_US.UTF-8
 
