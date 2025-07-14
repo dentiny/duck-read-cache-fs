@@ -12,6 +12,7 @@
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/opener_file_system.hpp"
 #include "duckdb/main/extension_util.hpp"
+#include "duckdb/storage/external_file_cache.hpp"
 #include "fake_filesystem.hpp"
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
@@ -152,6 +153,11 @@ static void LoadInternal(DatabaseInstance &instance) {
 	CacheFsRefRegistry::Get().Reset();
 	CacheReaderManager::Get().Reset();
 	ResetGlobalConfig();
+
+	// When cache httpfs enabled, by default disable external file cache, otherwise double buffering.
+	// Users could re-enable by setting the config afterwards.
+	instance.config.options.enable_external_file_cache = false;
+	instance.GetExternalFileCache().SetEnabled(false);
 
 	// Register filesystem instance to instance.
 	// Here we register both in-memory filesystem and on-disk filesystem, and leverage global configuration to decide
