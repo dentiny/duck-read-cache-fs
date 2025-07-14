@@ -28,7 +28,8 @@ Key features:
   + duckdb (under work), stats are stored in duckdb so we could leverage its rich feature for analysis purpose (i.e. use histogram to understant latency distribution)
   + profiling is by default disabled
 - 100% Compatibility with duckdb `httpfs`
-  + Extension is built upon `httpfs` extension and automatically load it beforehand, so it's fully compatible with it; we provide option `SET cache_httpfs_type='noop';` to fallback to and behave exactly as httpfs.
+  + Extension is built upon `httpfs` extension and automatically load it beforehand, so it's fully compatible with it; we provide option `SET cache_httpfs_type='noop'; SET enable_external_file_cache=true;` to fallback to and behave exactly as httpfs.
+- Interaction with duckdb internal "external file cache". Duckdb by default enables external file cache, to avoid double caching cache_httpfs extension by default disable external file cache, which could be re-enabled by `SET enable_external_file_cache=true;`.
 - Able to wrap **ALL** duckdb-compatible filesystem with one simple SQL `SELECT cache_httpfs_wrap_cache_filesystem(<your-fs>)`, and get all the benefit of caching, parallel read, IO performance stats, you name it.
 
 Caveat:

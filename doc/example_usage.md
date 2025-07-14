@@ -4,6 +4,9 @@
 ```sql
 -- Later access won't be cached, but existing cache (whether it's in-memory or on-disk) will be kept.
 D SET cache_httpfs_profile_type='noop';
+-- To avoid double caching, extension by default disable external file cache;
+-- to switch and fallback to default httpfs extension behavior, re-enable external cache.
+D SET enable_external_file_cache=true;
 ```
 
 - Extension allows user to set on-disk cache file directory, it could be local filesystem or remote storage (via mount), which provides much flexibility.
