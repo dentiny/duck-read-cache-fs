@@ -1,3 +1,17 @@
+# 0.4.0
+
+## Changed
+
+- Upgrade duckdb v1.3.2 ([#209])
+
+[#209]: https://github.com/dentiny/duck-read-cache-fs/pull/209
+
+## Fixed
+
+- Fix double caching with external file cache ([#210])
+
+[#210]: https://github.com/dentiny/duck-read-cache-fs/pull/210
+
 # 0.3.0
 
 ## Changed
