@@ -1,0 +1,31 @@
+# name: test/sql/external_file_cache.test
+# description: test external file cache is disabled by default
+# group: [sql]
+
+require cache_httpfs
+
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+# Check external file cache is disabled by default.
+query III
+FROM duckdb_memory() WHERE tag = 'EXTERNAL_FILE_CACHE';
+----
+EXTERNAL_FILE_CACHE	0	0
+
+query I
+SELECT current_setting('enable_external_file_cache');
+----
+false
+
+# Check external file cache could be re-enabled, clear cache to perform uncached IO access.
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+statement ok
+SET enable_external_file_cache = true;
+
+query I
+SELECT current_setting('enable_external_file_cache');
+----
+true
