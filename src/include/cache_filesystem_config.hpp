@@ -33,7 +33,7 @@ inline const NoDestructor<std::unordered_set<std::string>> ALL_PROFILE_TYPES {*N
 //===--------------------------------------------------------------------===//
 // Default configuration
 //===--------------------------------------------------------------------===//
-inline const idx_t DEFAULT_CACHE_BLOCK_SIZE = 64_KiB;
+inline const idx_t DEFAULT_CACHE_BLOCK_SIZE = 512_KiB;
 inline const NoDestructor<std::string> DEFAULT_ON_DISK_CACHE_DIRECTORY {"/tmp/duckdb_cache_httpfs_cache"};
 
 // Default to use on-disk cache filesystem.
