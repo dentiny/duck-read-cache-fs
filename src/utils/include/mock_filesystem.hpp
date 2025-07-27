@@ -5,8 +5,10 @@
 
 #pragma once
 
+#include "duckdb/common/deque.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/open_file_info.hpp"
+#include "duckdb/common/string.hpp"
 #include "duckdb/common/vector.hpp"
 
 #include <cstdint>
@@ -49,6 +51,12 @@ public:
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override {
 		++glob_invocation;
+		if (!glob_returns.empty()) {
+			vector<OpenFileInfo> cur_glob_ret;
+			cur_glob_ret.emplace_back(std::move(glob_returns.front()));
+			glob_returns.pop_front();
+			return cur_glob_ret;
+		}
 		return {};
 	}
 	int64_t GetFileSize(FileHandle &handle) override {
@@ -61,6 +69,10 @@ public:
 		return "mock filesystem";
 	}
 
+	// Set first N glob invocation returns, later calls will return default value.
+	void SetGlobResults(vector<OpenFileInfo> file_open_infos) {
+		glob_returns = deque<OpenFileInfo>{std::make_move_iterator(file_open_infos.begin()), std::make_move_iterator(file_open_infos.end())};
+	}
 	void SetFileSize(int64_t file_size_p) {
 		file_size = file_size_p;
 	}
@@ -71,12 +83,17 @@ public:
 	uint64_t GetGlobInvocation() const {
 		return glob_invocation;
 	}
+	uint64_t GetSizeInvocation() const {
+		return get_file_size_invocation;
+	}
 	void ClearReadOperations() {
 		read_operations.clear();
 	}
 
 private:
 	int64_t file_size = 0;
+	// Glob returns value for each invocation.
+	std::deque<OpenFileInfo> glob_returns;
 	std::function<void()> close_callback;
 	std::function<void()> dtor_callback;
 
