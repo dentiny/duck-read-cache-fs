@@ -89,6 +89,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		//
 		// TODO(hjiang): Parse cache directory might be expensive, consider adding a cache besides.
 		auto new_on_disk_cache_directories = GetCacheDirectoryConfig(opener);
+		D_ASSERT(!new_on_disk_cache_directories.empty());
 		if (new_on_disk_cache_directories != *g_on_disk_cache_directories) {
 			for (const auto& cur_cache_dir : new_on_disk_cache_directories) {
 				LocalFileSystem::CreateLocal()->CreateDirectory(cur_cache_dir);
