@@ -17,7 +17,8 @@ include_directories(src/include)
 include_directories(duckdb-httpfs/extension/httpfs/include)
 include_directories(duckdb/third_party/httplib)
 
-# TODO(hjiang): httpfs has wasm client implementation, which is intentionally ignored.
+# TODO(hjiang): httpfs has wasm client implementation, which is intentionally
+# ignored.
 set(EXTENSION_SOURCES
     src/cache_entry_info.cpp
     src/cache_filesystem.cpp

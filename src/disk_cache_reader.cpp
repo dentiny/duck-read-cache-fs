@@ -163,11 +163,12 @@ DiskCacheReader::DiskCacheReader() : local_filesystem(LocalFileSystem::CreateLoc
 
 vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	vector<DataCacheEntryInfo> cache_entries_info;
+	const auto& on_disk_cache_dir = (*g_on_disk_cache_directories)[0];
 	local_filesystem->ListFiles(
-	    *g_on_disk_cache_directory, [&cache_entries_info](const std::string &fname, bool /*unused*/) {
+	    on_disk_cache_dir, [&cache_entries_info, on_disk_cache_dir](const std::string &fname, bool /*unused*/) {
 		    auto remote_file_info = GetRemoteFileInfo(fname);
 		    cache_entries_info.emplace_back(DataCacheEntryInfo {
-		        .cache_filepath = StringUtil::Format("%s/%s", *g_on_disk_cache_directory, fname),
+		        .cache_filepath = StringUtil::Format("%s/%s", on_disk_cache_dir, fname),
 		        .remote_filename = std::get<0>(remote_file_info),
 		        .start_offset = std::get<1>(remote_file_info),
 		        .end_offset = std::get<2>(remote_file_info),
@@ -245,8 +246,9 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			SetThreadName("RdCachRdThd");
 
 			// Check local cache first, see if we could do a cached read.
+			const auto& on_disk_cache_dir = (*g_on_disk_cache_directories)[0];
 			const auto local_cache_file =
-			    GetLocalCacheFile(*g_on_disk_cache_directory, handle.GetPath(), cache_read_chunk.aligned_start_offset,
+			    GetLocalCacheFile(on_disk_cache_dir, handle.GetPath(), cache_read_chunk.aligned_start_offset,
 			                      cache_read_chunk.chunk_size);
 
 			// Attempt to open the file directly, so a successfully opened file handle won't be deleted by cleanup
@@ -288,23 +290,26 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			cache_read_chunk.CopyBufferToRequestedMemory();
 
 			// Attempt to cache file locally.
-			CacheLocal(cache_read_chunk, *local_filesystem, handle, *g_on_disk_cache_directory, local_cache_file);
+			CacheLocal(cache_read_chunk, *local_filesystem, handle, on_disk_cache_dir, local_cache_file);
 		});
 	}
 	io_threads.Wait();
 }
 
 void DiskCacheReader::ClearCache() {
-	local_filesystem->RemoveDirectory(*g_on_disk_cache_directory);
-	// Create an empty directory, otherwise later read access errors.
-	local_filesystem->CreateDirectory(*g_on_disk_cache_directory);
+	for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
+		local_filesystem->RemoveDirectory(cur_cache_dir);
+		// Create an empty directory, otherwise later read access errors.
+		local_filesystem->CreateDirectory(cur_cache_dir);
+	}
 }
 
 void DiskCacheReader::ClearCache(const string &fname) {
 	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
-	local_filesystem->ListFiles(*g_on_disk_cache_directory, [&](const string &cur_file, bool /*unused*/) {
+	const auto& on_disk_cache_dir = (*g_on_disk_cache_directories)[0];
+	local_filesystem->ListFiles(on_disk_cache_dir, [&](const string &cur_file, bool /*unused*/) {
 		if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {
-			const string filepath = StringUtil::Format("%s/%s", *g_on_disk_cache_directory, cur_file);
+			const string filepath = StringUtil::Format("%s/%s", on_disk_cache_dir, cur_file);
 			local_filesystem->RemoveFile(filepath);
 		}
 	});

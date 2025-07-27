@@ -37,7 +37,7 @@ const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 
 TEST_CASE("Read all bytes in one read operation", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 22; // Intentionally not a divisor of file size.
-	*g_on_disk_cache_directory = TEST_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
 		ResetGlobalConfig();
