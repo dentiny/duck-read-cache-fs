@@ -92,12 +92,17 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
 	D_ASSERT(!cache_directories.empty());
 
 	duckdb::hash_bytes remote_file_sha256_val;
+	static_assert(sizeof(remote_file_sha256_val) == 32);
 	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
 	const string fname = StringUtil::GetFileName(remote_file);
 
-	const uint64_t hash_val = std::hash<std::string>{}(remote_file_sha256_str);
-    const idx_t cache_directory_idx = hash_val % cache_directories.size();
+	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
+	for (int idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
+		hash_value ^= static_cast<uint64_t>(remote_file_sha256_val[idx]);
+		hash_value *= 0x100000001b3; // FNV prime
+	}
+    const idx_t cache_directory_idx = hash_value % cache_directories.size();
 	const auto& cur_cache_dir = cache_directories[cache_directory_idx];
 
 	auto cache_filepath = StringUtil::Format("%s/%s-%s-%llu-%llu", cur_cache_dir, remote_file_sha256_str, fname, start_offset,
