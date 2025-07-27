@@ -19,6 +19,14 @@ D SET cache_httpfs_cache_directory='/tmp/mounted_cache_directory';
 D SET cache_httpfs_min_disk_bytes_for_cache=1000000000;
 ```
 
+- Extension also allows users to configure multiple cache directories, which benefits situations where there're multiple disks mounted at different filesystem location.
+```sql
+D SET cache_httpfs_profile_type='on_disk';
+-- Specify multiple cache directories, split by `;`.
+-- By default cache files will be found under `/tmp/duckdb_cache_httpfs_cache`.
+D SET cache_httpfs_cache_directories_config='/tmp/duckdb_cache_httpfs_cache_1;/tmp/duckdb_cache_httpfs_cache_2';
+```
+
 - For the extension, filesystem requests are split into multiple sub-requests and aligned with block size for parallel IO requests and cache efficiency.
 We provide options to tune block size.
 ```sql
