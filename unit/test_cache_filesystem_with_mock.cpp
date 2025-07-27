@@ -101,7 +101,9 @@ TEST_CASE("Test disk cache reader with mock filesystem", "[mock filesystem test]
 	*g_test_cache_type = *ON_DISK_CACHE_TYPE;
 	g_cache_block_size = TEST_CHUNK_SIZE;
 	g_max_file_handle_cache_entry = 1;
-	LocalFileSystem::CreateLocal()->RemoveDirectory(*g_on_disk_cache_directory);
+	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
+		LocalFileSystem::CreateLocal()->RemoveDirectory(cur_cache_dir);
+	}
 	TestReadWithMockFileSystem();
 }
 
@@ -109,7 +111,9 @@ TEST_CASE("Test in-memory cache reader with mock filesystem", "[mock filesystem 
 	*g_test_cache_type = *IN_MEM_CACHE_TYPE;
 	g_cache_block_size = TEST_CHUNK_SIZE;
 	g_max_file_handle_cache_entry = 1;
-	LocalFileSystem::CreateLocal()->RemoveDirectory(*g_on_disk_cache_directory);
+	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
+		LocalFileSystem::CreateLocal()->RemoveDirectory(cur_cache_dir);
+	}
 	TestReadWithMockFileSystem();
 }
 

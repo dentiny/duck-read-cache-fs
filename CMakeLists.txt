@@ -17,7 +17,8 @@ include_directories(src/include)
 include_directories(duckdb-httpfs/extension/httpfs/include)
 include_directories(duckdb/third_party/httplib)
 
-# TODO(hjiang): httpfs has wasm client implementation, which is intentionally ignored.
+# TODO(hjiang): httpfs has wasm client implementation, which is intentionally
+# ignored.
 set(EXTENSION_SOURCES
     src/cache_entry_info.cpp
     src/cache_filesystem.cpp
@@ -102,6 +103,10 @@ target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
 
 add_executable(test_large_file_disk_reader unit/test_large_file_disk_reader.cpp)
 target_link_libraries(test_large_file_disk_reader ${EXTENSION_NAME})
+
+add_executable(test_disk_cache_with_multi_directories
+               unit/test_disk_cache_with_multi_directories.cpp)
+target_link_libraries(test_disk_cache_with_multi_directories ${EXTENSION_NAME})
 
 add_executable(test_in_memory_cache_filesystem
                unit/test_in_memory_cache_filesystem.cpp)

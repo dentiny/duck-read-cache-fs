@@ -5,8 +5,24 @@
 #include <utility>
 
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/string_util.hpp"
 
 namespace duckdb {
+
+namespace {
+
+// Cache directories configs split token.s
+constexpr char CACHE_DIRECTORIES_CONFIG_SPLITTER = ';';
+
+// Parse directory configuration string into directories.
+vector<string> ParseCacheDirectoryConfig(const std::string& directory_config_str) {
+	auto directories = StringUtil::Split(directory_config_str, /*delimiter=*/";");
+	// Sort the cache directories, so for different directories config value with same directory sets, ordering doesn't affect cache status.
+	std::sort(directories.begin(), directories.end());
+	return directories;
+}
+
+}  // namespace
 
 void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	if (opener == nullptr) {
@@ -14,7 +30,9 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		if (!g_test_cache_type->empty()) {
 			*g_cache_type = *g_test_cache_type;
 		}
-		LocalFileSystem::CreateLocal()->CreateDirectory(*g_on_disk_cache_directory);
+		for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
+			LocalFileSystem::CreateLocal()->CreateDirectory(cur_cache_dir);
+		}
 		return;
 	}
 
@@ -70,11 +88,15 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	// Check and update configurations for on-disk cache type.
 	if (*g_cache_type == *ON_DISK_CACHE_TYPE) {
 		// Check and update cache directory if necessary.
-		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_cache_directory", val);
-		auto new_on_disk_cache_directory = val.ToString();
-		if (new_on_disk_cache_directory != *g_on_disk_cache_directory) {
-			*g_on_disk_cache_directory = std::move(new_on_disk_cache_directory);
-			LocalFileSystem::CreateLocal()->CreateDirectory(*g_on_disk_cache_directory);
+		//
+		// TODO(hjiang): Parse cache directory might be expensive, consider adding a cache besides.
+		auto new_on_disk_cache_directories = GetCacheDirectoryConfig(opener);
+		D_ASSERT(!new_on_disk_cache_directories.empty());
+		if (new_on_disk_cache_directories != *g_on_disk_cache_directories) {
+			for (const auto& cur_cache_dir : new_on_disk_cache_directories) {
+				LocalFileSystem::CreateLocal()->CreateDirectory(cur_cache_dir);
+			}
+			*g_on_disk_cache_directories = std::move(new_on_disk_cache_directories);
 		}
 
 		// Check and update min bytes for disk cache.
@@ -171,7 +193,7 @@ void ResetGlobalConfig() {
 	g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 
 	// On-disk cache configuration.
-	*g_on_disk_cache_directory = *DEFAULT_ON_DISK_CACHE_DIRECTORY;
+	*g_on_disk_cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
 	g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 
 	// In-memory cache configuration.
@@ -205,6 +227,26 @@ uint64_t GetThreadCountForSubrequests(uint64_t io_request_count) {
 		return MinValue<uint64_t>(io_request_count, MAX_THREAD_COUNT);
 	}
 	return MinValue<uint64_t>(io_request_count, g_max_subrequest_count);
+}
+
+std::vector<std::string> GetCacheDirectoryConfig(optional_ptr<FileOpener> opener) {
+	Value val;
+
+	// Attempt to get cache directories config first.
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_cache_directories_config", val);
+	auto new_cache_directories_config = val.ToString();
+	if (!new_cache_directories_config.empty()) {
+		// Cache directory parameter will be ignored, if directory config specified. 
+		auto directories = ParseCacheDirectoryConfig(new_cache_directories_config);
+		return directories;
+	}
+
+	// Then fallback to parse cache directory.
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_cache_directory", val);
+	auto new_on_disk_cache_directory = val.ToString();
+	vector<string> directories;
+	directories.emplace_back(std::move(new_on_disk_cache_directory));
+	return directories;
 }
 
 } // namespace duckdb

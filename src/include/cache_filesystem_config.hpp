@@ -6,7 +6,9 @@
 #include <unordered_set>
 
 #include "duckdb/common/file_opener.hpp"
+#include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
+#include "duckdb/common/vector.hpp"
 #include "no_destructor.hpp"
 #include "size_literals.hpp"
 
@@ -15,29 +17,29 @@ namespace duckdb {
 //===--------------------------------------------------------------------===//
 // Config constant
 //===--------------------------------------------------------------------===//
-inline const NoDestructor<std::string> NOOP_CACHE_TYPE {"noop"};
-inline const NoDestructor<std::string> ON_DISK_CACHE_TYPE {"on_disk"};
-inline const NoDestructor<std::string> IN_MEM_CACHE_TYPE {"in_mem"};
-inline const std::unordered_set<std::string> ALL_CACHE_TYPES {*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE,
+inline const NoDestructor<string> NOOP_CACHE_TYPE {"noop"};
+inline const NoDestructor<string> ON_DISK_CACHE_TYPE {"on_disk"};
+inline const NoDestructor<string> IN_MEM_CACHE_TYPE {"in_mem"};
+inline const std::unordered_set<string> ALL_CACHE_TYPES {*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE,
                                                               *IN_MEM_CACHE_TYPE};
 
 // Default profile option, which performs no-op.
-inline const NoDestructor<std::string> NOOP_PROFILE_TYPE {"noop"};
+inline const NoDestructor<string> NOOP_PROFILE_TYPE {"noop"};
 // Store the latest IO operation profiling result, which potentially suffers concurrent updates.
-inline const NoDestructor<std::string> TEMP_PROFILE_TYPE {"temp"};
+inline const NoDestructor<string> TEMP_PROFILE_TYPE {"temp"};
 // Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
-inline const NoDestructor<std::string> PERSISTENT_PROFILE_TYPE {"duckdb"};
-inline const NoDestructor<std::unordered_set<std::string>> ALL_PROFILE_TYPES {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE,
+inline const NoDestructor<string> PERSISTENT_PROFILE_TYPE {"duckdb"};
+inline const NoDestructor<std::unordered_set<string>> ALL_PROFILE_TYPES {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE,
                                                                               *PERSISTENT_PROFILE_TYPE};
 
 //===--------------------------------------------------------------------===//
 // Default configuration
 //===--------------------------------------------------------------------===//
 inline const idx_t DEFAULT_CACHE_BLOCK_SIZE = 512_KiB;
-inline const NoDestructor<std::string> DEFAULT_ON_DISK_CACHE_DIRECTORY {"/tmp/duckdb_cache_httpfs_cache"};
+inline const NoDestructor<string> DEFAULT_ON_DISK_CACHE_DIRECTORY {"/tmp/duckdb_cache_httpfs_cache"};
 
 // Default to use on-disk cache filesystem.
-inline NoDestructor<std::string> DEFAULT_CACHE_TYPE {*ON_DISK_CACHE_TYPE};
+inline NoDestructor<string> DEFAULT_CACHE_TYPE {*ON_DISK_CACHE_TYPE};
 
 // To prevent go out of disk space, we set a threshold to disallow local caching if insufficient. It applies to all
 // filesystems. The value here is the decimal representation for percentage value; for example, 0.05 means 5%.
@@ -71,7 +73,7 @@ inline static constexpr size_t DEFAULT_MAX_GLOB_CACHE_ENTRY = 64;
 inline static constexpr uint64_t DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC = 1800ULL * 1000 /*30min*/;
 
 // Default option for profile type.
-inline NoDestructor<std::string> DEFAULT_PROFILE_TYPE {*NOOP_PROFILE_TYPE};
+inline NoDestructor<string> DEFAULT_PROFILE_TYPE {*NOOP_PROFILE_TYPE};
 
 // Default max number of parallel subrequest for a single filesystem read request. 0 means no limit.
 inline uint64_t DEFAULT_MAX_SUBREQUEST_COUNT = 0;
@@ -99,12 +101,14 @@ inline idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE = 0;
 // Global configuration.
 inline idx_t g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
 inline bool g_ignore_sigpipe = DEFAULT_IGNORE_SIGPIPE;
-inline NoDestructor<std::string> g_cache_type {*DEFAULT_CACHE_TYPE};
-inline NoDestructor<std::string> g_profile_type {*DEFAULT_PROFILE_TYPE};
+inline NoDestructor<string> g_cache_type {*DEFAULT_CACHE_TYPE};
+inline NoDestructor<string> g_profile_type {*DEFAULT_PROFILE_TYPE};
 inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 
 // On-disk cache configuration.
-inline NoDestructor<std::string> g_on_disk_cache_directory {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
+//
+// Sorted cache directories.
+inline NoDestructor<vector<string>> g_on_disk_cache_directories {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
 inline idx_t g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 
 // In-memory cache configuration.
@@ -128,7 +132,7 @@ inline idx_t g_glob_cache_entry_timeout_millisec = DEFAULT_GLOB_CACHE_ENTRY_TIME
 
 // Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
 // TODO(hjiang): A better is bake configuration into `FileOpener`.
-inline NoDestructor<std::string> g_test_cache_type {""};
+inline NoDestructor<string> g_test_cache_type {""};
 
 // Used for testing purpose, which disable on-disk cache if true.
 inline bool g_test_insufficient_disk_space = false;
@@ -136,6 +140,9 @@ inline bool g_test_insufficient_disk_space = false;
 //===--------------------------------------------------------------------===//
 // Util function for filesystem configurations.
 //===--------------------------------------------------------------------===//
+
+// Get on-disk directories config.
+std::vector<string> GetCacheDirectoryConfig(optional_ptr<FileOpener> opener);
 
 // Set global cache filesystem configuration.
 void SetGlobalConfig(optional_ptr<FileOpener> opener);

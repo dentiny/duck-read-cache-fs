@@ -66,7 +66,9 @@ void ReadUncachedWholeFile(uint64_t block_size) {
 	StandardBufferManager buffer_manager {*db.instance, "/tmp/cache_httpfs_fs_benchmark"};
 	auto s3fs = make_uniq<S3FileSystem>(buffer_manager);
 
-	FileSystem::CreateLocal()->RemoveDirectory(*g_on_disk_cache_directory);
+	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
+		LocalFileSystem::CreateLocal()->RemoveDirectory(cur_cache_dir);
+	}
 	auto disk_cache_fs = make_uniq<CacheFileSystem>(std::move(s3fs));
 
 	auto client_context = make_shared_ptr<ClientContext>(db.instance);
