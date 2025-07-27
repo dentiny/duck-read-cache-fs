@@ -103,7 +103,7 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
 	auto cache_filepath = StringUtil::Format("%s/%s-%s-%llu-%llu", cur_cache_dir, remote_file_sha256_str, fname, start_offset,
 	                          bytes_to_read);
 	return CacheFileDestination {
-		.cache_directory_idx = 	cache_directory_idx,
+		.cache_directory_idx = cache_directory_idx,
 		.cache_filepath = std::move(cache_filepath),
 	};
 }

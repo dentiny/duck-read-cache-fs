@@ -240,8 +240,8 @@ static void LoadInternal(DatabaseInstance &instance) {
 	// - Current implementation uses static hash based distribution, which doesn't work well when directory set changes;
 	// there're a few ways to resolve this problem, for example, fallback to other cache directories and check; change distribution logic.
 	config.AddExtensionOption("cache_httpfs_cache_directories_config",
-								"Advanced configuration for on-disk cache directories. It supports multiple directories, separated by semicolons (';'). Cache blocks will be evenly distributed under different directories deterministically."
-								"Between different runs, it's expected to provide same cache directories, while ordering is not required."
+								"Advanced configuration for on-disk cache. It supports multiple directories, separated by semicolons (';'). Cache blocks will be evenly distributed under different directories deterministically."
+								"Between different runs, it's expected to provide same cache directories, otherwise it's not guaranteed cache files still exist and accessible."
 								"Overrides 'cache_httpfs_cache_directory' if set.",
 								LogicalType::VARCHAR,
 								std::string{});

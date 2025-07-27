@@ -106,6 +106,8 @@ inline NoDestructor<string> g_profile_type {*DEFAULT_PROFILE_TYPE};
 inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 
 // On-disk cache configuration.
+//
+// Sorted cache directories.
 inline NoDestructor<vector<string>> g_on_disk_cache_directories {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
 inline idx_t g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 
