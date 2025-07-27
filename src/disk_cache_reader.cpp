@@ -181,18 +181,19 @@ DiskCacheReader::DiskCacheReader() : local_filesystem(LocalFileSystem::CreateLoc
 
 vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	vector<DataCacheEntryInfo> cache_entries_info;
-	const auto& on_disk_cache_dir = (*g_on_disk_cache_directories)[0];
-	local_filesystem->ListFiles(
-	    on_disk_cache_dir, [&cache_entries_info, on_disk_cache_dir](const std::string &fname, bool /*unused*/) {
-		    auto remote_file_info = GetRemoteFileInfo(fname);
-		    cache_entries_info.emplace_back(DataCacheEntryInfo {
-		        .cache_filepath = StringUtil::Format("%s/%s", on_disk_cache_dir, fname),
-		        .remote_filename = std::get<0>(remote_file_info),
-		        .start_offset = std::get<1>(remote_file_info),
-		        .end_offset = std::get<2>(remote_file_info),
-		        .cache_type = "on-disk",
-		    });
-	    });
+	for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
+		local_filesystem->ListFiles(
+			cur_cache_dir, [&cache_entries_info, cur_cache_dir](const std::string &fname, bool /*unused*/) {
+				auto remote_file_info = GetRemoteFileInfo(fname);
+				cache_entries_info.emplace_back(DataCacheEntryInfo {
+					.cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname),
+					.remote_filename = std::get<0>(remote_file_info),
+					.start_offset = std::get<1>(remote_file_info),
+					.end_offset = std::get<2>(remote_file_info),
+					.cache_type = "on-disk",
+				});
+			});
+	}	
 	return cache_entries_info;
 }
 
@@ -324,13 +325,14 @@ void DiskCacheReader::ClearCache() {
 
 void DiskCacheReader::ClearCache(const string &fname) {
 	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
-	const auto& on_disk_cache_dir = (*g_on_disk_cache_directories)[0];
-	local_filesystem->ListFiles(on_disk_cache_dir, [&](const string &cur_file, bool /*unused*/) {
-		if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {
-			const string filepath = StringUtil::Format("%s/%s", on_disk_cache_dir, cur_file);
-			local_filesystem->RemoveFile(filepath);
-		}
-	});
+	for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
+		local_filesystem->ListFiles(cur_cache_dir, [&](const string &cur_file, bool /*unused*/) {
+			if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {
+				const string filepath = StringUtil::Format("%s/%s", cur_cache_dir, cur_file);
+				local_filesystem->RemoveFile(filepath);
+			}
+		});
+	}
 }
 
 } // namespace duckdb
