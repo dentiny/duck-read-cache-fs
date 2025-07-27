@@ -17,6 +17,8 @@ constexpr char CACHE_DIRECTORIES_CONFIG_SPLITTER = ';';
 // Parse directory configuration string into directories.
 vector<string> ParseCacheDirectoryConfig(const std::string& directory_config_str) {
 	auto directories = StringUtil::Split(directory_config_str, /*delimiter=*/";");
+	// Sort the cache directories, so for different directories config value with same directory sets, ordering doesn't affect cache status.
+	std::sort(directories.begin(), directories.end());
 	return directories;
 }
 

@@ -24,6 +24,14 @@ namespace duckdb {
 
 namespace {
 
+// Cache directory and cache filepath for certain request.
+struct CacheFileDestination {
+	// Index for all cache directories.
+	idx_t cache_directory_idx = 0;
+	// Local cache filepath.
+	string cache_filepath;
+};
+
 // All read requests are split into chunks, and executed in parallel.
 // A [CacheReadChunk] represents a chunked IO request and its corresponding partial IO request.
 struct CacheReadChunk {
@@ -79,15 +87,25 @@ string Sha256ToHexString(const duckdb::hash_bytes &sha256) {
 // under one directory, and get all cache files with commands like `ls`.
 //
 // Considering the naming format, it's worth noting it might _NOT_ work for local files, including mounted filesystems.
-string GetLocalCacheFile(const string &cache_directory, const string &remote_file, idx_t start_offset,
+CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, const string &remote_file, idx_t start_offset,
                          idx_t bytes_to_read) {
+	D_ASSERT(!cache_directories.empty());
+
 	duckdb::hash_bytes remote_file_sha256_val;
 	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
-
 	const string fname = StringUtil::GetFileName(remote_file);
-	return StringUtil::Format("%s/%s-%s-%llu-%llu", cache_directory, remote_file_sha256_str, fname, start_offset,
+
+	const uint64_t hash_val = std::hash<std::string>{}(remote_file_sha256_str);
+    const idx_t cache_directory_idx = hash_val % cache_directories.size();
+	const auto& cur_cache_dir = cache_directories[cache_directory_idx];
+
+	auto cache_filepath = StringUtil::Format("%s/%s-%s-%llu-%llu", cur_cache_dir, remote_file_sha256_str, fname, start_offset,
 	                          bytes_to_read);
+	return CacheFileDestination {
+		.cache_directory_idx = 	cache_directory_idx,
+		.cache_filepath = std::move(cache_filepath),
+	};
 }
 
 // Get remote file information from the given local cache [fname].
@@ -246,15 +264,14 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			SetThreadName("RdCachRdThd");
 
 			// Check local cache first, see if we could do a cached read.
-			const auto& on_disk_cache_dir = (*g_on_disk_cache_directories)[0];
-			const auto local_cache_file =
-			    GetLocalCacheFile(on_disk_cache_dir, handle.GetPath(), cache_read_chunk.aligned_start_offset,
+			auto cache_destination =
+			    GetLocalCacheFile(*g_on_disk_cache_directories, handle.GetPath(), cache_read_chunk.aligned_start_offset,
 			                      cache_read_chunk.chunk_size);
 
 			// Attempt to open the file directly, so a successfully opened file handle won't be deleted by cleanup
 			// thread and lead to data race.
 			auto file_handle = local_filesystem->OpenFile(
-			    local_cache_file, FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+			    cache_destination.cache_filepath, FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
 			if (file_handle != nullptr) {
 				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 				                                     BaseProfileCollector::CacheAccess::kCacheHit);
@@ -264,12 +281,12 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 				cache_read_chunk.CopyBufferToRequestedMemory();
 
 				// Update access and modification timestamp for the cache file, so it won't get evicted.
-				const int ret_code = utime(local_cache_file.data(), /*times=*/nullptr);
+				const int ret_code = utime(cache_destination.cache_filepath.data(), /*times=*/nullptr);
 				// It's possible the cache file has been requested to delete by eviction thread, so `ENOENT` is a
 				// tolarable error.
 				if (ret_code != 0 && errno != ENOENT) {
 					throw IOException("Fails to update %s's access and modification timestamp because %s",
-					                  local_cache_file, strerror(errno));
+					                  cache_destination.cache_filepath, strerror(errno));
 				}
 				return;
 			}
@@ -290,7 +307,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			cache_read_chunk.CopyBufferToRequestedMemory();
 
 			// Attempt to cache file locally.
-			CacheLocal(cache_read_chunk, *local_filesystem, handle, on_disk_cache_dir, local_cache_file);
+			const auto& cache_directory = (*g_on_disk_cache_directories)[cache_destination.cache_directory_idx];
+			CacheLocal(cache_read_chunk, *local_filesystem, handle, cache_directory, cache_destination.cache_filepath);
 		});
 	}
 	io_threads.Wait();

@@ -234,6 +234,10 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                          "By default, 5% disk space will be reserved for other usage. When min disk bytes "
 	                          "specified with a positive value, the default value will be overriden.",
 	                          LogicalType::UBIGINT, 0);
+	// TODO(hjiang): there're quite a few optimizations which could be done in the config. For example,
+	// - Each cache directories could have their own config, like min/max cache file size;
+	// - Current implementation uses static hash based distribution, which doesn't work well when directory set changes;
+	// there're a few ways to resolve this problem, for example, fallback to other cache directories and check; change distribution logic.
 	config.AddExtensionOption("cache_httpfs_cache_directories_config",
 								"Advanced configuration for on-disk cache directories. It supports multiple directories, separated by semicolons (';'). Cache blocks will be evenly distributed under different directories deterministically."
 								"Between different runs, it's expected to provide same cache directories, while ordering is not required."
