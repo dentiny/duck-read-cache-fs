@@ -1,3 +1,19 @@
+# 0.5.0
+
+## Changed
+
+- Increase IO request size from 64KiB to 512KiB ([#220])
+
+[#220]: https://github.com/dentiny/duck-read-cache-fs/pull/220
+
+- Allow multiple on-disk cache directories ([#221])
+
+[#221]: https://github.com/dentiny/duck-read-cache-fs/pull/221
+
+- Attempt to get file metadata from `OpenFileInfo` ([#223])
+
+[#223]: https://github.com/dentiny/duck-read-cache-fs/pull/223
+
 # 0.4.0
 
 ## Changed
