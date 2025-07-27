@@ -19,7 +19,7 @@ D SET cache_httpfs_cache_directory='/tmp/mounted_cache_directory';
 D SET cache_httpfs_min_disk_bytes_for_cache=1000000000;
 ```
 
-- Extension also allows users to configure multiple cache directories, which benefits situations where there're multiple disks mounted at different filesystem location.
+- Extension also allows users to configure multiple cache directories, which benefits situations where there're multiple disks mounted at different filesystem locations.
 ```sql
 D SET cache_httpfs_profile_type='on_disk';
 -- Specify multiple cache directories, split by `;`.
