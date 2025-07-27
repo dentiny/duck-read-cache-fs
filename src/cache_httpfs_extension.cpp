@@ -69,13 +69,14 @@ static void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 
 	int64_t total_cache_size = 0;
-	const auto& cur_cache_dir = (*g_on_disk_cache_directories)[0];
-	local_filesystem->ListFiles(
-	    cur_cache_dir, [&local_filesystem, &total_cache_size, &cur_cache_dir](const string &fname, bool /*unused*/) {
-		    const string file_path = StringUtil::Format("%s/%s", cur_cache_dir, fname);
-		    auto file_handle = local_filesystem->OpenFile(file_path, FileOpenFlags::FILE_FLAGS_READ);
-		    total_cache_size += local_filesystem->GetFileSize(*file_handle);
-	    });
+	for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
+		local_filesystem->ListFiles(
+			cur_cache_dir, [&local_filesystem, &total_cache_size, &cur_cache_dir](const string &fname, bool /*unused*/) {
+				const string file_path = StringUtil::Format("%s/%s", cur_cache_dir, fname);
+				auto file_handle = local_filesystem->OpenFile(file_path, FileOpenFlags::FILE_FLAGS_READ);
+				total_cache_size += local_filesystem->GetFileSize(*file_handle);
+		});
+	}
 	result.Reference(Value(total_cache_size));
 }
 

@@ -1,0 +1,32 @@
+# name: test/sql/disk_cache_filesystem_with_multi_cache_dir.test
+# description: test cache filesystem with on-disk cache and multiple cache directories
+# group: [sql]
+
+require cache_httpfs
+
+require parquet
+
+statement ok
+SET cache_httpfs_type='on_disk';
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+# Unset default cache directory to check whether directories config work.
+statement ok
+SET cache_httpfs_cache_directory=''
+
+statement ok
+SET cache_httpfs_cache_directories_config='/tmp/duckdb_cache_httpfs_cache_1;/tmp/duckdb_cache_httpfs_cache_2';
+
+# Test uncached query.
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+# Test cached query.
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
