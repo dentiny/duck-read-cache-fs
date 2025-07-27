@@ -182,22 +182,27 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kGlob, oper_id);
 
 	// Certain filesystem (i.e., s3 filesystem) populates file size within extended file info, make an attempt to extract file size.
-	if (metadata_cache != nullptr) {
-		for (const auto& cur_file_info : open_file_info) {
-			const auto& filepath = cur_file_info.path;
-			const auto& cur_extended_file_info = *cur_file_info.extended_info;
-			auto iter = cur_extended_file_info.options.find(FILE_SIZE_INFO_KEY);
-			if (iter == cur_extended_file_info.options.end()) {
-				continue;
-			}
-			auto& value = iter->second;
-			FileMetadata file_metadata {
-				.file_size = value.GetValue<int64_t>(),
-			};
-			metadata_cache->Put(filepath, make_shared_ptr<FileMetadata>(std::move(file_metadata)));
-		}
+	//
+	// Initialize metadata cache if not.
+	SetMetadataCache();
+	if (metadata_cache == nullptr) {
+		return open_file_info;
 	}
 
+	// Attempt to fill in metadata cache.
+	for (const auto& cur_file_info : open_file_info) {
+		const auto& filepath = cur_file_info.path;
+		const auto& cur_extended_file_info = *cur_file_info.extended_info;
+		auto iter = cur_extended_file_info.options.find(FILE_SIZE_INFO_KEY);
+		if (iter == cur_extended_file_info.options.end()) {
+			continue;
+		}
+		auto& value = iter->second;
+		FileMetadata file_metadata {
+			.file_size = value.GetValue<int64_t>(),
+		};
+		metadata_cache->Put(filepath, make_shared_ptr<FileMetadata>(std::move(file_metadata)));
+	}
 	return open_file_info;
 }
 
