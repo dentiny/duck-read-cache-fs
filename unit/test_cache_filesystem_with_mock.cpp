@@ -146,7 +146,7 @@ TEST_CASE("Test file metadata cache for glob invocation", "[mock filesystem test
 	REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 0);
 }
 
-// Testing scenario: when any file attribute is accessed, all of them should be cached. 
+// Testing scenario: when any file attribute is accessed, all of them should be cached.
 TEST_CASE("Test file attribute for glob invocation", "[mock filesystem test]") {
 	auto close_callback = []() {
 	};
