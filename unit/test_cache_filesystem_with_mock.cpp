@@ -153,16 +153,10 @@ TEST_CASE("Test file attribute for glob invocation", "[mock filesystem test]") {
 	auto dtor_callback = []() {
 	};
 	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_callback), std::move(dtor_callback));
-
-	// An implementation detail: file path to glob needs to contain glob characters, otherwise cache filesystem doesn't
-	// try to cache anything.
-	const string FILE_PATTERN_WITH_GLOB = "*";
-
-	// Set an incorrect file size for mock file system, to make sure it's not called.
 	mock_filesystem->SetFileSize(20);
 	mock_filesystem->SetLastModificationTime(static_cast<time_t>(1731152288));
 
-	// Perform glob and get file size operation.
+	// Get file size and last modification timestamp.
 	auto *mock_filesystem_ptr = mock_filesystem.get();
 	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(mock_filesystem));
 	auto file_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
