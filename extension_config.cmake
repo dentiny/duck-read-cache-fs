@@ -3,7 +3,7 @@
 # Extension from this repo
 duckdb_extension_load(cache_httpfs
     SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}
-    DONT_LOAD
+    LOAD_TESTS
 )
 
 # Any extra extensions that should be built
