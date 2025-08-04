@@ -63,6 +63,10 @@ public:
 		++get_file_size_invocation;
 		return file_size;
 	}
+	time_t GetLastModifiedTime(FileHandle &handle) override {
+		++get_last_mod_time_invocation;
+		return last_modification_time;
+	}
 	void Seek(FileHandle &handle, idx_t location) override {
 	}
 	std::string GetName() const override {
@@ -76,6 +80,9 @@ public:
 	void SetFileSize(int64_t file_size_p) {
 		file_size = file_size_p;
 	}
+	void SetLastModificationTime(time_t last_modification_time_p) {
+		last_modification_time = last_modification_time_p;
+	}
 	vector<ReadOper> GetSortedReadOperations();
 	uint64_t GetFileOpenInvocation() const {
 		return file_open_invocation;
@@ -86,12 +93,16 @@ public:
 	uint64_t GetSizeInvocation() const {
 		return get_file_size_invocation;
 	}
+	uint64_t GetLastModTimeInvocation() const {
+		return get_last_mod_time_invocation;
+	}
 	void ClearReadOperations() {
 		read_operations.clear();
 	}
 
 private:
 	int64_t file_size = 0;
+	time_t last_modification_time = static_cast<time_t>(0);
 	// Glob returns value for each invocation.
 	std::deque<OpenFileInfo> glob_returns;
 	std::function<void()> close_callback;
@@ -100,6 +111,7 @@ private:
 	uint64_t file_open_invocation = 0;     // Number of `FileOpen` gets called.
 	uint64_t glob_invocation = 0;          // Number of `Glob` gets called.
 	uint64_t get_file_size_invocation = 0; // Number of `GetFileSize` get called.
+	uint64_t get_last_mod_time_invocation = 0; // Number of `GetLastModificationTime` called.
 	vector<ReadOper> read_operations;
 	std::mutex mtx;
 };

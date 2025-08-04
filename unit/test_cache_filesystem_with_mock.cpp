@@ -98,7 +98,7 @@ void TestReadWithMockFileSystem() {
 } // namespace
 
 // Testing scenario: if glob operation returns file size, it should get cached.
-TEST_CASE("Test file size cache for glob invocation", "[mock filesystem test]") {
+TEST_CASE("Test file metadata cache for glob invocation", "[mock filesystem test]") {
 	auto close_callback = []() {
 	};
 	auto dtor_callback = []() {
@@ -115,8 +115,11 @@ TEST_CASE("Test file size cache for glob invocation", "[mock filesystem test]") 
 	// Ref:
 	// https://github.com/duckdb/duckdb-httpfs/blob/cb5b2825eff68fc91f47e917ba88bf2ed84c2dd3/extension/httpfs/s3fs.cpp#L1171
 	string size_str = "10";
+	string last_modification_time_str = "2024-11-09T11:38:08.000Z"; // Unix timestamp 1731152288.
 	auto extended_file_info = make_shared_ptr<ExtendedOpenFileInfo>();
 	extended_file_info->options.emplace("file_size", Value(size_str).DefaultCastAs(LogicalType::UBIGINT));
+	extended_file_info->options.emplace("last_modified",
+	                                    Value(last_modification_time_str).DefaultCastAs(LogicalType::TIMESTAMP));
 	open_info.extended_info = std::move(extended_file_info);
 
 	vector<OpenFileInfo> glob_returns;
@@ -125,6 +128,7 @@ TEST_CASE("Test file size cache for glob invocation", "[mock filesystem test]") 
 
 	// Set an incorrect file size for mock file system, to make sure it's not called.
 	mock_filesystem->SetFileSize(20);
+	mock_filesystem->SetLastModificationTime(static_cast<time_t>(-1));
 
 	// Perform glob and get file size operation.
 	auto *mock_filesystem_ptr = mock_filesystem.get();
@@ -132,11 +136,44 @@ TEST_CASE("Test file size cache for glob invocation", "[mock filesystem test]") 
 	cache_filesystem->Glob(FILE_PATTERN_WITH_GLOB);
 	auto file_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
 	const int64_t file_size = cache_filesystem->GetFileSize(*file_handle);
+	const time_t last_modification_time = cache_filesystem->GetLastModifiedTime(*file_handle);
 
 	// Check invocation results.
 	REQUIRE(file_size == 10);
+	REQUIRE(last_modification_time == static_cast<time_t>(1731152288));
 	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 1);
 	REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 0);
+	REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 0);
+}
+
+// Testing scenario: when any file attribute is accessed, all of them should be cached. 
+TEST_CASE("Test file attribute for glob invocation", "[mock filesystem test]") {
+	auto close_callback = []() {
+	};
+	auto dtor_callback = []() {
+	};
+	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_callback), std::move(dtor_callback));
+	mock_filesystem->SetFileSize(20);
+	mock_filesystem->SetLastModificationTime(static_cast<time_t>(1731152288));
+
+	// Get file size and last modification timestamp.
+	auto *mock_filesystem_ptr = mock_filesystem.get();
+	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(mock_filesystem));
+	auto file_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+	{
+		const int64_t file_size = cache_filesystem->GetFileSize(*file_handle);
+		const time_t last_modification_time = cache_filesystem->GetLastModifiedTime(*file_handle);
+	}
+
+	// Fetch file attributes again.
+	const int64_t file_size = cache_filesystem->GetFileSize(*file_handle);
+	const time_t last_modification_time = cache_filesystem->GetLastModifiedTime(*file_handle);
+
+	// Check invocation results.
+	REQUIRE(file_size == 20);
+	REQUIRE(last_modification_time == static_cast<time_t>(1731152288));
+	REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 1);
+	REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 1);
 }
 
 TEST_CASE("Test disk cache reader with mock filesystem", "[mock filesystem test]") {

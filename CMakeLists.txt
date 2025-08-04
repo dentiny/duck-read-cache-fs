@@ -36,6 +36,7 @@ set(EXTENSION_SOURCES
     src/utils/filesystem_utils.cpp
     src/utils/mock_filesystem.cpp
     src/utils/thread_pool.cpp
+    src/utils/time_utils.cpp
     src/utils/thread_utils.cpp
     duckdb-httpfs/extension/httpfs/create_secret_functions.cpp
     duckdb-httpfs/extension/httpfs/crypto.cpp
@@ -165,8 +166,7 @@ target_link_libraries(test_no_destructor ${EXTENSION_NAME})
 add_executable(read_s3_object benchmark/read_s3_object.cpp)
 target_link_libraries(read_s3_object ${EXTENSION_NAME})
 
-add_executable(sequential_read_benchmark
-               benchmark/sequential_read_benchmark.cpp)
+add_executable(sequential_read_benchmark benchmark/sequential_read_benchmark.cpp)
 target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
 
 add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
