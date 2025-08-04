@@ -115,7 +115,7 @@ TEST_CASE("Test file size cache for glob invocation", "[mock filesystem test]") 
 	// Ref:
 	// https://github.com/duckdb/duckdb-httpfs/blob/cb5b2825eff68fc91f47e917ba88bf2ed84c2dd3/extension/httpfs/s3fs.cpp#L1171
 	string size_str = "10";
-	string last_modification_time_str = "2024-11-09T11:38:08.000Z";
+	string last_modification_time_str = "2024-11-09T11:38:08.000Z"; // Unix timestamp 1731152288.
 	auto extended_file_info = make_shared_ptr<ExtendedOpenFileInfo>();
 	extended_file_info->options.emplace("file_size", Value(size_str).DefaultCastAs(LogicalType::UBIGINT));
 	extended_file_info->options.emplace("last_modified",
@@ -136,9 +136,11 @@ TEST_CASE("Test file size cache for glob invocation", "[mock filesystem test]") 
 	cache_filesystem->Glob(FILE_PATTERN_WITH_GLOB);
 	auto file_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
 	const int64_t file_size = cache_filesystem->GetFileSize(*file_handle);
+	const time_t last_modification_time = cache_filesystem->GetLastModifiedTime(*file_handle);
 
 	// Check invocation results.
 	REQUIRE(file_size == 10);
+	REQUIRE(last_modification_time == static_cast<time_t>(1731152288));
 	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 1);
 	REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 0);
 	REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 0);
