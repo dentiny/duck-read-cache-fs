@@ -25,21 +25,21 @@ struct MapKeyHash {
 
 TEST_CASE("IncrementAndDecrement", "[counter test]") {
 	ThreadSafeCounter<std::string> counter {};
-    REQUIRE(counter.Increment("key") == 1);
-    REQUIRE(counter.GetCount("key") == 1);
-    REQUIRE(counter.Decrement("key") == 0);
-    REQUIRE(counter.GetCount("key") == 0);
+	REQUIRE(counter.Increment("key") == 1);
+	REQUIRE(counter.GetCount("key") == 1);
+	REQUIRE(counter.Decrement("key") == 0);
+	REQUIRE(counter.GetCount("key") == 0);
 }
 
 TEST_CASE("CounterWithCustomizedKey", "[counter test]") {
-    ThreadSafeCounter<MapKey, MapKeyHash, MapKeyEqual> counter {};
-    MapKey key;
+	ThreadSafeCounter<MapKey, MapKeyHash, MapKeyEqual> counter {};
+	MapKey key;
 	key.fname = "hello";
 	key.off = 10;
-    REQUIRE(counter.Increment(key) == 1);
-    REQUIRE(counter.GetCount(key) == 1);
-    REQUIRE(counter.Decrement(key) == 0);
-    REQUIRE(counter.GetCount(key) == 0);
+	REQUIRE(counter.Increment(key) == 1);
+	REQUIRE(counter.GetCount(key) == 1);
+	REQUIRE(counter.Decrement(key) == 0);
+	REQUIRE(counter.GetCount(key) == 0);
 }
 
 int main(int argc, char **argv) {

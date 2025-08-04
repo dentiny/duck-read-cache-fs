@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "duckdb/common/assert.hpp"
+
 namespace duckdb {
 
 template <typename Key, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>> 
@@ -29,7 +31,7 @@ public:
     // Increment the count for the given [key], and return the new count.
     template <typename KeyLike>
     unsigned Increment(KeyLike&& key) {
-        const auto new_count = ++counter[std::forward<Key>(key)];
+        const auto new_count = ++counter[std::forward<KeyLike>(key)];
         return new_count;
     }
 
@@ -86,14 +88,14 @@ public:
     template <typename KeyLike>
     unsigned Decrement(KeyLike&& key) {
         std::lock_guard<std::mutex> lck(mu);
-        return counter.Decrement(key);
+        return counter.Decrement(std::forward<KeyLike>(key));
     }
 
     // Get the count for the given [key].
     template <typename KeyLike>
     unsigned GetCount(KeyLike&& key) {
         std::lock_guard<std::mutex> lck(mu);
-        return counter.GetCount(key);
+        return counter.GetCount(std::forward<KeyLike>(key));
     }
 
 private:
