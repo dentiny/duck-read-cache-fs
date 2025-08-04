@@ -115,8 +115,11 @@ TEST_CASE("Test file size cache for glob invocation", "[mock filesystem test]") 
 	// Ref:
 	// https://github.com/duckdb/duckdb-httpfs/blob/cb5b2825eff68fc91f47e917ba88bf2ed84c2dd3/extension/httpfs/s3fs.cpp#L1171
 	string size_str = "10";
+	string last_modification_time_str = "2024-11-09T11:38:08.000Z";
 	auto extended_file_info = make_shared_ptr<ExtendedOpenFileInfo>();
 	extended_file_info->options.emplace("file_size", Value(size_str).DefaultCastAs(LogicalType::UBIGINT));
+	extended_file_info->options.emplace("last_modified",
+	                                    Value(last_modification_time_str).DefaultCastAs(LogicalType::TIMESTAMP));
 	open_info.extended_info = std::move(extended_file_info);
 
 	vector<OpenFileInfo> glob_returns;
@@ -125,6 +128,7 @@ TEST_CASE("Test file size cache for glob invocation", "[mock filesystem test]") 
 
 	// Set an incorrect file size for mock file system, to make sure it's not called.
 	mock_filesystem->SetFileSize(20);
+	mock_filesystem->SetLastModificationTime(static_cast<time_t>(-1));
 
 	// Perform glob and get file size operation.
 	auto *mock_filesystem_ptr = mock_filesystem.get();
@@ -137,6 +141,7 @@ TEST_CASE("Test file size cache for glob invocation", "[mock filesystem test]") 
 	REQUIRE(file_size == 10);
 	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 1);
 	REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 0);
+	REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 0);
 }
 
 TEST_CASE("Test disk cache reader with mock filesystem", "[mock filesystem test]") {

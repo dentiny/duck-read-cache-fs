@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "duckdb/common/types/timestamp.hpp"
+
 #include <chrono>
 #include <cstdint>
+#include <ctime>
 
 namespace duckdb {
 
@@ -33,5 +36,8 @@ inline int64_t GetSystemNowNanoSecSinceEpoch() {
 inline int64_t GetSystemNowMilliSecSinceEpoch() {
 	return GetSystemNowNanoSecSinceEpoch() / kMilliToNanos;
 }
+
+// Convert from duckdb [`timestamp_t`] to [`time_t`].
+time_t DuckdbTimestampToTimeT(timestamp_t timestamp);
 
 } // namespace duckdb

@@ -73,8 +73,10 @@ public:
 	BaseProfileCollector *GetProfileCollector() const {
 		return profile_collector.get();
 	}
-	// Get file size, which gets cached in-memory.
+	// Get file size, which attempts to get metadata cache if possible.
 	int64_t GetFileSize(FileHandle &handle);
+	// Get last modification timestamp, which attempts to get metadata cache if possible.
+	time_t GetLastModifiedTime(FileHandle &handle) override;
 	// Get cache reader manager.
 	shared_ptr<CacheReaderManager> GetCacheReaderManager();
 	// Get the internal filesystem for cache filesystem.
@@ -106,10 +108,6 @@ public:
 	bool Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 		return internal_filesystem->Trim(*disk_cache_handle.internal_file_handle, offset_bytes, length_bytes);
-	}
-	time_t GetLastModifiedTime(FileHandle &handle) override {
-		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-		return internal_filesystem->GetLastModifiedTime(*disk_cache_handle.internal_file_handle);
 	}
 	FileType GetFileType(FileHandle &handle) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
@@ -199,7 +197,11 @@ private:
 	friend class CacheFileSystemHandle;
 
 	struct FileMetadata {
-		int64_t file_size = 0;
+		inline constexpr static int64_t INVALID_FILE_SIZE = -1;
+		inline constexpr static time_t INVALID_MODIFICATION_TIME = static_cast<time_t>(-1);
+
+		int64_t file_size = INVALID_FILE_SIZE;
+		time_t last_modification_time = INVALID_MODIFICATION_TIME;
 	};
 
 	struct FileHandleCacheKey {
@@ -225,6 +227,14 @@ private:
 
 	// Initialize global configurations and global objects (i.e. metadata cache, profiler, etc) in a thread-safe manner.
 	void InitializeGlobalConfig(optional_ptr<FileOpener> opener);
+
+	// Stat the current file handle, and get all well-known file attributes.
+	//
+	// A better implementation is duckdb filesystem natively provides a `Stats` function call, so we could built metadata caching layer upon;
+	// here to simplify implementation, we simply fetch all well-known attributes in one function call together.
+	//
+	// Performance-wise it might not be too much of a concern, because the most widely-used httpfs file handle already has its internal cache.
+	shared_ptr<FileMetadata> Stats(FileHandle &handle);
 
 	// Read from [location] on [nr_bytes] for the given [handle] into [buffer].
 	// Return the actual number of bytes to read.
@@ -268,10 +278,10 @@ private:
 	CacheReaderManager &cache_reader_manager;
 	// Used to profile operations.
 	unique_ptr<BaseProfileCollector> profile_collector;
-	// Metadata cache, which maps from file name to metadata.
+	// Metadata cache, which maps from file path to metadata.
 	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;
 	unique_ptr<MetadataCache> metadata_cache;
-	// File handle cache, which maps from file name to uncached file handle.
+	// File handle cache, which maps from file path to uncached file handle.
 	// Cache is used here to avoid HEAD HTTP request on read operations.
 	using FileHandleCache = ThreadSafeExclusiveMultiLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyHash,
 	                                                         FileHandleCacheKeyEqual>;
