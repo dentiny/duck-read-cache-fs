@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "duckdb/common/assert.hpp"
+#include "duckdb/common/vector.hpp"
 
 namespace duckdb {
 
@@ -58,6 +59,21 @@ public:
         return iter->second;
     }
 
+    // Clear the counter entries which matches the given [key_pred].
+    template <typename KeyPred>
+    void ClearCounter(KeyPred&& key_pred) {
+        vector<Key> keys_to_delete;
+        for (const auto& [key, _] : counter) {
+            if (key_pred(key)) {
+                keys_to_delete.emplace_back(key);
+            }
+        }
+
+        for (const auto& cur_key : keys_to_delete) {
+            counter.erase(cur_key);
+        }
+    }
+
 private:
     std::unordered_map<Key, unsigned, KeyHash, KeyEqual> counter;
 };
@@ -96,6 +112,13 @@ public:
     unsigned GetCount(KeyLike&& key) {
         std::lock_guard<std::mutex> lck(mu);
         return counter.GetCount(std::forward<KeyLike>(key));
+    }
+
+    // Clear the counter entries which matches the given [key_pred].
+    template <typename KeyPred>
+    void ClearCounter(KeyPred&& key_pred) {
+        std::lock_guard<std::mutex> lck(mu);
+        counter.ClearCounter(std::forward<KeyPred>(key_pred));
     }
 
 private:

@@ -42,6 +42,20 @@ TEST_CASE("CounterWithCustomizedKey", "[counter test]") {
 	REQUIRE(counter.GetCount(key) == 0);
 }
 
+TEST_CASE("ClearCounterWithPred", "[counter test]") {
+	ThreadSafeCounter<MapKey, MapKeyHash, MapKeyEqual> counter {};
+	MapKey key;
+	key.fname = "hello";
+	key.off = 10;
+	REQUIRE(counter.Increment(key) == 1);
+	REQUIRE(counter.GetCount(key) == 1);
+
+	counter.ClearCounter([](const MapKey &arg) { return false; });
+	REQUIRE(counter.GetCount(key) == 1);
+	counter.ClearCounter([&key](const MapKey &arg) { return MapKeyEqual {}.operator()(key, arg); });
+	REQUIRE(counter.GetCount(key) == 0);
+}
+
 int main(int argc, char **argv) {
 	int result = Catch::Session().run(argc, argv);
 	return result;
