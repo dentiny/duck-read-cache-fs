@@ -96,7 +96,6 @@ void CacheFileSystem::ClearFileHandleCache(const std::string &filepath) {
 	for (auto &cur_file_handle : file_handles) {
 		cur_file_handle->Close();
 	}
-	file_handle_cache = nullptr;
 }
 
 void CacheFileSystem::SetFileHandleCache() {
