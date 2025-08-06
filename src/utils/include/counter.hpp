@@ -50,7 +50,7 @@ public:
 
     // Get the count for the given [key].
     template <typename KeyLike>
-    unsigned GetCount(KeyLike&& key) {
+    unsigned GetCount(const KeyLike& key) {
         auto iter = counter.find(key);
         if (iter == counter.end()) {
             return 0;
@@ -93,9 +93,9 @@ public:
 
     // Get the count for the given [key].
     template <typename KeyLike>
-    unsigned GetCount(KeyLike&& key) {
+    unsigned GetCount(const KeyLike& key) {
         std::lock_guard<std::mutex> lck(mu);
-        return counter.GetCount(std::forward<KeyLike>(key));
+        return counter.GetCount(key);
     }
 
 private:

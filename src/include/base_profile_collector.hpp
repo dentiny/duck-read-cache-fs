@@ -25,6 +25,10 @@ public:
 	enum class CacheAccess {
 		kCacheHit,
 		kCacheMiss,
+		// Used only for exclusive resource (i.e., file handle), which indicates a cache hit but cannot leverage cached entry due to resource exclusiveness.
+		// Useful indicator to check whether high cache miss is caused by low cache hit rate or small cache size.
+		kCacheEntryInUse,
+		kUnknown,
 	};
 	enum class IoOperation {
 		kOpen,
@@ -34,6 +38,7 @@ public:
 	};
 	static constexpr auto kCacheEntityCount = static_cast<size_t>(CacheEntity::kUnknown);
 	static constexpr auto kIoOperationCount = static_cast<size_t>(IoOperation::kUnknown);
+	static constexpr auto kCacheAccessCount = static_cast<size_t>(CacheAccess::kUnknown);
 
 	BaseProfileCollector() = default;
 	virtual ~BaseProfileCollector() = default;
@@ -77,6 +82,8 @@ public:
 	// static std::array<>` here.
 	//
 	// Cache entity name, indexed by cache entity enum.
+	//
+	// TODO(hjiang): Use constants for cache entity name and operation name.
 	inline static const vector<const char *> CACHE_ENTITY_NAMES = []() {
 		vector<const char *> cache_entity_names;
 		cache_entity_names.reserve(kIoOperationCount);

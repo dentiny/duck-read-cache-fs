@@ -85,6 +85,7 @@ void CacheFileSystem::ClearFileHandleCache() {
 		cur_file_handle->Close();
 	}
 	file_handle_cache = nullptr;
+	in_use_file_handle_counter = nullptr;
 }
 
 void CacheFileSystem::ClearFileHandleCache(const std::string &filepath) {
@@ -105,7 +106,10 @@ void CacheFileSystem::SetFileHandleCache() {
 	}
 	if (file_handle_cache == nullptr) {
 		file_handle_cache =
-		    make_uniq<FileHandleCache>(g_max_file_handle_cache_entry, g_file_handle_cache_entry_timeout_millisec);
+			make_shared_ptr<FileHandleCache>(g_max_file_handle_cache_entry, g_file_handle_cache_entry_timeout_millisec);
+	}
+	if (in_use_file_handle_counter == nullptr) {
+		in_use_file_handle_counter = make_shared_ptr<InUseFileHandleCounter>();
 	}
 }
 
@@ -294,8 +298,17 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 			                                         BaseProfileCollector::CacheAccess::kCacheHit);
 			return make_uniq<CacheFileSystemHandle>(std::move(get_and_pop_res.target_item), *this);
 		}
+
+		// Record stats on cache miss.
 		GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
 		                                         BaseProfileCollector::CacheAccess::kCacheMiss);
+		
+	    // TODO(hjiang): Record in-use count.
+		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
+		if (in_use_count > 0) {
+			GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
+				BaseProfileCollector::CacheAccess::kCacheEntryInUse);
+		}
 	}
 
 	const auto oper_id = profile_collector->GenerateOperId();

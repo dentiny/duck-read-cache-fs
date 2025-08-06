@@ -18,9 +18,15 @@ bool operator<(const DataCacheEntryInfo &lhs, const DataCacheEntryInfo &rhs);
 
 // Cache access information, which applies to metadata and file handle cache.
 struct CacheAccessInfo {
+	// Either in-memory or on-disk.
 	std::string cache_type;
+	// Number of cache hit.
 	uint64_t cache_hit_count = 0;
+	// Number of cache miss.
 	uint64_t cache_miss_count = 0;
+	// Number of cache miss, caused by in-use exclusive resource.
+	// Only useful for exclusive resource, used to indicate whether cache miss is caused by small cache size, or low cache hit ratio.
+	uint64_t cache_miss_by_in_use = 0;
 };
 
 bool operator<(const CacheAccessInfo &lhs, const CacheAccessInfo &rhs);

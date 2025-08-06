@@ -76,7 +76,7 @@ void TempProfileCollector::RecordOperationEnd(IoOperation io_oper, const std::st
 
 void TempProfileCollector::RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) {
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	const size_t arr_idx = static_cast<size_t>(cache_entity) * 2 + static_cast<size_t>(cache_access);
+	const size_t arr_idx = static_cast<size_t>(cache_entity) * kCacheAccessCount + static_cast<size_t>(cache_access);
 	++cache_access_count[arr_idx];
 }
 
@@ -99,8 +99,9 @@ vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
 	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
 		cache_access_info.emplace_back(CacheAccessInfo {
 		    .cache_type = CACHE_ENTITY_NAMES[idx],
-		    .cache_hit_count = cache_access_count[idx * 2],
-		    .cache_miss_count = cache_access_count[idx * 2 + 1],
+		    .cache_hit_count = cache_access_count[idx * kCacheAccessCount],
+		    .cache_miss_count = cache_access_count[idx * kCacheAccessCount + 1],
+			.cache_miss_by_in_use = cache_access_count[idx * kCacheAccessCount + 2],
 		});
 	}
 	return cache_access_info;
@@ -117,8 +118,14 @@ std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 		stats = StringUtil::Format("%s\n"
 		                           "%s cache hit count = %d\n"
 		                           "%s cache miss count = %d\n",
-		                           stats, CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * 2],
-		                           CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * 2 + 1]);
+								   "%s cache miss by in-use resource = %d\n",
+		                           stats, 
+								   CACHE_ENTITY_NAMES[cur_entity_idx], 
+								   cache_access_count[cur_entity_idx * kCacheAccessCount],
+		                           CACHE_ENTITY_NAMES[cur_entity_idx], 
+								   cache_access_count[cur_entity_idx * kCacheAccessCount + 1],
+								   CACHE_ENTITY_NAMES[cur_entity_idx], 
+								   CACHE_ENTITY_NAMES[cur_entity_idx * kCacheAccessCount + 2]);
 	}
 
 	// Record IO operation latency.

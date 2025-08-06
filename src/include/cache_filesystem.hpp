@@ -5,8 +5,10 @@
 #include "base_cache_reader.hpp"
 #include "base_profile_collector.hpp"
 #include "cache_reader_manager.hpp"
+#include "counter.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/open_file_info.hpp"
+#include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "exclusive_multi_lru_cache.hpp"
 #include "shared_lru_cache.hpp"
@@ -285,7 +287,10 @@ private:
 	// Cache is used here to avoid HEAD HTTP request on read operations.
 	using FileHandleCache = ThreadSafeExclusiveMultiLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyHash,
 	                                                         FileHandleCacheKeyEqual>;
-	unique_ptr<FileHandleCache> file_handle_cache;
+	shared_ptr<FileHandleCache> file_handle_cache;
+	// In-use file handle counter, which is used to provide observability on cache miss: whether it's caused by low cache hit rate, or small cache size.
+	using InUseFileHandleCounter = ThreadSafeCounter<FileHandleCacheKey, FileHandleCacheKeyHash, FileHandleCacheKeyEqual>;
+	shared_ptr<InUseFileHandleCounter> in_use_file_handle_counter;
 	// Glob cache, which maps from path to filenames.
 	using GlobCache = ThreadSafeSharedLruConstCache<string, vector<OpenFileInfo>>;
 	unique_ptr<GlobCache> glob_cache;

@@ -39,7 +39,7 @@ private:
 	// Only records finished operations, which maps from io operation to histogram.
 	std::array<unique_ptr<Histogram>, kIoOperationCount> histograms;
 	// Aggregated cache access condition.
-	std::array<uint64_t, kCacheEntityCount * 2 /*for cache hit and miss*/> cache_access_count {};
+	std::array<uint64_t, kCacheEntityCount * BaseProfileCollector::kCacheAccessCount> cache_access_count {};
 	// Latest access timestamp in milliseconds since unix epoch.
 	uint64_t latest_timestamp = 0;
 
