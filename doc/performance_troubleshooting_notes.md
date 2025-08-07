@@ -32,5 +32,12 @@ D <your query>
 D COPY (SELECT cache_httpfs_get_profile()) TO '/tmp/cached_io_stats.txt';
 ```
 
+Cache access condition could be observed by a few cache access infos.
+For shared cache resource (i.e., metadata cache, data block cache, etc), cache hit and miss ratio is straightforward enough.
+
+For exclusive cached resources (i.e., file handle), it's hard to tell from high cache miss count; cache miss caused by in-use count is another useful indicator to consider.
+- If cache miss count high, and cache miss by in-use count low, it's likely due to poor cache hit rate;
+- If cache miss count high, but also with high in-use count, it means cached file handles are actively used exclusively, users should increase cache size.
+
 Third, in theory, as long as the requested file is not too big (so that cache space gets exhausted too quickly), we shouldn't suffer any cache miss.
 Now it's good to elimintate the possibility of slow IO operations.
