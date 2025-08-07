@@ -52,7 +52,7 @@ inline constexpr idx_t DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT = 256;
 inline constexpr idx_t DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
 
 // Max number of cache entries for file metadata cache.
-inline static constexpr size_t DEFAULT_MAX_METADATA_CACHE_ENTRY = 125;
+inline static constexpr size_t DEFAULT_MAX_METADATA_CACHE_ENTRY = 250;
 
 // Timeout in milliseconds of cache entries for file metadata cache.
 inline static constexpr uint64_t DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
