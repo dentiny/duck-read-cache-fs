@@ -16,7 +16,11 @@
 
 [#232]: https://github.com/dentiny/duck-read-cache-fs/pull/232
 
-- Increase file handle cache size from 125 to 250, increase metadata cache size from 125 to 250 ([#234])
+- Increase file handle cache size from 125 to 250 ([#234])
+
+[#234]: https://github.com/dentiny/duck-read-cache-fs/pull/234
+
+- Increase metadata cache size from 125 to 250 ([#234])
 
 [#234]: https://github.com/dentiny/duck-read-cache-fs/pull/234
 
