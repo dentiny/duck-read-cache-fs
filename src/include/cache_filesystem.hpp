@@ -13,6 +13,7 @@
 #include "exclusive_multi_lru_cache.hpp"
 #include "shared_lru_cache.hpp"
 
+#include <functional>
 #include <mutex>
 #include <tuple>
 
@@ -41,7 +42,8 @@ class CacheFileSystem;
 
 class CacheFileSystemHandle : public FileHandle {
 public:
-	CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs);
+	// @param dtor_callback: callback function to invoke at destructor.
+	CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem& fs, std::function<void(CacheFileSystemHandle&)> dtor_callback_p);
 
 	// On cache file handle destruction (for read handles), we place internal file handle to file handle cache to later
 	// reuse.
@@ -55,6 +57,7 @@ public:
 	FileSystem *GetInternalFileSystem() const;
 
 	unique_ptr<FileHandle> internal_file_handle;
+	std::function<void(CacheFileSystemHandle&)> dtor_callback;
 };
 
 class CacheFileSystem : public FileSystem {
@@ -97,7 +100,7 @@ public:
 	// For other API calls, delegate to [internal_filesystem] to handle.
 	unique_ptr<FileHandle> OpenCompressedFile(unique_ptr<FileHandle> handle, bool write) override {
 		auto file_handle = internal_filesystem->OpenCompressedFile(std::move(handle), write);
-		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
+		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this, /*dtor_callback=*/[](CacheFileSystemHandle&/*unused*/){});
 	}
 	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
@@ -229,6 +232,9 @@ private:
 
 	// Initialize global configurations and global objects (i.e. metadata cache, profiler, etc) in a thread-safe manner.
 	void InitializeGlobalConfig(optional_ptr<FileOpener> opener);
+
+	// Create cache file handle.
+	unique_ptr<FileHandle> CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle);
 
 	// Stat the current file handle, and get all well-known file attributes.
 	//

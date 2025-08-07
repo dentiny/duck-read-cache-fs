@@ -17,9 +17,10 @@ constexpr const char* FILE_SIZE_INFO_KEY = "file_size";
 constexpr const char* LAST_MOD_TIMESTAMP_KEY = "last_modified";
 }  // namespace
 
-CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs)
+CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem& fs, std::function<void(CacheFileSystemHandle&)> dtor_callback_p)
     : FileHandle(fs, internal_file_handle_p->GetPath(), internal_file_handle_p->GetFlags()),
-      internal_file_handle(std::move(internal_file_handle_p)) {
+      internal_file_handle(std::move(internal_file_handle_p)),
+	  dtor_callback(std::move(dtor_callback_p)) {
 }
 
 FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
@@ -28,25 +29,8 @@ FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
 }
 
 CacheFileSystemHandle::~CacheFileSystemHandle() {
-	// For read file handles, we place them back to file handle cache if file handle enabled.
-	if (flags.OpenForReading()) {
-		auto &cache_filesystem = file_system.Cast<CacheFileSystem>();
-		if (cache_filesystem.file_handle_cache == nullptr) {
-			return;
-		}
-
-		CacheFileSystem::FileHandleCacheKey cache_key {
-		    .path = GetPath(),
-		    .flags = GetFlags() | FileFlags::FILE_FLAGS_PARALLEL_ACCESS,
-		};
-
-		// Reset file handle state (i.e. file offset) before placing into cache.
-		internal_file_handle->Reset();
-		auto evicted_handle =
-		    cache_filesystem.file_handle_cache->Put(std::move(cache_key), std::move(internal_file_handle));
-		if (evicted_handle != nullptr) {
-			evicted_handle->Close();
-		}
+	if (dtor_callback) {
+		dtor_callback(*this);
 	}
 }
 
@@ -182,6 +166,37 @@ std::string CacheFileSystem::GetName() const {
 	return StringUtil::Format("cache_httpfs with %s", internal_filesystem->GetName());
 }
 
+unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle) {
+	// For read file handles, we place them back to file handle cache if file handle enabled.
+	const auto flags = internal_file_handle->GetFlags();
+	D_ASSERT(flags.OpenForReading());
+
+	CacheFileSystem::FileHandleCacheKey cache_key {
+		.path = internal_file_handle->GetPath(),
+		.flags = flags | FileFlags::FILE_FLAGS_PARALLEL_ACCESS,
+	};
+	if (in_use_file_handle_counter != nullptr) {
+		in_use_file_handle_counter->Increment(cache_key);
+	}
+
+	auto dtor_callback = [cache_key = std::move(cache_key), file_handle_cache = file_handle_cache, in_use_file_handle_counter = in_use_file_handle_counter](CacheFileSystemHandle& file_handle) {
+		// Reset file handle state (i.e. file offset) before placing into cache.
+		file_handle.internal_file_handle->Reset();
+		if (file_handle_cache == nullptr) {
+			D_ASSERT(in_use_file_handle_counter == nullptr);
+			return;
+		}
+
+		auto evicted_handle = file_handle_cache->Put(std::move(cache_key), std::move(file_handle.internal_file_handle));
+		if (evicted_handle != nullptr) {
+			evicted_handle->Close();
+		}
+		in_use_file_handle_counter->Decrement(cache_key);
+	};
+	// Increment cointer
+	return make_uniq<CacheFileSystemHandle>(std::move(internal_file_handle), *this, std::move(dtor_callback));
+}
+
 shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &handle) {
 	// Get file size.
 	const int64_t file_size = internal_filesystem->GetFileSize(handle);
@@ -296,7 +311,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 		if (get_and_pop_res.target_item != nullptr) {
 			GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
 			                                         BaseProfileCollector::CacheAccess::kCacheHit);
-			return make_uniq<CacheFileSystemHandle>(std::move(get_and_pop_res.target_item), *this);
+			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item));
 		}
 
 		// Record stats on cache miss.
@@ -315,7 +330,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 	profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kOpen, oper_id);
 	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kOpen, oper_id);
-	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
+	return CreateCacheFileHandleForRead(std::move(file_handle));
 }
 
 unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
@@ -327,7 +342,7 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFla
 
 	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
 	auto file_handle = internal_filesystem->OpenFile(path, flags, opener);
-	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this);
+	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this, /*dtor_callback=*/[](CacheFileSystemHandle& /*unused*/){});
 }
 
 void CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {

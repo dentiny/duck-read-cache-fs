@@ -40,6 +40,30 @@ CacheAccessInfo GetFileHandleCacheInfo(BaseProfileCollector *profiler) {
 
 } // namespace
 
+TEST_CASE("Test cache stats collection disabled", "[profile collector]") {
+	*g_profile_type = *NOOP_PROFILE_TYPE;
+	SCOPE_EXIT {
+		ResetGlobalConfig();
+	};
+
+	// First access, there're no cache entries inside of cache filesystem.
+	auto cache_filesystem = make_uniq<CacheFileSystem>(make_uniq<LocalFileSystem>());
+	[[maybe_unused]] auto file_handle_1 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
+	auto *profiler = cache_filesystem->GetProfileCollector();
+	auto file_handle_cache_info = GetFileHandleCacheInfo(profiler);
+	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
+	REQUIRE(file_handle_cache_info.cache_miss_count == 0);
+	REQUIRE(file_handle_cache_info.cache_miss_by_in_use == 0);
+
+	// Second access, still cache miss, but indicate we should have bigger cache size.
+	[[maybe_unused]] auto file_handle_2 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
+	profiler = cache_filesystem->GetProfileCollector();
+	file_handle_cache_info = GetFileHandleCacheInfo(profiler);
+	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
+	REQUIRE(file_handle_cache_info.cache_miss_count == 0);
+	REQUIRE(file_handle_cache_info.cache_miss_by_in_use == 0);
+}
+
 TEST_CASE("Test cache stats collection", "[profile collector]") {
 	*g_profile_type = *TEMP_PROFILE_TYPE;
 	SCOPE_EXIT {
@@ -70,7 +94,7 @@ TEST_CASE("Test cache stats collection", "[profile collector]") {
 	profiler = cache_filesystem->GetProfileCollector();
 	file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 1);
-	REQUIRE(file_handle_cache_info.cache_miss_count == 1);
+	REQUIRE(file_handle_cache_info.cache_miss_count == 2);
 	REQUIRE(file_handle_cache_info.cache_miss_by_in_use == 1);
 }
 
