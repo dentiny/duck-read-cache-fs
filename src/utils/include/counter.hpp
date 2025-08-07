@@ -38,7 +38,7 @@ public:
     // Decrement the count for the given [key], and return the new count.
     // Precondition: the key exist in the counter map, otherwise assertion failure.
     template <typename KeyLike>
-    unsigned Decrement(KeyLike&& key) {
+    unsigned Decrement(const KeyLike& key) {
         auto iter = counter.find(key);
         D_ASSERT(iter != counter.end());
         unsigned new_count = --iter->second;
@@ -50,7 +50,7 @@ public:
 
     // Get the count for the given [key].
     template <typename KeyLike>
-    unsigned GetCount(KeyLike&& key) {
+    unsigned GetCount(const KeyLike& key) {
         auto iter = counter.find(key);
         if (iter == counter.end()) {
             return 0;
@@ -86,16 +86,16 @@ public:
     // Decrement the count for the given [key], and return the new count.
     // Precondition: the key exist in the counter map, otherwise assertion failure.
     template <typename KeyLike>
-    unsigned Decrement(KeyLike&& key) {
+    unsigned Decrement(const KeyLike& key) {
         std::lock_guard<std::mutex> lck(mu);
-        return counter.Decrement(std::forward<KeyLike>(key));
+        return counter.Decrement(key);
     }
 
     // Get the count for the given [key].
     template <typename KeyLike>
-    unsigned GetCount(KeyLike&& key) {
+    unsigned GetCount(const KeyLike& key) {
         std::lock_guard<std::mutex> lck(mu);
-        return counter.GetCount(std::forward<KeyLike>(key));
+        return counter.GetCount(key);
     }
 
 private:

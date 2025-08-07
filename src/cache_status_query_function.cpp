@@ -138,8 +138,8 @@ unique_ptr<FunctionData> CacheAccessInfoQueryFuncBind(ClientContext &context, Ta
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
 
-	return_types.reserve(3);
-	names.reserve(3);
+	return_types.reserve(4);
+	names.reserve(4);
 
 	// Cache type.
 	return_types.emplace_back(LogicalType::VARCHAR);
@@ -152,6 +152,10 @@ unique_ptr<FunctionData> CacheAccessInfoQueryFuncBind(ClientContext &context, Ta
 	// Cache miss count.
 	return_types.emplace_back(LogicalType::UBIGINT);
 	names.emplace_back("cache_miss_count");
+
+	// Cache miss by in-use count.
+	return_types.emplace_back(LogicalType::UBIGINT);
+	names.emplace_back("cache_miss_by_in_use");
 
 	return nullptr;
 }
@@ -181,6 +185,7 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 			auto &cur_cache_access_info = cache_access_info[idx];
 			aggregated_cache_access_infos[idx].cache_hit_count += cur_cache_access_info.cache_hit_count;
 			aggregated_cache_access_infos[idx].cache_miss_count += cur_cache_access_info.cache_miss_count;
+			aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur_cache_access_info.cache_miss_by_in_use;
 		}
 	}
 
@@ -209,6 +214,9 @@ void CacheAccessInfoQueryTableFunc(ClientContext &context, TableFunctionInput &d
 
 		// Cache miss count.
 		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.cache_miss_count)));
+
+		// Cache miss by in-use count.
+		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.cache_miss_by_in_use)));
 
 		count++;
 	}

@@ -23,13 +23,13 @@ SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/du
 ----
 251
 
-query III
+query IIII
 SELECT * FROM cache_httpfs_cache_access_info_query();
 ----
-metadata	2	1
-data	0	1
-file handle	0	1
-glob	0	0
+metadata	2	1	0
+data	0	1	0
+file handle	0	1	0
+glob	0	0	0
 
 # ==========================
 # Clear all cache
@@ -43,13 +43,13 @@ SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/du
 ----
 251
 
-query III
+query IIII
 SELECT * FROM cache_httpfs_cache_access_info_query();
 ----
-metadata	4	2
-data	0	2
-file handle	0	2
-glob	0	0
+metadata	4	2	0
+data	0	2	0
+file handle	0	2	0
+glob	0	0	0
 
 # ==========================
 # Clear cache by filepath
@@ -63,10 +63,10 @@ SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/du
 ----
 251
 
-query III
+query IIII
 SELECT * FROM cache_httpfs_cache_access_info_query();
 ----
-metadata	6	3
-data	0	3
-file handle	0	3
-glob	0	0
+metadata	6	3	0
+data	0	3	0
+file handle	0	3	0
+glob	0	0	0
