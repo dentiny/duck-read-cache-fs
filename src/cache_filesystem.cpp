@@ -354,7 +354,7 @@ int64_t CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes
 	return bytes_read;
 }
 
-int64_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
+time_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 
 	// Stat without cache involved.
