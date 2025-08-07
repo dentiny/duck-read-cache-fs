@@ -167,7 +167,6 @@ std::string CacheFileSystem::GetName() const {
 }
 
 unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle) {
-	// For read file handles, we place them back to file handle cache if file handle enabled.
 	const auto flags = internal_file_handle->GetFlags();
 	D_ASSERT(flags.OpenForReading());
 
@@ -187,13 +186,13 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 			return;
 		}
 
+		// Place internal file handle back to file handle cache after reset.
 		auto evicted_handle = file_handle_cache->Put(std::move(cache_key), std::move(file_handle.internal_file_handle));
 		if (evicted_handle != nullptr) {
 			evicted_handle->Close();
 		}
 		in_use_file_handle_counter->Decrement(cache_key);
 	};
-	// Increment cointer
 	return make_uniq<CacheFileSystemHandle>(std::move(internal_file_handle), *this, std::move(dtor_callback));
 }
 
@@ -318,7 +317,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 		GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
 		                                         BaseProfileCollector::CacheAccess::kCacheMiss);
 		
-	    // TODO(hjiang): Record in-use count.
+	    // Record cache miss caused by exclusive resource in use.
 		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
 		if (in_use_count > 0) {
 			GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
