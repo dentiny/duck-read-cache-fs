@@ -168,12 +168,13 @@ target_link_libraries(test_cache_filesystem_with_mock ${EXTENSION_NAME})
 add_executable(test_no_destructor unit/test_no_destructor.cpp)
 target_link_libraries(test_no_destructor ${EXTENSION_NAME})
 
-# # Benchmark add_executable(read_s3_object benchmark/read_s3_object.cpp)
-# target_link_libraries(read_s3_object ${EXTENSION_NAME})
+# Benchmark
+add_executable(read_s3_object benchmark/read_s3_object.cpp)
+target_link_libraries(read_s3_object ${EXTENSION_NAME})
 
-# add_executable(sequential_read_benchmark
-# benchmark/sequential_read_benchmark.cpp)
-# target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
+add_executable(sequential_read_benchmark
+               benchmark/sequential_read_benchmark.cpp)
+target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
 
-# add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
-# target_link_libraries(random_read_benchmark ${EXTENSION_NAME})
+add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
+target_link_libraries(random_read_benchmark ${EXTENSION_NAME})
