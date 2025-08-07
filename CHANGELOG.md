@@ -12,10 +12,6 @@
 
 [#227]: https://github.com/dentiny/duck-read-cache-fs/pull/227
 
-- Observability improvement: add cache miss caused by in-use exclusive resource count ([#232])
-
-[#232]: https://github.com/dentiny/duck-read-cache-fs/pull/232
-
 - Increase file handle cache size from 125 to 250 ([#234])
 
 [#234]: https://github.com/dentiny/duck-read-cache-fs/pull/234
@@ -23,6 +19,12 @@
 - Increase metadata cache size from 125 to 250 ([#234])
 
 [#234]: https://github.com/dentiny/duck-read-cache-fs/pull/234
+
+## Improved
+
+- Observability improvement: add cache miss caused by in-use exclusive resource count ([#232])
+
+[#232]: https://github.com/dentiny/duck-read-cache-fs/pull/232
 
 # 0.5.0
 
