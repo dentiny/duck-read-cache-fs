@@ -1,12 +1,12 @@
 {
-    "build": {
-        "dockerfile": "Dockerfile"
-    },
+    "service": "devcontainer",
+    "workspaceFolder": "/workspaces/duck-read-cache-fs",
+    "dockerComposeFile": "docker-compose.yml",
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-vscode.cpptools",
-                "eamodio.gitlens",
+                "eamodio.gitlens"
             ]
         }
     },
