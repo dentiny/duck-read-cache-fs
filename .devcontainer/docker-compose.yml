@@ -1,0 +1,53 @@
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/duck-read-cache-fs:cached
+    networks:
+      - shared_network
+    depends_on:
+      - minio
+      - fake-gcs
+    command: sleep infinity
+
+  minio:
+    image: minio/minio:latest
+    hostname: minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    command: ["server", "/data", "--console-address", ":9001"]
+    networks:
+      shared_network:
+        aliases:
+          - s3.local
+    ports:
+      - "19000:9000"  # S3 API
+      - "19001:9001"  # Web UI
+
+  fake-gcs:
+    image: fsouza/fake-gcs-server:latest
+    hostname: gcs
+    command: ["-scheme", "http", "-port", "4443"]
+    ports:
+      - "14443:4443"
+    networks:
+      shared_network:
+        aliases:
+          - gcs.local
+    environment:
+      - STORAGE_DIR=/data
+    volumes:
+      - fake-gcs-data:/data
+
+volumes:
+  minio-data:
+  fake-gcs-data:
+
+networks:
+  shared_network:
+    driver: bridge
