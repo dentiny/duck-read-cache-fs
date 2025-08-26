@@ -23,7 +23,7 @@
 namespace duckdb {
 
 // Current duckdb instance; store globally to retrieve filesystem instance inside of it.
-static shared_ptr<DatabaseInstance> duckdb_instance;
+static weak_ptr<DatabaseInstance> duckdb_instance;
 
 // Clear both in-memory and on-disk data block cache.
 static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
@@ -130,7 +130,11 @@ static void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, V
 	const string filesystem_name = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
 	// duckdb instance has a opener filesystem, which is a wrapper around virtual filesystem.
-	auto &opener_filesystem = duckdb_instance->GetFileSystem().Cast<OpenerFileSystem>();
+	auto inst = duckdb_instance.lock();
+	if (!inst) {
+		throw InternalException("DuckDB instance no longer alive");
+	}
+	auto &opener_filesystem = inst->GetFileSystem().Cast<OpenerFileSystem>();
 	auto &vfs = opener_filesystem.GetFileSystem();
 	auto internal_filesystem = vfs.ExtractSubSystem(filesystem_name);
 	if (internal_filesystem == nullptr) {
