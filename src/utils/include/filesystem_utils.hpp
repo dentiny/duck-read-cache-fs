@@ -3,8 +3,10 @@
 #pragma once
 
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/map.hpp"
 #include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/string.hpp"
+#include "duckdb/common/vector.hpp"
 
 namespace duckdb {
 
@@ -28,5 +30,8 @@ idx_t GetOverallFileSystemDiskSpace(const string &path);
 
 // Return whether we could cache content in the filesystem specified by the given [path].
 bool CanCacheOnDisk(const string &path);
+
+// Get all on-disk cache files and sorted them in their creation timestamp.
+map<time_t, string> GetOnDiskFilesUnder(const vector<string>& folders);
 
 } // namespace duckdb

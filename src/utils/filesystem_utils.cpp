@@ -87,4 +87,33 @@ bool CanCacheOnDisk(const std::string &path) {
 	return overall_fs_bytes * MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE <= avai_fs_bytes.GetIndex();
 }
 
+map<time_t, string> GetOnDiskFilesUnder(const vector<string>& folders) {
+	map<time_t, string> cache_files_map;
+	auto local_filesystem = LocalFileSystem::CreateLocal();
+	for (const auto& cur_folder : folders) {
+		local_filesystem->ListFiles(
+			cur_folder, [&local_filesystem, &cur_folder, &cache_files_map](const string &fname, bool /*unused*/) {
+				// Multiple threads could attempt to access and delete stale files, tolerate non-existent file.
+				const string full_name = StringUtil::Format("%s/%s", cur_folder, fname);
+				auto file_handle = local_filesystem->OpenFile(full_name, FileOpenFlags::FILE_FLAGS_READ |
+																			FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+				if (file_handle == nullptr) {
+					return;
+				}
+
+				time_t last_mod_time = local_filesystem->GetLastModifiedTime(*file_handle);
+				while (true) {
+					auto iter = cache_files_map.find(last_mod_time);
+					if (iter == cache_files_map.end()) {
+						cache_files_map.emplace(last_mod_time, std::move(full_name));
+						break;
+					}
+					// For duplicate timestamp, for simplicity simply keep incrementing until we find an available slot, instead of maintaining a vector.
+					++last_mod_time;
+				}
+			});
+	}
+	return cache_files_map;
+}
+
 } // namespace duckdb
