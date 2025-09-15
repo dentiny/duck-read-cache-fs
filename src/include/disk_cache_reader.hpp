@@ -2,10 +2,14 @@
 
 #pragma once
 
+#include <mutex>
+
 #include "base_cache_reader.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/map.hpp"
+#include "duckdb/common/string.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -29,9 +33,16 @@ public:
 
 	vector<DataCacheEntryInfo> GetCacheEntriesInfo() const override;
 
+	// Get file cache block to evict.
+	string GetCacheBlockToEvict();
+
 private:
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
+	// Used for on-disk cache block LRU-based eviction.
+	std::mutex cache_file_creation_timestamp_map_mutex;
+	// Maps from last access timestamp to filepath.
+	map<time_t, string> cache_file_creation_timestamp_map;
 };
 
 } // namespace duckdb

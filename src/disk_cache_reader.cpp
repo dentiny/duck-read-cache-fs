@@ -147,6 +147,11 @@ string GetLocalCacheFilePrefix(const string &remote_file) {
 	return StringUtil::Format("%s.%s", remote_file_sha256_str, fname);
 }
 
+// Attempt to evict cache files, if file size threshold reached.
+void EvictCacheFiles() {
+
+}
+
 // Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
 void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const FileHandle &handle,
                 const string &cache_directory, const string &local_cache_file) {
@@ -182,6 +187,15 @@ void CacheLocal(const CacheReadChunk &chunk, FileSystem &local_filesystem, const
 } // namespace
 
 DiskCacheReader::DiskCacheReader() : local_filesystem(LocalFileSystem::CreateLocal()) {
+}
+
+string DiskCacheReader::GetCacheBlockToEvict() {
+	std::lock_guard<std::mutex> lck(cache_file_creation_timestamp_map_mutex);
+	// Initialize file creation timestamp map, which should be called only once.
+	// IO operation is performed inside of critical section intentionally, since it's required for all threads.
+	if (cache_file_creation_timestamp_map.empty()) {
+		
+	}
 }
 
 vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
