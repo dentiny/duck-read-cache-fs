@@ -4,6 +4,8 @@
 #include "catch.hpp"
 
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/string.hpp"
+#include "duckdb/common/vector.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "cache_filesystem_config.hpp"
 #include "filesystem_utils.hpp"
@@ -38,6 +40,16 @@ TEST_CASE("Stale file deletion", "[utils test]") {
 	updated_time.modtime = two_day_ago;
 	REQUIRE(utime(fname2.data(), &updated_time) == 0);
 
+	// Get files under the folder in the order of creation timestamp.
+	{
+		const vector<string> folders {TEST_ON_DISK_CACHE_DIRECTORY};
+		const auto files = GetOnDiskFilesUnder(folders);
+		REQUIRE(files.size() == 2);
+		REQUIRE(files.begin()->second == fname2);
+		REQUIRE(files.rbegin()->second == fname1);
+	}
+
+	// Evict stale cache files.
 	EvictStaleCacheFiles(*local_filesystem, TEST_ON_DISK_CACHE_DIRECTORY);
 	vector<string> fresh_files;
 	REQUIRE(
