@@ -105,6 +105,15 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		if (disk_cache_min_bytes > 0) {
 			g_min_disk_bytes_for_cache = disk_cache_min_bytes;
 		}
+
+		// Check and update eviction policy.
+		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_evict_policy", val);
+		const auto eviction_policy = val.ToString();
+		if (eviction_policy == *ON_DISK_CREATION_TIMESTAMP_EVICTION) {
+			*g_on_disk_eviction_policy = *ON_DISK_CREATION_TIMESTAMP_EVICTION;
+		} else if (eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION) {
+			*g_on_disk_eviction_policy = *ON_DISK_LRU_SINGLE_PROC_EVICTION;
+		}
 	}
 
 	//===--------------------------------------------------------------------===//

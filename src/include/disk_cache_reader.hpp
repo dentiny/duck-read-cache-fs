@@ -34,7 +34,8 @@ public:
 	vector<DataCacheEntryInfo> GetCacheEntriesInfo() const override;
 
 	// Get file cache block to evict.
-	string GetCacheBlockToEvict();
+	// Notice returned filepath will be removed from LRU list, but the actual file won't be deleted.
+	string EvictCacheBlockLru();
 
 private:
 	// Used to access local cache files.
