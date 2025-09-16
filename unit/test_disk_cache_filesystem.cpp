@@ -400,6 +400,7 @@ TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
 	}
 }
 
+// Testing scenario: check timestamp-based eviction policy.
 TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") {
 	SCOPE_EXIT {
 		ResetGlobalConfig();
@@ -443,6 +444,77 @@ TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") 
 	                       start_offset);
 	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
+}
+
+// Testing scenario: check lru-based eviction policy.
+TEST_CASE("Test on lru eviction", "[on-disk cache filesystem test]") {
+	SCOPE_EXIT {
+		ResetGlobalConfig();
+	};
+	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	*g_on_disk_eviction_policy = *ON_DISK_LRU_SINGLE_PROC_EVICTION;
+	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+
+	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
+	                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
+	const uint64_t start_offset = 0;
+	const uint64_t bytes_to_read = TEST_FILE_SIZE;
+
+	// Create existing file 1 and set modification timestamp to two days ago, which should be deleted when insufficient
+	// disk space detected.
+	const string existing_file_1 = StringUtil::Format("%s/file1", TEST_ON_DISK_CACHE_DIRECTORY);
+	{
+		auto file_handle = LocalFileSystem::CreateLocal()->OpenFile(
+		    existing_file_1, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+	}
+	// Update file's modification timestamp.
+	{
+		const time_t now = std::time(nullptr);
+		const time_t two_day_ago = now - 48 * 60 * 60; // two days ago
+		struct utimbuf updated_time;
+		updated_time.actime = two_day_ago;
+		updated_time.modtime = two_day_ago;
+		REQUIRE(utime(existing_file_1.data(), &updated_time) == 0);
+	}
+
+	// Create existing file 2 and set modification timestamp to two days ago, which should be deleted when insufficient
+	// disk space detected.
+	const string existing_file_2 = StringUtil::Format("%s/file2", TEST_ON_DISK_CACHE_DIRECTORY);
+	{
+		auto file_handle = LocalFileSystem::CreateLocal()->OpenFile(
+		    existing_file_2, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+	}
+	// Update file's modification timestamp.
+	{
+		const time_t now = std::time(nullptr);
+		const time_t one_day_ago = now - 24 * 60 * 60; // one day ago
+		struct utimbuf updated_time;
+		updated_time.actime = one_day_ago;
+		updated_time.modtime = one_day_ago;
+		REQUIRE(utime(existing_file_2.data(), &updated_time) == 0);
+	}
+
+	// Pretend there's no sufficient disk space, so cache file eviction is triggered.
+	g_test_insufficient_disk_space = true;
+	string content(bytes_to_read, '\0');
+	on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+	                       start_offset);
+	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+
+	// At this point, the first existing file has already been deleted, with the second one still kept.
+	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
+	REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_1));
+	REQUIRE(LocalFileSystem::CreateLocal()->FileExists(existing_file_2));
+
+	// At this point, both existing files have been deleted.
+	g_test_insufficient_disk_space = true;
+	on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+	                       start_offset);
+	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 0);
+	REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_1));
+	REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_2));
 }
 
 int main(int argc, char **argv) {

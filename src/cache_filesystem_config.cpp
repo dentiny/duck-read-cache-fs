@@ -105,6 +105,15 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		if (disk_cache_min_bytes > 0) {
 			g_min_disk_bytes_for_cache = disk_cache_min_bytes;
 		}
+
+		// Check and update eviction policy.
+		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_evict_policy", val);
+		const auto eviction_policy = val.ToString();
+		if (eviction_policy == *ON_DISK_CREATION_TIMESTAMP_EVICTION) {
+			*g_on_disk_eviction_policy = *ON_DISK_CREATION_TIMESTAMP_EVICTION;
+		} else if (eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION) {
+			*g_on_disk_eviction_policy = *ON_DISK_LRU_SINGLE_PROC_EVICTION;
+		}
 	}
 
 	//===--------------------------------------------------------------------===//
@@ -195,6 +204,7 @@ void ResetGlobalConfig() {
 	// On-disk cache configuration.
 	*g_on_disk_cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
 	g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
+	*g_on_disk_eviction_policy = *DEFAULT_ON_DISK_EVICTION_POLICY;
 
 	// In-memory cache configuration.
 	g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;

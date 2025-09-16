@@ -23,6 +23,11 @@ inline const NoDestructor<string> IN_MEM_CACHE_TYPE {"in_mem"};
 inline const std::unordered_set<string> ALL_CACHE_TYPES {*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE,
                                                               *IN_MEM_CACHE_TYPE};
 
+// Creation timestamp-based on-disk eviction policy.
+inline const NoDestructor<string> ON_DISK_CREATION_TIMESTAMP_EVICTION {"creation_timestamp"};
+// On-disk LRU eviction policy made for single-process usage.
+inline const NoDestructor<string> ON_DISK_LRU_SINGLE_PROC_EVICTION {"lru_sp"};
+
 // Default profile option, which performs no-op.
 inline const NoDestructor<string> NOOP_PROFILE_TYPE {"noop"};
 // Store the latest IO operation profiling result, which potentially suffers concurrent updates.
@@ -40,6 +45,9 @@ inline const NoDestructor<string> DEFAULT_ON_DISK_CACHE_DIRECTORY {"/tmp/duckdb_
 
 // Default to use on-disk cache filesystem.
 inline NoDestructor<string> DEFAULT_CACHE_TYPE {*ON_DISK_CACHE_TYPE};
+
+// Default to timestamp-based on-disk cache eviction policy.
+inline NoDestructor<string> DEFAULT_ON_DISK_EVICTION_POLICY {*ON_DISK_CREATION_TIMESTAMP_EVICTION};
 
 // To prevent go out of disk space, we set a threshold to disallow local caching if insufficient. It applies to all
 // filesystems. The value here is the decimal representation for percentage value; for example, 0.05 means 5%.
@@ -110,6 +118,7 @@ inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 // Sorted cache directories.
 inline NoDestructor<vector<string>> g_on_disk_cache_directories {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
 inline idx_t g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
+inline NoDestructor<string> g_on_disk_eviction_policy {*DEFAULT_ON_DISK_EVICTION_POLICY};
 
 // In-memory cache configuration.
 inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;

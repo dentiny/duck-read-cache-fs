@@ -239,6 +239,14 @@ static void LoadInternal(DatabaseInstance &instance) {
 	                          "By default, 5% disk space will be reserved for other usage. When min disk bytes "
 	                          "specified with a positive value, the default value will be overriden.",
 	                          LogicalType::UBIGINT, 0);
+	config.AddExtensionOption("cache_httpfs_evict_policy", "Eviction policy for on-disk cache cache blocks. By default "
+							  "it's creation timestamp based ('creation_timestamp'), which deletes all cache blocks "
+							  "created earlier than threshold. Other supported policy include 'lru_single_proc' (LRU for"
+							  "single process access), which performs LRU-based eviction, mainly made single process"
+							  "usage.",
+		LogicalType::VARCHAR,
+		*DEFAULT_ON_DISK_EVICTION_POLICY
+	);
 	// TODO(hjiang): there're quite a few optimizations which could be done in the config. For example,
 	// - Each cache directories could have their own config, like min/max cache file size;
 	// - Current implementation uses static hash based distribution, which doesn't work well when directory set changes;
