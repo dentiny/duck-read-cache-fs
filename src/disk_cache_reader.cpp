@@ -161,6 +161,7 @@ void EvictCacheFiles(DiskCacheReader& reader, FileSystem &local_filesystem, cons
 	// For LRU-based eviction, get the entry to remove and delete the file to release storage space.
 	D_ASSERT(*g_on_disk_eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION);
 	const auto filepath_to_evict = reader.EvictCacheBlockLru();
+	// Intentionally ignore return value.
 	local_filesystem.TryRemoveFile(filepath_to_evict);
 }
 
@@ -210,7 +211,6 @@ string DiskCacheReader::EvictCacheBlockLru() {
 
 	auto filepath = std::move(cache_file_creation_timestamp_map.begin()->second);
 	cache_file_creation_timestamp_map.erase(cache_file_creation_timestamp_map.begin());
-
 	return filepath;
 }
 

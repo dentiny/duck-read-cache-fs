@@ -204,6 +204,7 @@ void ResetGlobalConfig() {
 	// On-disk cache configuration.
 	*g_on_disk_cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
 	g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
+	*g_on_disk_eviction_policy = *DEFAULT_ON_DISK_EVICTION_POLICY;
 
 	// In-memory cache configuration.
 	g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
