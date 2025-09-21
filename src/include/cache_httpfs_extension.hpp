@@ -8,11 +8,12 @@ namespace duckdb {
 
 class CacheHttpfsExtension : public Extension {
 public:
-	void Load(DuckDB &db) override;
+	void Load(ExtensionLoader &loader) override;
 	std::string Name() override;
 	std::string Version() const override;
 
 private:
+	// Cache httpfs automatically loads httpfs.
 	unique_ptr<Extension> httpfs_extension;
 };
 

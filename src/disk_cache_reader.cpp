@@ -87,8 +87,8 @@ string Sha256ToHexString(const duckdb::hash_bytes &sha256) {
 // under one directory, and get all cache files with commands like `ls`.
 //
 // Considering the naming format, it's worth noting it might _NOT_ work for local files, including mounted filesystems.
-CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, const string &remote_file, idx_t start_offset,
-                         idx_t bytes_to_read) {
+CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, const string &remote_file,
+                                       idx_t start_offset, idx_t bytes_to_read) {
 	D_ASSERT(!cache_directories.empty());
 
 	duckdb::hash_bytes remote_file_sha256_val;
@@ -102,14 +102,14 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
 		hash_value ^= static_cast<uint64_t>(remote_file_sha256_val[idx]);
 		hash_value *= 0x100000001b3; // FNV prime
 	}
-    const idx_t cache_directory_idx = hash_value % cache_directories.size();
-	const auto& cur_cache_dir = cache_directories[cache_directory_idx];
+	const idx_t cache_directory_idx = hash_value % cache_directories.size();
+	const auto &cur_cache_dir = cache_directories[cache_directory_idx];
 
-	auto cache_filepath = StringUtil::Format("%s/%s-%s-%llu-%llu", cur_cache_dir, remote_file_sha256_str, fname, start_offset,
-	                          bytes_to_read);
+	auto cache_filepath = StringUtil::Format("%s/%s-%s-%llu-%llu", cur_cache_dir, remote_file_sha256_str, fname,
+	                                         start_offset, bytes_to_read);
 	return CacheFileDestination {
-		.cache_directory_idx = cache_directory_idx,
-		.cache_filepath = std::move(cache_filepath),
+	    .cache_directory_idx = cache_directory_idx,
+	    .cache_filepath = std::move(cache_filepath),
 	};
 }
 
@@ -148,7 +148,7 @@ string GetLocalCacheFilePrefix(const string &remote_file) {
 }
 
 // Attempt to evict cache files, if file size threshold reached.
-void EvictCacheFiles(DiskCacheReader& reader, FileSystem &local_filesystem, const string &cache_directory) {
+void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, const string &cache_directory) {
 	// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
 	// because on unix platform files are only deleted physically when their last reference count goes away.
 	//
@@ -166,8 +166,8 @@ void EvictCacheFiles(DiskCacheReader& reader, FileSystem &local_filesystem, cons
 }
 
 // Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
-void CacheLocal(DiskCacheReader& reader, const CacheReadChunk &chunk, FileSystem &local_filesystem, const FileHandle &handle,
-                const string &cache_directory, const string &local_cache_file) {
+void CacheLocal(DiskCacheReader &reader, const CacheReadChunk &chunk, FileSystem &local_filesystem,
+                const FileHandle &handle, const string &cache_directory, const string &local_cache_file) {
 	// Skip local cache if insufficient disk space.
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
 	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
@@ -216,19 +216,19 @@ string DiskCacheReader::EvictCacheBlockLru() {
 
 vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	vector<DataCacheEntryInfo> cache_entries_info;
-	for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
-		local_filesystem->ListFiles(
-			cur_cache_dir, [&cache_entries_info, cur_cache_dir](const std::string &fname, bool /*unused*/) {
-				auto remote_file_info = GetRemoteFileInfo(fname);
-				cache_entries_info.emplace_back(DataCacheEntryInfo {
-					.cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname),
-					.remote_filename = std::get<0>(remote_file_info),
-					.start_offset = std::get<1>(remote_file_info),
-					.end_offset = std::get<2>(remote_file_info),
-					.cache_type = "on-disk",
-				});
-			});
-	}	
+	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
+		local_filesystem->ListFiles(cur_cache_dir,
+		                            [&cache_entries_info, cur_cache_dir](const std::string &fname, bool /*unused*/) {
+			                            auto remote_file_info = GetRemoteFileInfo(fname);
+			                            cache_entries_info.emplace_back(DataCacheEntryInfo {
+			                                .cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname),
+			                                .remote_filename = std::get<0>(remote_file_info),
+			                                .start_offset = std::get<1>(remote_file_info),
+			                                .end_offset = std::get<2>(remote_file_info),
+			                                .cache_type = "on-disk",
+			                            });
+		                            });
+	}
 	return cache_entries_info;
 }
 
@@ -306,8 +306,9 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 			// Attempt to open the file directly, so a successfully opened file handle won't be deleted by cleanup
 			// thread and lead to data race.
-			auto file_handle = local_filesystem->OpenFile(
-			    cache_destination.cache_filepath, FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+			auto file_handle = local_filesystem->OpenFile(cache_destination.cache_filepath,
+			                                              FileOpenFlags::FILE_FLAGS_READ |
+			                                                  FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
 			if (file_handle != nullptr) {
 				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 				                                     BaseProfileCollector::CacheAccess::kCacheHit);
@@ -343,15 +344,16 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			cache_read_chunk.CopyBufferToRequestedMemory();
 
 			// Attempt to cache file locally.
-			const auto& cache_directory = (*g_on_disk_cache_directories)[cache_destination.cache_directory_idx];
-			CacheLocal(*this, cache_read_chunk, *local_filesystem, handle, cache_directory, cache_destination.cache_filepath);
+			const auto &cache_directory = (*g_on_disk_cache_directories)[cache_destination.cache_directory_idx];
+			CacheLocal(*this, cache_read_chunk, *local_filesystem, handle, cache_directory,
+			           cache_destination.cache_filepath);
 		});
 	}
 	io_threads.Wait();
 }
 
 void DiskCacheReader::ClearCache() {
-	for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
+	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		// Create an empty directory, otherwise later read access errors.
 		local_filesystem->CreateDirectory(cur_cache_dir);
@@ -360,7 +362,7 @@ void DiskCacheReader::ClearCache() {
 
 void DiskCacheReader::ClearCache(const string &fname) {
 	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
-	for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
+	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir, [&](const string &cur_file, bool /*unused*/) {
 			if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {
 				const string filepath = StringUtil::Format("%s/%s", cur_cache_dir, cur_file);

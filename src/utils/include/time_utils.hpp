@@ -37,7 +37,4 @@ inline int64_t GetSystemNowMilliSecSinceEpoch() {
 	return GetSystemNowNanoSecSinceEpoch() / kMilliToNanos;
 }
 
-// Convert from duckdb [`timestamp_t`] to [`time_t`].
-time_t DuckdbTimestampToTimeT(timestamp_t timestamp);
-
 } // namespace duckdb

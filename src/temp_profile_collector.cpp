@@ -101,7 +101,7 @@ vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
 		    .cache_type = CACHE_ENTITY_NAMES[idx],
 		    .cache_hit_count = cache_access_count[idx * kCacheAccessCount],
 		    .cache_miss_count = cache_access_count[idx * kCacheAccessCount + 1],
-			.cache_miss_by_in_use = cache_access_count[idx * kCacheAccessCount + 2],
+		    .cache_miss_by_in_use = cache_access_count[idx * kCacheAccessCount + 2],
 		});
 	}
 	return cache_access_info;
@@ -115,17 +115,14 @@ std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 
 	// Record cache miss and cache hit count.
 	for (idx_t cur_entity_idx = 0; cur_entity_idx < kCacheEntityCount; ++cur_entity_idx) {
-		stats = StringUtil::Format("%s\n"
-		                           "%s cache hit count = %d\n"
-		                           "%s cache miss count = %d\n",
-								   "%s cache miss by in-use resource = %d\n",
-		                           stats, 
-								   CACHE_ENTITY_NAMES[cur_entity_idx], 
-								   cache_access_count[cur_entity_idx * kCacheAccessCount],
-		                           CACHE_ENTITY_NAMES[cur_entity_idx], 
-								   cache_access_count[cur_entity_idx * kCacheAccessCount + 1],
-								   CACHE_ENTITY_NAMES[cur_entity_idx], 
-								   CACHE_ENTITY_NAMES[cur_entity_idx * kCacheAccessCount + 2]);
+		stats = StringUtil::Format(
+		    "%s\n"
+		    "%s cache hit count = %d\n"
+		    "%s cache miss count = %d\n",
+		    "%s cache miss by in-use resource = %d\n", stats, CACHE_ENTITY_NAMES[cur_entity_idx],
+		    cache_access_count[cur_entity_idx * kCacheAccessCount], CACHE_ENTITY_NAMES[cur_entity_idx],
+		    cache_access_count[cur_entity_idx * kCacheAccessCount + 1], CACHE_ENTITY_NAMES[cur_entity_idx],
+		    CACHE_ENTITY_NAMES[cur_entity_idx * kCacheAccessCount + 2]);
 	}
 
 	// Record IO operation latency.

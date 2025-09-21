@@ -15,14 +15,15 @@ namespace {
 constexpr char CACHE_DIRECTORIES_CONFIG_SPLITTER = ';';
 
 // Parse directory configuration string into directories.
-vector<string> ParseCacheDirectoryConfig(const std::string& directory_config_str) {
+vector<string> ParseCacheDirectoryConfig(const std::string &directory_config_str) {
 	auto directories = StringUtil::Split(directory_config_str, /*delimiter=*/";");
-	// Sort the cache directories, so for different directories config value with same directory sets, ordering doesn't affect cache status.
+	// Sort the cache directories, so for different directories config value with same directory sets, ordering doesn't
+	// affect cache status.
 	std::sort(directories.begin(), directories.end());
 	return directories;
 }
 
-}  // namespace
+} // namespace
 
 void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	if (opener == nullptr) {
@@ -30,7 +31,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		if (!g_test_cache_type->empty()) {
 			*g_cache_type = *g_test_cache_type;
 		}
-		for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
+		for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
 			LocalFileSystem::CreateLocal()->CreateDirectory(cur_cache_dir);
 		}
 		return;
@@ -93,7 +94,7 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		auto new_on_disk_cache_directories = GetCacheDirectoryConfig(opener);
 		D_ASSERT(!new_on_disk_cache_directories.empty());
 		if (new_on_disk_cache_directories != *g_on_disk_cache_directories) {
-			for (const auto& cur_cache_dir : new_on_disk_cache_directories) {
+			for (const auto &cur_cache_dir : new_on_disk_cache_directories) {
 				LocalFileSystem::CreateLocal()->CreateDirectory(cur_cache_dir);
 			}
 			*g_on_disk_cache_directories = std::move(new_on_disk_cache_directories);
@@ -246,7 +247,7 @@ std::vector<std::string> GetCacheDirectoryConfig(optional_ptr<FileOpener> opener
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_cache_directories_config", val);
 	auto new_cache_directories_config = val.ToString();
 	if (!new_cache_directories_config.empty()) {
-		// Cache directory parameter will be ignored, if directory config specified. 
+		// Cache directory parameter will be ignored, if directory config specified.
 		auto directories = ParseCacheDirectoryConfig(new_cache_directories_config);
 		return directories;
 	}

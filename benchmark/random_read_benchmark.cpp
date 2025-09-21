@@ -3,6 +3,7 @@
 #include "disk_cache_reader.hpp"
 #include "duckdb/storage/standard_buffer_manager.hpp"
 #include "duckdb/main/client_context_file_opener.hpp"
+#include "duckdb/main/database.hpp"
 #include "rand_utils.hpp"
 #include "s3fs.hpp"
 #include "scope_guard.hpp"

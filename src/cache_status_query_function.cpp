@@ -13,7 +13,6 @@
 #include "duckdb/common/vector.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/main/client_context.hpp"
-#include "duckdb/main/extension_util.hpp"
 
 namespace duckdb {
 

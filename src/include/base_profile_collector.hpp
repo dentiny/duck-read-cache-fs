@@ -25,8 +25,9 @@ public:
 	enum class CacheAccess {
 		kCacheHit,
 		kCacheMiss,
-		// Used only for exclusive resource (i.e., file handle), which indicates a cache hit but cannot leverage cached entry due to resource exclusiveness.
-		// Useful indicator to check whether high cache miss is caused by low cache hit rate or small cache size.
+		// Used only for exclusive resource (i.e., file handle), which indicates a cache hit but cannot leverage cached
+		// entry due to resource exclusiveness. Useful indicator to check whether high cache miss is caused by low cache
+		// hit rate or small cache size.
 		kCacheEntryInUse,
 		kUnknown,
 	};

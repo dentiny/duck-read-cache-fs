@@ -9,6 +9,7 @@
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/open_file_info.hpp"
 #include "duckdb/common/string.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/vector.hpp"
 
 #include <cstdint>
@@ -63,7 +64,7 @@ public:
 		++get_file_size_invocation;
 		return file_size;
 	}
-	time_t GetLastModifiedTime(FileHandle &handle) override {
+	timestamp_t GetLastModifiedTime(FileHandle &handle) override {
 		++get_last_mod_time_invocation;
 		return last_modification_time;
 	}
@@ -75,12 +76,13 @@ public:
 
 	// Set first N glob invocation returns, later calls will return default value.
 	void SetGlobResults(vector<OpenFileInfo> file_open_infos) {
-		glob_returns = deque<OpenFileInfo>{std::make_move_iterator(file_open_infos.begin()), std::make_move_iterator(file_open_infos.end())};
+		glob_returns = deque<OpenFileInfo> {std::make_move_iterator(file_open_infos.begin()),
+		                                    std::make_move_iterator(file_open_infos.end())};
 	}
 	void SetFileSize(int64_t file_size_p) {
 		file_size = file_size_p;
 	}
-	void SetLastModificationTime(time_t last_modification_time_p) {
+	void SetLastModificationTime(timestamp_t last_modification_time_p) {
 		last_modification_time = last_modification_time_p;
 	}
 	vector<ReadOper> GetSortedReadOperations();
@@ -102,15 +104,15 @@ public:
 
 private:
 	int64_t file_size = 0;
-	time_t last_modification_time = static_cast<time_t>(0);
+	timestamp_t last_modification_time = timestamp_t::infinity();
 	// Glob returns value for each invocation.
 	std::deque<OpenFileInfo> glob_returns;
 	std::function<void()> close_callback;
 	std::function<void()> dtor_callback;
 
-	uint64_t file_open_invocation = 0;     // Number of `FileOpen` gets called.
-	uint64_t glob_invocation = 0;          // Number of `Glob` gets called.
-	uint64_t get_file_size_invocation = 0; // Number of `GetFileSize` get called.
+	uint64_t file_open_invocation = 0;         // Number of `FileOpen` gets called.
+	uint64_t glob_invocation = 0;              // Number of `Glob` gets called.
+	uint64_t get_file_size_invocation = 0;     // Number of `GetFileSize` get called.
 	uint64_t get_last_mod_time_invocation = 0; // Number of `GetLastModificationTime` called.
 	vector<ReadOper> read_operations;
 	std::mutex mtx;

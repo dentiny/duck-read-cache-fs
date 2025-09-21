@@ -20,8 +20,7 @@ namespace duckdb {
 inline const NoDestructor<string> NOOP_CACHE_TYPE {"noop"};
 inline const NoDestructor<string> ON_DISK_CACHE_TYPE {"on_disk"};
 inline const NoDestructor<string> IN_MEM_CACHE_TYPE {"in_mem"};
-inline const std::unordered_set<string> ALL_CACHE_TYPES {*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE,
-                                                              *IN_MEM_CACHE_TYPE};
+inline const std::unordered_set<string> ALL_CACHE_TYPES {*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE, *IN_MEM_CACHE_TYPE};
 
 // Creation timestamp-based on-disk eviction policy.
 inline const NoDestructor<string> ON_DISK_CREATION_TIMESTAMP_EVICTION {"creation_timestamp"};
@@ -35,7 +34,7 @@ inline const NoDestructor<string> TEMP_PROFILE_TYPE {"temp"};
 // Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
 inline const NoDestructor<string> PERSISTENT_PROFILE_TYPE {"duckdb"};
 inline const NoDestructor<std::unordered_set<string>> ALL_PROFILE_TYPES {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE,
-                                                                              *PERSISTENT_PROFILE_TYPE};
+                                                                         *PERSISTENT_PROFILE_TYPE};
 
 //===--------------------------------------------------------------------===//
 // Default configuration
@@ -67,6 +66,10 @@ inline static constexpr uint64_t DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC =
 
 // Number of seconds which we define as the threshold of staleness for metadata entries.
 inline constexpr idx_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
+// Number of milliseconds which mark staleness.
+inline constexpr idx_t CACHE_FILE_STALENESS_MILLISEC = CACHE_FILE_STALENESS_SECOND * 1000;
+// Number of microseconds which marks staleness.
+inline constexpr idx_t CACHE_FILE_STALENESS_MICROSEC = CACHE_FILE_STALENESS_MILLISEC * 1000;
 
 // Max number of cache entries for file handle cache.
 inline static constexpr size_t DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY = 250;
