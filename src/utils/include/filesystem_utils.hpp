@@ -33,6 +33,6 @@ idx_t GetOverallFileSystemDiskSpace(const string &path);
 bool CanCacheOnDisk(const string &path);
 
 // Get all on-disk cache files and sorted them in their creation timestamp.
-map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string>& folders);
+map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string> &folders);
 
 } // namespace duckdb

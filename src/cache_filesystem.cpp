@@ -12,15 +12,15 @@ namespace duckdb {
 
 namespace {
 // For certain filesystems, file open info contains "file_size" field in the extended stats map.
-constexpr const char* FILE_SIZE_INFO_KEY = "file_size";
+constexpr const char *FILE_SIZE_INFO_KEY = "file_size";
 // For certain filesystems, file open info contains "last_modified" field in the extended stats map.
-constexpr const char* LAST_MOD_TIMESTAMP_KEY = "last_modified";
-}  // namespace
+constexpr const char *LAST_MOD_TIMESTAMP_KEY = "last_modified";
+} // namespace
 
-CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem& fs, std::function<void(CacheFileSystemHandle&)> dtor_callback_p)
+CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
+                                             std::function<void(CacheFileSystemHandle &)> dtor_callback_p)
     : FileHandle(fs, internal_file_handle_p->GetPath(), internal_file_handle_p->GetFlags()),
-      internal_file_handle(std::move(internal_file_handle_p)),
-	  dtor_callback(std::move(dtor_callback_p)) {
+      internal_file_handle(std::move(internal_file_handle_p)), dtor_callback(std::move(dtor_callback_p)) {
 }
 
 FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
@@ -90,7 +90,7 @@ void CacheFileSystem::SetFileHandleCache() {
 	}
 	if (file_handle_cache == nullptr) {
 		file_handle_cache =
-			make_shared_ptr<FileHandleCache>(g_max_file_handle_cache_entry, g_file_handle_cache_entry_timeout_millisec);
+		    make_shared_ptr<FileHandleCache>(g_max_file_handle_cache_entry, g_file_handle_cache_entry_timeout_millisec);
 	}
 	if (in_use_file_handle_counter == nullptr) {
 		in_use_file_handle_counter = make_shared_ptr<InUseFileHandleCounter>();
@@ -171,14 +171,15 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 	D_ASSERT(flags.OpenForReading());
 
 	CacheFileSystem::FileHandleCacheKey cache_key {
-		.path = internal_file_handle->GetPath(),
-		.flags = flags | FileFlags::FILE_FLAGS_PARALLEL_ACCESS,
+	    .path = internal_file_handle->GetPath(),
+	    .flags = flags | FileFlags::FILE_FLAGS_PARALLEL_ACCESS,
 	};
 	if (in_use_file_handle_counter != nullptr) {
 		in_use_file_handle_counter->Increment(cache_key);
 	}
 
-	auto dtor_callback = [cache_key = std::move(cache_key), file_handle_cache = file_handle_cache, in_use_file_handle_counter = in_use_file_handle_counter](CacheFileSystemHandle& file_handle) {
+	auto dtor_callback = [cache_key = std::move(cache_key), file_handle_cache = file_handle_cache,
+	                      in_use_file_handle_counter = in_use_file_handle_counter](CacheFileSystemHandle &file_handle) {
 		// Reset file handle state (i.e. file offset) before placing into cache.
 		file_handle.internal_file_handle->Reset();
 		if (file_handle_cache == nullptr) {
@@ -204,8 +205,8 @@ shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &han
 	const timestamp_t last_modification_time = internal_filesystem->GetLastModifiedTime(handle);
 
 	FileMetadata file_metadata {
-		.file_size = file_size,
-		.last_modification_time = last_modification_time,
+	    .file_size = file_size,
+	    .last_modification_time = last_modification_time,
 	};
 	return make_shared_ptr<FileMetadata>(std::move(file_metadata));
 }
@@ -216,7 +217,8 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 	auto open_file_info = internal_filesystem->Glob(path, opener);
 	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kGlob, oper_id);
 
-	// Certain filesystem (i.e., s3 filesystem) populates file size within extended file info, make an attempt to extract file size.
+	// Certain filesystem (i.e., s3 filesystem) populates file size within extended file info, make an attempt to
+	// extract file size.
 	//
 	// Initialize metadata cache if not.
 	SetMetadataCache();
@@ -225,16 +227,16 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 	}
 
 	// Attempt to fill in metadata cache.
-	for (const auto& cur_file_info : open_file_info) {
-		const auto& filepath = cur_file_info.path;
-		const auto& cur_extended_file_info = *cur_file_info.extended_info;
+	for (const auto &cur_file_info : open_file_info) {
+		const auto &filepath = cur_file_info.path;
+		const auto &cur_extended_file_info = *cur_file_info.extended_info;
 
 		// Attempt to get file size from extended file info.
 		auto iter = cur_extended_file_info.options.find(FILE_SIZE_INFO_KEY);
 		if (iter == cur_extended_file_info.options.end()) {
 			continue;
 		}
-		auto& file_size_value = iter->second;
+		auto &file_size_value = iter->second;
 		const int64_t file_size = file_size_value.GetValue<int64_t>();
 
 		// Attempt to get last modification timestamp from extended file info.
@@ -242,12 +244,12 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 		if (iter == cur_extended_file_info.options.end()) {
 			continue;
 		}
-		auto& last_modification_time_value = iter->second;
+		auto &last_modification_time_value = iter->second;
 		const timestamp_t last_modification_time = last_modification_time_value.GetValue<timestamp_t>();
 
 		FileMetadata file_metadata {
-			.file_size = file_size_value.GetValue<int64_t>(),
-			.last_modification_time = last_modification_time,
+		    .file_size = file_size_value.GetValue<int64_t>(),
+		    .last_modification_time = last_modification_time,
 		};
 		metadata_cache->Put(filepath, make_shared_ptr<FileMetadata>(std::move(file_metadata)));
 	}
@@ -316,12 +318,12 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 		// Record stats on cache miss.
 		GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
 		                                         BaseProfileCollector::CacheAccess::kCacheMiss);
-		
-	    // Record cache miss caused by exclusive resource in use.
+
+		// Record cache miss caused by exclusive resource in use.
 		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
 		if (in_use_count > 0) {
 			GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
-				BaseProfileCollector::CacheAccess::kCacheEntryInUse);
+			                                         BaseProfileCollector::CacheAccess::kCacheEntryInUse);
 		}
 	}
 
@@ -341,7 +343,8 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFla
 
 	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
 	auto file_handle = internal_filesystem->OpenFile(path, flags, opener);
-	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this, /*dtor_callback=*/[](CacheFileSystemHandle& /*unused*/){});
+	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
+	                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
 }
 
 void CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
@@ -368,7 +371,7 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	    metadata_cache->GetOrCreate(disk_cache_handle.internal_file_handle->GetPath(),
 	                                [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		                                metadata_cache_hit = false;
-										return Stats(*disk_cache_handle.internal_file_handle);
+		                                return Stats(*disk_cache_handle.internal_file_handle);
 	                                });
 	const BaseProfileCollector::CacheAccess cache_access = metadata_cache_hit
 	                                                           ? BaseProfileCollector::CacheAccess::kCacheHit
@@ -390,7 +393,7 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 	    metadata_cache->GetOrCreate(disk_cache_handle.internal_file_handle->GetPath(),
 	                                [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		                                metadata_cache_hit = false;
-										return Stats(*disk_cache_handle.internal_file_handle);
+		                                return Stats(*disk_cache_handle.internal_file_handle);
 	                                });
 	const BaseProfileCollector::CacheAccess cache_access = metadata_cache_hit
 	                                                           ? BaseProfileCollector::CacheAccess::kCacheHit

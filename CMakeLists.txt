@@ -87,8 +87,10 @@ find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
 
 include_directories(${OPENSSL_INCLUDE_DIR})
-target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto CURL::libcurl)
-target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto CURL::libcurl)
+target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto
+                      CURL::libcurl)
+target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto
+                      CURL::libcurl)
 
 install(
   TARGETS ${EXTENSION_NAME}

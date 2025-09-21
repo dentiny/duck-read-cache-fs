@@ -22,13 +22,13 @@
 namespace duckdb {
 
 // Current duckdb instance; store globally to retrieve filesystem instance inside of it.
-static DatabaseInstance* duckdb_instance = nullptr;
+static DatabaseInstance *duckdb_instance = nullptr;
 
 // Clear both in-memory and on-disk data block cache.
 static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
 	// Special handle local disk cache clear, since it's possible disk cache reader hasn't been initialized.
 	auto local_filesystem = LocalFileSystem::CreateLocal();
-	for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
+	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		local_filesystem->CreateDirectory(cur_cache_dir);
 	}
@@ -68,12 +68,12 @@ static void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 
 	int64_t total_cache_size = 0;
-	for (const auto& cur_cache_dir : *g_on_disk_cache_directories) {
-		local_filesystem->ListFiles(
-			cur_cache_dir, [&local_filesystem, &total_cache_size, &cur_cache_dir](const string &fname, bool /*unused*/) {
-				const string file_path = StringUtil::Format("%s/%s", cur_cache_dir, fname);
-				auto file_handle = local_filesystem->OpenFile(file_path, FileOpenFlags::FILE_FLAGS_READ);
-				total_cache_size += local_filesystem->GetFileSize(*file_handle);
+	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
+		local_filesystem->ListFiles(cur_cache_dir, [&local_filesystem, &total_cache_size,
+		                                            &cur_cache_dir](const string &fname, bool /*unused*/) {
+			const string file_path = StringUtil::Format("%s/%s", cur_cache_dir, fname);
+			auto file_handle = local_filesystem->OpenFile(file_path, FileOpenFlags::FILE_FLAGS_READ);
+			total_cache_size += local_filesystem->GetFileSize(*file_handle);
 		});
 	}
 	result.Reference(Value(total_cache_size));
@@ -235,24 +235,27 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                          "By default, 5% disk space will be reserved for other usage. When min disk bytes "
 	                          "specified with a positive value, the default value will be overriden.",
 	                          LogicalType::UBIGINT, 0);
-	config.AddExtensionOption("cache_httpfs_evict_policy", "Eviction policy for on-disk cache cache blocks. By default "
-							  "it's creation timestamp based ('creation_timestamp'), which deletes all cache blocks "
-							  "created earlier than threshold. Other supported policy include 'lru_single_proc' (LRU for"
-							  "single process access), which performs LRU-based eviction, mainly made single process"
-							  "usage.",
-		LogicalType::VARCHAR,
-		*DEFAULT_ON_DISK_EVICTION_POLICY
-	);
+	config.AddExtensionOption(
+	    "cache_httpfs_evict_policy",
+	    "Eviction policy for on-disk cache cache blocks. By default "
+	    "it's creation timestamp based ('creation_timestamp'), which deletes all cache blocks "
+	    "created earlier than threshold. Other supported policy include 'lru_single_proc' (LRU for"
+	    "single process access), which performs LRU-based eviction, mainly made single process"
+	    "usage.",
+	    LogicalType::VARCHAR, *DEFAULT_ON_DISK_EVICTION_POLICY);
 	// TODO(hjiang): there're quite a few optimizations which could be done in the config. For example,
 	// - Each cache directories could have their own config, like min/max cache file size;
 	// - Current implementation uses static hash based distribution, which doesn't work well when directory set changes;
-	// there're a few ways to resolve this problem, for example, fallback to other cache directories and check; change distribution logic.
-	config.AddExtensionOption("cache_httpfs_cache_directories_config",
-								"Advanced configuration for on-disk cache. It supports multiple directories, separated by semicolons (';'). Cache blocks will be evenly distributed under different directories deterministically."
-								"Between different runs, it's expected to provide same cache directories, otherwise it's not guaranteed cache files still exist and accessible."
-								"Overrides 'cache_httpfs_cache_directory' if set.",
-								LogicalType::VARCHAR,
-								std::string{});
+	// there're a few ways to resolve this problem, for example, fallback to other cache directories and check; change
+	// distribution logic.
+	config.AddExtensionOption(
+	    "cache_httpfs_cache_directories_config",
+	    "Advanced configuration for on-disk cache. It supports multiple directories, separated by semicolons (';'). "
+	    "Cache blocks will be evenly distributed under different directories deterministically."
+	    "Between different runs, it's expected to provide same cache directories, otherwise it's not guaranteed cache "
+	    "files still exist and accessible."
+	    "Overrides 'cache_httpfs_cache_directory' if set.",
+	    LogicalType::VARCHAR, std::string {});
 
 	// In-memory cache config.
 	config.AddExtensionOption("cache_httpfs_max_in_mem_cache_block_count",

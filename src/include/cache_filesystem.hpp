@@ -44,7 +44,8 @@ class CacheFileSystem;
 class CacheFileSystemHandle : public FileHandle {
 public:
 	// @param dtor_callback: callback function to invoke at destructor.
-	CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem& fs, std::function<void(CacheFileSystemHandle&)> dtor_callback_p);
+	CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
+	                      std::function<void(CacheFileSystemHandle &)> dtor_callback_p);
 
 	// On cache file handle destruction (for read handles), we place internal file handle to file handle cache to later
 	// reuse.
@@ -58,7 +59,7 @@ public:
 	FileSystem *GetInternalFileSystem() const;
 
 	unique_ptr<FileHandle> internal_file_handle;
-	std::function<void(CacheFileSystemHandle&)> dtor_callback;
+	std::function<void(CacheFileSystemHandle &)> dtor_callback;
 };
 
 class CacheFileSystem : public FileSystem {
@@ -99,9 +100,11 @@ public:
 	void ClearCache(const std::string &filepath);
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
-	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle, bool write) override {
+	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle,
+	                                          bool write) override {
 		auto file_handle = internal_filesystem->OpenCompressedFile(std::move(context), std::move(handle), write);
-		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this, /*dtor_callback=*/[](CacheFileSystemHandle&/*unused*/){});
+		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
+		                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
 	}
 	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
@@ -239,10 +242,12 @@ private:
 
 	// Stat the current file handle, and get all well-known file attributes.
 	//
-	// A better implementation is duckdb filesystem natively provides a `Stats` function call, so we could built metadata caching layer upon;
-	// here to simplify implementation, we simply fetch all well-known attributes in one function call together.
+	// A better implementation is duckdb filesystem natively provides a `Stats` function call, so we could built
+	// metadata caching layer upon; here to simplify implementation, we simply fetch all well-known attributes in one
+	// function call together.
 	//
-	// Performance-wise it might not be too much of a concern, because the most widely-used httpfs file handle already has its internal cache.
+	// Performance-wise it might not be too much of a concern, because the most widely-used httpfs file handle already
+	// has its internal cache.
 	shared_ptr<FileMetadata> Stats(FileHandle &handle);
 
 	// Read from [location] on [nr_bytes] for the given [handle] into [buffer].
@@ -295,8 +300,10 @@ private:
 	using FileHandleCache = ThreadSafeExclusiveMultiLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyHash,
 	                                                         FileHandleCacheKeyEqual>;
 	shared_ptr<FileHandleCache> file_handle_cache;
-	// In-use file handle counter, which is used to provide observability on cache miss: whether it's caused by low cache hit rate, or small cache size.
-	using InUseFileHandleCounter = ThreadSafeCounter<FileHandleCacheKey, FileHandleCacheKeyHash, FileHandleCacheKeyEqual>;
+	// In-use file handle counter, which is used to provide observability on cache miss: whether it's caused by low
+	// cache hit rate, or small cache size.
+	using InUseFileHandleCounter =
+	    ThreadSafeCounter<FileHandleCacheKey, FileHandleCacheKeyHash, FileHandleCacheKeyEqual>;
 	shared_ptr<InUseFileHandleCounter> in_use_file_handle_counter;
 	// Glob cache, which maps from path to filenames.
 	using GlobCache = ThreadSafeSharedLruConstCache<string, vector<OpenFileInfo>>;

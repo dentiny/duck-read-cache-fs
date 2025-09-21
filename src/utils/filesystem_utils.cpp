@@ -25,7 +25,7 @@ void EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_dire
 		    }
 
 		    const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
-			const int64_t diff_in_microsec = now.value - last_mod_time.value;
+		    const int64_t diff_in_microsec = now.value - last_mod_time.value;
 		    if (diff_in_microsec >= CACHE_FILE_STALENESS_MICROSEC) {
 			    if (std::remove(full_name.data()) < -1 && errno != EEXIST) {
 				    throw IOException("Fails to delete stale cache file %s", full_name);
@@ -87,31 +87,32 @@ bool CanCacheOnDisk(const std::string &path) {
 	return overall_fs_bytes * MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE <= avai_fs_bytes.GetIndex();
 }
 
-map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string>& folders) {
+map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string> &folders) {
 	map<timestamp_t, string> cache_files_map;
 	auto local_filesystem = LocalFileSystem::CreateLocal();
-	for (const auto& cur_folder : folders) {
-		local_filesystem->ListFiles(
-			cur_folder, [&local_filesystem, &cur_folder, &cache_files_map](const string &fname, bool /*unused*/) {
-				// Multiple threads could attempt to access and delete stale files, tolerate non-existent file.
-				const string full_name = StringUtil::Format("%s/%s", cur_folder, fname);
-				auto file_handle = local_filesystem->OpenFile(full_name, FileOpenFlags::FILE_FLAGS_READ |
-																			FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
-				if (file_handle == nullptr) {
-					return;
-				}
+	for (const auto &cur_folder : folders) {
+		local_filesystem->ListFiles(cur_folder, [&local_filesystem, &cur_folder, &cache_files_map](const string &fname,
+		                                                                                           bool /*unused*/) {
+			// Multiple threads could attempt to access and delete stale files, tolerate non-existent file.
+			const string full_name = StringUtil::Format("%s/%s", cur_folder, fname);
+			auto file_handle = local_filesystem->OpenFile(full_name, FileOpenFlags::FILE_FLAGS_READ |
+			                                                             FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+			if (file_handle == nullptr) {
+				return;
+			}
 
-				timestamp_t last_mod_time = local_filesystem->GetLastModifiedTime(*file_handle);
-				while (true) {
-					auto iter = cache_files_map.find(last_mod_time);
-					if (iter == cache_files_map.end()) {
-						cache_files_map.emplace(last_mod_time, std::move(full_name));
-						break;
-					}
-					// For duplicate timestamp, for simplicity simply keep incrementing until we find an available slot, instead of maintaining a vector.
-					last_mod_time = timestamp_t{last_mod_time.value + 1};
+			timestamp_t last_mod_time = local_filesystem->GetLastModifiedTime(*file_handle);
+			while (true) {
+				auto iter = cache_files_map.find(last_mod_time);
+				if (iter == cache_files_map.end()) {
+					cache_files_map.emplace(last_mod_time, std::move(full_name));
+					break;
 				}
-			});
+				// For duplicate timestamp, for simplicity simply keep incrementing until we find an available slot,
+				// instead of maintaining a vector.
+				last_mod_time = timestamp_t {last_mod_time.value + 1};
+			}
+		});
 	}
 	return cache_files_map;
 }

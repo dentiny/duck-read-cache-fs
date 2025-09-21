@@ -25,7 +25,8 @@ struct CacheAccessInfo {
 	// Number of cache miss.
 	uint64_t cache_miss_count = 0;
 	// Number of cache miss, caused by in-use exclusive resource.
-	// Only useful for exclusive resource, used to indicate whether cache miss is caused by small cache size, or low cache hit ratio.
+	// Only useful for exclusive resource, used to indicate whether cache miss is caused by small cache size, or low
+	// cache hit ratio.
 	uint64_t cache_miss_by_in_use = 0;
 };
 

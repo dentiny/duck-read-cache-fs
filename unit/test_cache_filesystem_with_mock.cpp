@@ -128,7 +128,7 @@ TEST_CASE("Test file metadata cache for glob invocation", "[mock filesystem test
 
 	// Set an incorrect file size for mock file system, to make sure it's not called.
 	mock_filesystem->SetFileSize(20);
-	mock_filesystem->SetLastModificationTime(timestamp_t{-1});
+	mock_filesystem->SetLastModificationTime(timestamp_t {-1});
 
 	// Perform glob and get file size operation.
 	auto *mock_filesystem_ptr = mock_filesystem.get();
@@ -140,7 +140,7 @@ TEST_CASE("Test file metadata cache for glob invocation", "[mock filesystem test
 
 	// Check invocation results.
 	REQUIRE(file_size == 10);
-	REQUIRE(last_modification_time == timestamp_t{1731152288});
+	REQUIRE(last_modification_time == timestamp_t {1731152288});
 	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 1);
 	REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 0);
 	REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 0);
@@ -154,7 +154,7 @@ TEST_CASE("Test file attribute for glob invocation", "[mock filesystem test]") {
 	};
 	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_callback), std::move(dtor_callback));
 	mock_filesystem->SetFileSize(20);
-	mock_filesystem->SetLastModificationTime(timestamp_t{1731152288});
+	mock_filesystem->SetLastModificationTime(timestamp_t {1731152288});
 
 	// Get file size and last modification timestamp.
 	auto *mock_filesystem_ptr = mock_filesystem.get();
@@ -171,7 +171,7 @@ TEST_CASE("Test file attribute for glob invocation", "[mock filesystem test]") {
 
 	// Check invocation results.
 	REQUIRE(file_size == 20);
-	REQUIRE(last_modification_time == timestamp_t{1731152288});
+	REQUIRE(last_modification_time == timestamp_t {1731152288});
 	REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 1);
 	REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 1);
 }
