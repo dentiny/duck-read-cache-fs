@@ -67,6 +67,10 @@ inline static constexpr uint64_t DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC =
 
 // Number of seconds which we define as the threshold of staleness for metadata entries.
 inline constexpr idx_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
+// Number of milliseconds which mark staleness.
+inline constexpr idx_t CACHE_FILE_STALENESS_MILLISEC = CACHE_FILE_STALENESS_SECOND * 1000;
+// Number of microseconds which marks staleness.
+inline constexpr idx_t CACHE_FILE_STALENESS_MICROSEC = CACHE_FILE_STALENESS_MILLISEC * 1000;
 
 // Max number of cache entries for file handle cache.
 inline static constexpr size_t DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY = 250;

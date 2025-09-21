@@ -13,7 +13,7 @@
 namespace duckdb {
 
 void EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_directory) {
-	const time_t now = std::time(nullptr);
+	const timestamp_t now = Timestamp::GetCurrentTimestamp();
 	local_filesystem.ListFiles(
 	    cache_directory, [&local_filesystem, &cache_directory, now](const string &fname, bool /*unused*/) {
 		    // Multiple threads could attempt to access and delete stale files, tolerate non-existent file.
@@ -24,9 +24,9 @@ void EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_dire
 			    return;
 		    }
 
-		    const time_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
-		    const double diff = std::difftime(/*time_end=*/now, /*time_beg=*/last_mod_time);
-		    if (static_cast<uint64_t>(diff) >= CACHE_FILE_STALENESS_SECOND) {
+		    const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
+			const int64_t diff_in_microsec = now.value - last_mod_time.value;
+		    if (diff_in_microsec >= CACHE_FILE_STALENESS_MICROSEC) {
 			    if (std::remove(full_name.data()) < -1 && errno != EEXIST) {
 				    throw IOException("Fails to delete stale cache file %s", full_name);
 			    }
@@ -87,8 +87,8 @@ bool CanCacheOnDisk(const std::string &path) {
 	return overall_fs_bytes * MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE <= avai_fs_bytes.GetIndex();
 }
 
-map<time_t, string> GetOnDiskFilesUnder(const vector<string>& folders) {
-	map<time_t, string> cache_files_map;
+map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string>& folders) {
+	map<timestamp_t, string> cache_files_map;
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	for (const auto& cur_folder : folders) {
 		local_filesystem->ListFiles(
@@ -101,7 +101,7 @@ map<time_t, string> GetOnDiskFilesUnder(const vector<string>& folders) {
 					return;
 				}
 
-				time_t last_mod_time = local_filesystem->GetLastModifiedTime(*file_handle);
+				timestamp_t last_mod_time = local_filesystem->GetLastModifiedTime(*file_handle);
 				while (true) {
 					auto iter = cache_files_map.find(last_mod_time);
 					if (iter == cache_files_map.end()) {
@@ -109,7 +109,7 @@ map<time_t, string> GetOnDiskFilesUnder(const vector<string>& folders) {
 						break;
 					}
 					// For duplicate timestamp, for simplicity simply keep incrementing until we find an available slot, instead of maintaining a vector.
-					++last_mod_time;
+					last_mod_time = timestamp_t{last_mod_time.value + 1};
 				}
 			});
 	}

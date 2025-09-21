@@ -64,7 +64,7 @@ bool CacheHttpfsFakeFileSystem::Trim(FileHandle &handle, idx_t offset_bytes, idx
 	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
 	return local_filesystem->Trim(*local_filesystem_handle, offset_bytes, length_bytes);
 }
-time_t CacheHttpfsFakeFileSystem::GetLastModifiedTime(FileHandle &handle) {
+timestamp_t CacheHttpfsFakeFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
 	return local_filesystem->GetLastModifiedTime(*local_filesystem_handle);
 }

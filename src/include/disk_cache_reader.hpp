@@ -10,6 +10,7 @@
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/map.hpp"
 #include "duckdb/common/string.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -43,7 +44,7 @@ private:
 	// Used for on-disk cache block LRU-based eviction.
 	std::mutex cache_file_creation_timestamp_map_mutex;
 	// Maps from last access timestamp to filepath.
-	map<time_t, string> cache_file_creation_timestamp_map;
+	map<timestamp_t, string> cache_file_creation_timestamp_map;
 };
 
 } // namespace duckdb

@@ -9,6 +9,7 @@
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/open_file_info.hpp"
 #include "duckdb/common/string.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/vector.hpp"
 
 #include <cstdint>
@@ -63,7 +64,7 @@ public:
 		++get_file_size_invocation;
 		return file_size;
 	}
-	time_t GetLastModifiedTime(FileHandle &handle) override {
+	timestamp_t GetLastModifiedTime(FileHandle &handle) override {
 		++get_last_mod_time_invocation;
 		return last_modification_time;
 	}
@@ -80,7 +81,7 @@ public:
 	void SetFileSize(int64_t file_size_p) {
 		file_size = file_size_p;
 	}
-	void SetLastModificationTime(time_t last_modification_time_p) {
+	void SetLastModificationTime(timestamp_t last_modification_time_p) {
 		last_modification_time = last_modification_time_p;
 	}
 	vector<ReadOper> GetSortedReadOperations();
@@ -102,7 +103,7 @@ public:
 
 private:
 	int64_t file_size = 0;
-	time_t last_modification_time = static_cast<time_t>(0);
+	timestamp_t last_modification_time = timestamp_t::infinity();
 	// Glob returns value for each invocation.
 	std::deque<OpenFileInfo> glob_returns;
 	std::function<void()> close_callback;

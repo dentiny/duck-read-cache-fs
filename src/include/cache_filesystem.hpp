@@ -10,6 +10,7 @@
 #include "duckdb/common/open_file_info.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
+#include "duckdb/main/client_context.hpp"
 #include "exclusive_multi_lru_cache.hpp"
 #include "shared_lru_cache.hpp"
 
@@ -81,7 +82,7 @@ public:
 	// Get file size, which attempts to get metadata cache if possible.
 	int64_t GetFileSize(FileHandle &handle);
 	// Get last modification timestamp, which attempts to get metadata cache if possible.
-	time_t GetLastModifiedTime(FileHandle &handle) override;
+	timestamp_t GetLastModifiedTime(FileHandle &handle) override;
 	// Get cache reader manager.
 	shared_ptr<CacheReaderManager> GetCacheReaderManager();
 	// Get the internal filesystem for cache filesystem.
@@ -98,8 +99,8 @@ public:
 	void ClearCache(const std::string &filepath);
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
-	unique_ptr<FileHandle> OpenCompressedFile(unique_ptr<FileHandle> handle, bool write) override {
-		auto file_handle = internal_filesystem->OpenCompressedFile(std::move(handle), write);
+	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle, bool write) override {
+		auto file_handle = internal_filesystem->OpenCompressedFile(std::move(context), std::move(handle), write);
 		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this, /*dtor_callback=*/[](CacheFileSystemHandle&/*unused*/){});
 	}
 	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override {
@@ -203,10 +204,10 @@ private:
 
 	struct FileMetadata {
 		inline constexpr static int64_t INVALID_FILE_SIZE = -1;
-		inline constexpr static time_t INVALID_MODIFICATION_TIME = static_cast<time_t>(-1);
+		inline constexpr static timestamp_t INVALID_MODIFICATION_TIME = static_cast<timestamp_t>(-1);
 
 		int64_t file_size = INVALID_FILE_SIZE;
-		time_t last_modification_time = INVALID_MODIFICATION_TIME;
+		timestamp_t last_modification_time = INVALID_MODIFICATION_TIME;
 	};
 
 	struct FileHandleCacheKey {

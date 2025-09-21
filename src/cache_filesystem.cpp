@@ -201,7 +201,7 @@ shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &han
 	const int64_t file_size = internal_filesystem->GetFileSize(handle);
 
 	// Get last modification timestamp.
-	const time_t last_modification_time = internal_filesystem->GetLastModifiedTime(handle);
+	const timestamp_t last_modification_time = internal_filesystem->GetLastModifiedTime(handle);
 
 	FileMetadata file_metadata {
 		.file_size = file_size,
@@ -243,7 +243,7 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 			continue;
 		}
 		auto& last_modification_time_value = iter->second;
-		const time_t last_modification_time = DuckdbTimestampToTimeT(last_modification_time_value.GetValue<timestamp_t>());
+		const timestamp_t last_modification_time = last_modification_time_value.GetValue<timestamp_t>();
 
 		FileMetadata file_metadata {
 			.file_size = file_size_value.GetValue<int64_t>(),
@@ -354,7 +354,7 @@ int64_t CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes
 	return bytes_read;
 }
 
-time_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
+timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 
 	// Stat without cache involved.

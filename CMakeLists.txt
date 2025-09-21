@@ -36,16 +36,16 @@ set(EXTENSION_SOURCES
     src/utils/filesystem_utils.cpp
     src/utils/mock_filesystem.cpp
     src/utils/thread_pool.cpp
-    src/utils/time_utils.cpp
     src/utils/thread_utils.cpp
     duckdb-httpfs/extension/httpfs/create_secret_functions.cpp
     duckdb-httpfs/extension/httpfs/crypto.cpp
     duckdb-httpfs/extension/httpfs/hash_functions.cpp
     duckdb-httpfs/extension/httpfs/hffs.cpp
-    duckdb-httpfs/extension/httpfs/httpfs_client.cpp
-    duckdb-httpfs/extension/httpfs/httpfs.cpp
-    duckdb-httpfs/extension/httpfs/httpfs_extension.cpp
     duckdb-httpfs/extension/httpfs/http_state.cpp
+    duckdb-httpfs/extension/httpfs/httpfs.cpp
+    duckdb-httpfs/extension/httpfs/httpfs_curl_client.cpp
+    duckdb-httpfs/extension/httpfs/httpfs_extension.cpp
+    duckdb-httpfs/extension/httpfs/httpfs_httplib_client.cpp
     duckdb-httpfs/extension/httpfs/s3fs.cpp)
 
 # Avoid building tooling we won't need for release.
@@ -84,9 +84,11 @@ build_static_extension(${TARGET_NAME} ${EXTENSION_SOURCES})
 build_loadable_extension(${TARGET_NAME} " " ${EXTENSION_SOURCES})
 
 find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
+
 include_directories(${OPENSSL_INCLUDE_DIR})
-target_link_libraries(${EXTENSION_NAME} ${OPENSSL_LIBRARIES})
-target_link_libraries(${LOADABLE_EXTENSION_NAME} ${OPENSSL_LIBRARIES})
+target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto CURL::libcurl)
+target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto CURL::libcurl)
 
 install(
   TARGETS ${EXTENSION_NAME}
