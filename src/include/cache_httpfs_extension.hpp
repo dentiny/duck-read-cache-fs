@@ -13,6 +13,7 @@ public:
 	std::string Version() const override;
 
 private:
+	// Cache httpfs automatically loads httpfs.
 	unique_ptr<Extension> httpfs_extension;
 };
 
