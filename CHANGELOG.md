@@ -1,3 +1,21 @@
+# 0.7.0
+
+## Changed
+
+- Upgrade support to duckdb v1.4 ([#246])
+
+[#246]: https://github.com/dentiny/duck-read-cache-fs/pull/246
+
+## Improved
+
+- Add local minio and fake GCS to devcontainer for developing and testing purpose ([#237])
+
+[#237]: https://github.com/dentiny/duck-read-cache-fs/pull/237
+
+- Add LRU-based on-disk cache file eviction ([#245])
+
+[#245]: https://github.com/dentiny/duck-read-cache-fs/pull/245
+
 # 0.6.0
 
 ## Fixed
