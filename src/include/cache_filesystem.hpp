@@ -202,6 +202,16 @@ public:
 		internal_filesystem->SetDisabledFileSystems(names);
 	}
 
+protected:
+	// Because extended version of open and list are all "protected" visibility, which cannot access with the
+	// [`internal_filesystem`] variable, so we explicitly disable the extended version and fallback to normal one.
+	bool SupportsOpenFileExtended() const override {
+		return false;
+	}
+	bool SupportsListFilesExtended() const override {
+		return false;
+	}
+
 private:
 	friend class CacheFileSystemHandle;
 
