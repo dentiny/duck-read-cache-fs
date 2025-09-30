@@ -140,7 +140,7 @@ TEST_CASE("Test file metadata cache for glob invocation", "[mock filesystem test
 
 	// Check invocation results.
 	REQUIRE(file_size == 10);
-	REQUIRE(last_modification_time == timestamp_t {1731152288});
+	REQUIRE(last_modification_time == timestamp_t {1731152288000000});
 	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 1);
 	REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 0);
 	REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 0);
