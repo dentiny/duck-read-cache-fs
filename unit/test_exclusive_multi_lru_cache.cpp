@@ -222,6 +222,33 @@ TEST_CASE("Clear entries with key predicate", "[exclusive multi-lru test]") {
 	REQUIRE(cache.Verify());
 }
 
+// Referenced issue: https://github.com/dentiny/duck-read-cache-fs/issues/249
+//
+// Reproduction testing scenario:
+// - LRU cache has timeout specified
+// - There're multiple key-value pairs in the cache
+// - One of the requested keys have all cache entries timed-out
+TEST_CASE("Issue 249", "[exclusive multi-lru test]") {
+	using CacheType = ThreadSafeExclusiveMultiLruCache<std::string, std::string>;
+
+	// One entry for key-1, another entry for key-2.
+	CacheType cache {/*max_entries_p=*/2, /*timeout_millisec_p=*/1};
+	auto evicted = cache.Put("key1", make_uniq<std::string>("val1"));
+	REQUIRE(evicted == nullptr);
+
+	evicted = cache.Put("key2", make_uniq<std::string>("val2"));
+	REQUIRE(evicted == nullptr);
+
+	// Sleep for a while to "make sure" all cache entries have expired.
+	// NOTICE: It's usually discouraged to use sleep in unit test.
+	// TODO(hjiang): Consider adding a `Advance` API for unit test purpose.
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+	auto get_and_pop_result = cache.GetAndPop("key1");
+	REQUIRE(get_and_pop_result.evicted_items.size() == 1);
+	REQUIRE(get_and_pop_result.target_item == nullptr);
+}
+
 int main(int argc, char **argv) {
 	int result = Catch::Session().run(argc, argv);
 	return result;

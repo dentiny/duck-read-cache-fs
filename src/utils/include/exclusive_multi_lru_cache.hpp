@@ -74,10 +74,10 @@ public:
 		};
 		auto key_cref = std::cref(lru_list.front());
 		entry_map[key_cref].emplace_back(std::move(new_entry));
-		++cur_entries_num;
+		++total_entries_num;
 
 		unique_ptr<Val> evicted_val = nullptr;
-		if (max_entries > 0 && cur_entries_num > max_entries) {
+		if (max_entries > 0 && total_entries_num > max_entries) {
 			const auto &stale_key = lru_list.back();
 			auto iter = entry_map.find(stale_key);
 			D_ASSERT(iter != entry_map.end());
@@ -101,7 +101,7 @@ public:
 		if (timeout_millisec > 0) {
 			const auto now = GetSteadyNowMilliSecSinceEpoch();
 			size_t cur_entries_size = entries.size();
-			while (cur_entries_num > 0) {
+			while (cur_entries_size > 0) {
 				auto &cur_entry = entries.front();
 				if (now - cur_entry.timestamp > timeout_millisec) {
 					result.evicted_items.emplace_back(DeleteFirstEntry(entry_map_iter));
@@ -127,7 +127,7 @@ public:
 	// Clear the cache and get all values, application could perform their processing logic upon these values.
 	vector<unique_ptr<Val>> ClearAndGetValues() {
 		vector<unique_ptr<Val>> values;
-		values.reserve(cur_entries_num);
+		values.reserve(total_entries_num);
 		for (auto &[_, entries] : entry_map) {
 			for (auto &cur_entry : entries) {
 				values.emplace_back(std::move(cur_entry.value));
@@ -135,7 +135,7 @@ public:
 		}
 		entry_map.clear();
 		lru_list.clear();
-		cur_entries_num = 0;
+		total_entries_num = 0;
 		return values;
 	}
 
@@ -157,7 +157,7 @@ public:
 			for (auto &cur_entry : entries) {
 				values.emplace_back(std::move(cur_entry.value));
 				lru_list.erase(cur_entry.lru_iterator);
-				--cur_entries_num;
+				--total_entries_num;
 			}
 			entry_map.erase(entry_map_iter);
 		}
@@ -181,12 +181,12 @@ public:
 			entry_map_count += entries.size();
 		}
 
-		if (entry_map_count != cur_entries_num) {
+		if (entry_map_count != total_entries_num) {
 			return false;
 		}
 
 		// Count 3.
-		return lru_list.size() == cur_entries_num;
+		return lru_list.size() == total_entries_num;
 	}
 
 private:
@@ -217,12 +217,12 @@ private:
 		} else {
 			entries.pop_front();
 		}
-		--cur_entries_num;
+		--total_entries_num;
 		return value;
 	}
 
 	// Current number of entries in the cache.
-	size_t cur_entries_num = 0;
+	size_t total_entries_num = 0;
 
 	// The maximum number of entries in the cache. A value of 0 means there is no limit on entry count.
 	const size_t max_entries;
