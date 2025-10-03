@@ -21,8 +21,13 @@
 
 namespace duckdb {
 
-// Current duckdb instance; store globally to retrieve filesystem instance inside of it.
-static DatabaseInstance *duckdb_instance = nullptr;
+// Get database instance from expression state.
+// Returned instance ownership lies in the given [`state`].
+static DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
+	auto *executor = state.root.executor;
+	auto &client_context = executor->GetContext();
+	return *client_context.db.get();
+}
 
 // Clear both in-memory and on-disk data block cache.
 static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
@@ -129,7 +134,8 @@ static void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, V
 	const string filesystem_name = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
 	// duckdb instance has a opener filesystem, which is a wrapper around virtual filesystem.
-	auto &opener_filesystem = duckdb_instance->GetFileSystem().Cast<OpenerFileSystem>();
+	auto &duckdb_instance = GetDatabaseInstance(state);
+	auto &opener_filesystem = duckdb_instance.GetFileSystem().Cast<OpenerFileSystem>();
 	auto &vfs = opener_filesystem.GetFileSystem();
 	auto internal_filesystem = vfs.ExtractSubSystem(filesystem_name);
 	if (internal_filesystem == nullptr) {
@@ -355,9 +361,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 }
 
 void CacheHttpfsExtension::Load(ExtensionLoader &loader) {
-	auto &db = loader.GetDatabaseInstance();
-	duckdb_instance = &db;
-
 	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,
 	// so we load it first.
 	httpfs_extension = make_uniq<HttpfsExtension>();
