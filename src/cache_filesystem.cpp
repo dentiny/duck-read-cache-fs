@@ -163,7 +163,7 @@ bool CacheFileSystem::IsManuallySet() {
 }
 
 std::string CacheFileSystem::GetName() const {
-	return StringUtil::Format("cache_httpfs with %s", internal_filesystem->GetName());
+	return StringUtil::Format("cache_httpfs_%s", internal_filesystem->GetName());
 }
 
 unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle) {
