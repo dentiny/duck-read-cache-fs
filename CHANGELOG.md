@@ -8,7 +8,7 @@
 
 ## Changed
 
-- Upgrade duckdb, extension-ci and httpfs to latest version ([#250])
+- Upgrade duckdb, extension-ci and httpfs to latest version
 
 # 0.7.1
 
