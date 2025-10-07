@@ -15,6 +15,14 @@ SELECT COUNT(*) FROM duckdb_extensions() WHERE extension_name = 'cache_httpfs';
 ----
 1
 
+query I
+SELECT unnest(cache_httpfs_list_registered_filesystems());
+----
+cache_httpfs_HTTPFileSystem
+cache_httpfs_HuggingFaceFileSystem
+cache_httpfs_S3FileSystem
+cache_httpfs_fake_filesystem
+
 statement ok
 SELECT cache_httpfs_clear_cache();
 
