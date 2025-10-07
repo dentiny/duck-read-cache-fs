@@ -14,7 +14,7 @@ set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 project(${TARGET_NAME})
 include_directories(src/utils/include)
 include_directories(src/include)
-include_directories(duckdb-httpfs/extension/httpfs/include)
+include_directories(duckdb-httpfs/src/include)
 include_directories(duckdb/third_party/httplib)
 
 # TODO(hjiang): httpfs has wasm client implementation, which is intentionally
@@ -37,16 +37,16 @@ set(EXTENSION_SOURCES
     src/utils/mock_filesystem.cpp
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
-    duckdb-httpfs/extension/httpfs/create_secret_functions.cpp
-    duckdb-httpfs/extension/httpfs/crypto.cpp
-    duckdb-httpfs/extension/httpfs/hash_functions.cpp
-    duckdb-httpfs/extension/httpfs/hffs.cpp
-    duckdb-httpfs/extension/httpfs/http_state.cpp
-    duckdb-httpfs/extension/httpfs/httpfs.cpp
-    duckdb-httpfs/extension/httpfs/httpfs_curl_client.cpp
-    duckdb-httpfs/extension/httpfs/httpfs_extension.cpp
-    duckdb-httpfs/extension/httpfs/httpfs_httplib_client.cpp
-    duckdb-httpfs/extension/httpfs/s3fs.cpp)
+    duckdb-httpfs/src/create_secret_functions.cpp
+    duckdb-httpfs/src/crypto.cpp
+    duckdb-httpfs/src/hash_functions.cpp
+    duckdb-httpfs/src/hffs.cpp
+    duckdb-httpfs/src/http_state.cpp
+    duckdb-httpfs/src/httpfs.cpp
+    duckdb-httpfs/src/httpfs_curl_client.cpp
+    duckdb-httpfs/src/httpfs_extension.cpp
+    duckdb-httpfs/src/httpfs_httplib_client.cpp
+    duckdb-httpfs/src/s3fs.cpp)
 
 # Avoid building tooling we won't need for release.
 set(BUILD_BENCHMARKS
