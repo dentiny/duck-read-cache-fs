@@ -1,8 +1,22 @@
-# 0.7.1
+# 0.7.2
+
+## Added
+
+- Add a SQL function to list all registered filesystems ([#254])
+
+[#254]: https://github.com/dentiny/duck-read-cache-fs/pull/254
 
 ## Changed
 
-- Upgrade duckdb, extension-ci and httpfs to latest version
+- Upgrade duckdb, extension-ci and httpfs to latest version ([#250])
+
+# 0.7.1
+
+## Fixed
+
+- Fix segfault for multi-lru cache ([#250])
+
+[#250]: https://github.com/dentiny/duck-read-cache-fs/pull/250
 
 # 0.7.0
 
