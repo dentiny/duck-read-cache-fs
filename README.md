@@ -83,6 +83,19 @@ For more example usage, checkout [example usage](/doc/example_usage.md)
 
 At the moment macOS and Linux are supported, shoot us a [feature request](https://github.com/dentiny/duck-read-cache-fs/issues/new?template=feature_request.md) if you would like to run extension on other platforms.
 
+## Comparison with other available caching options
+
+| **Feature** | **cache_httpfs** | **QuackStore** | **DuckDB External File Cache** |
+|--------------|----------------|----------------|--------------------------------|
+| **Persistence** | Supports both in-memory and on-disk, by default on-disk, also provides multi-disk support | On-disk | In-memory |
+| **Cache granularity** | Tunable block size, 1MiB by default | 1 MB aligned blocks | Arbitrary byte ranges |
+| **Activation** | Automatic | Explicit `quackstore://` prefix | Automatic |
+| **Cache invalidation** | No support, on the roadmap | Optional (mtime + size) | Always validates (mtime, ETag for HTTP) |
+| **Explicit cache eviction**| Yes | Yes | Yes | 
+| **Data integrity** | No support, on the roadmap | Checksum validation + auto-recovery | ETag/version checking |
+| **Eviction policy** | LRU for in-memory cache, LRU or deadline-based eviction for on-disk | LRU with configurable size limit | LRU (memory-based) |
+| **Observability** | Provides cache access stats | No | No |
+
 ## Development
 
 For development, the extension requires [CMake](https://cmake.org), and a `C++14` compliant compiler. Run `make` in the root directory to compile the sources. For development, use `make debug` to build a non-optimized debug version. You should run `make unit`.
