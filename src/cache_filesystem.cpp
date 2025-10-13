@@ -1,6 +1,7 @@
 #include "cache_filesystem.hpp"
 
 #include "cache_filesystem_config.hpp"
+#include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "in_memory_cache_reader.hpp"
@@ -20,7 +21,8 @@ constexpr const char *LAST_MOD_TIMESTAMP_KEY = "last_modified";
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
                                              std::function<void(CacheFileSystemHandle &)> dtor_callback_p)
     : FileHandle(fs, internal_file_handle_p->GetPath(), internal_file_handle_p->GetFlags()),
-      internal_file_handle(std::move(internal_file_handle_p)), dtor_callback(std::move(dtor_callback_p)) {
+      logger(internal_file_handle_p->logger), internal_file_handle(std::move(internal_file_handle_p)),
+      dtor_callback(std::move(dtor_callback_p)) {
 }
 
 FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
@@ -312,6 +314,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 		if (get_and_pop_res.target_item != nullptr) {
 			GetProfileCollector()->RecordCacheAccess(BaseProfileCollector::CacheEntity::kFileHandle,
 			                                         BaseProfileCollector::CacheAccess::kCacheHit);
+			DUCKDB_LOG_OPEN_CACHE_HIT((*get_and_pop_res.target_item));
 			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item));
 		}
 
@@ -331,6 +334,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 	profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kOpen, oper_id);
 	auto file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kOpen, oper_id);
+	DUCKDB_LOG_OPEN_CACHE_MISS((*file_handle));
 	return CreateCacheFileHandleForRead(std::move(file_handle));
 }
 

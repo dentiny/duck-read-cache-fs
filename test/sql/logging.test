@@ -1,0 +1,29 @@
+# name: test/sql/logging.test
+# description: test cache access logging
+# group: [sql]
+
+require cache_httpfs
+
+statement ok
+CALL enable_logging(storage='memory', level='trace');
+
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+query I
+SELECT COUNT(*) FROM duckdb_logs WHERE type = 'FileSystem' AND 'FILE OPEN CACHE MISS' IN message;
+----
+1
+
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+query I
+SELECT COUNT(*) FROM duckdb_logs WHERE type = 'FileSystem' AND 'FILE OPEN CACHE HIT' IN message;
+----
+1
+
+# A workaround due to global variable destruction.
+# Reference issue: https://github.com/dentiny/duck-read-cache-fs/issues/264
+statement ok
+SELECT cache_httpfs_clear_cache();

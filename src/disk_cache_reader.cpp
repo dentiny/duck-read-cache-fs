@@ -4,6 +4,7 @@
 // - To avoid data race (open the file after deletion), read threads should open the file directly, instead of check
 // existence and open, which guarantees even the file get deleted due to staleness, read threads still get a snapshot.
 
+#include "cache_filesystem_logger.hpp"
 #include "crypto.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
@@ -312,6 +313,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			if (file_handle != nullptr) {
 				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 				                                     BaseProfileCollector::CacheAccess::kCacheHit);
+				DUCKDB_LOG_READ_CACHE_HIT((handle));
 				void *addr = !cache_read_chunk.content.empty() ? const_cast<char *>(cache_read_chunk.content.data())
 				                                               : cache_read_chunk.requested_start_addr;
 				local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
@@ -331,6 +333,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
 			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 			                                     BaseProfileCollector::CacheAccess::kCacheMiss);
+			DUCKDB_LOG_READ_CACHE_MISS((handle));
 			auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 			auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
 
