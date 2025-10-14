@@ -316,7 +316,10 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 				DUCKDB_LOG_READ_CACHE_HIT((handle));
 				void *addr = !cache_read_chunk.content.empty() ? const_cast<char *>(cache_read_chunk.content.data())
 				                                               : cache_read_chunk.requested_start_addr;
+				const string oper_id = profile_collector->GenerateOperId();
+				profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kDiskCacheRead, oper_id);
 				local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
+				profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kDiskCacheRead, oper_id);
 				cache_read_chunk.CopyBufferToRequestedMemory();
 
 				// Update access and modification timestamp for the cache file, so it won't get evicted.
