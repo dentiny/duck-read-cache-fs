@@ -35,6 +35,8 @@ public:
 		kOpen,
 		kRead,
 		kGlob,
+		// Disk cache read and copy.
+		kDiskCacheRead,
 		kUnknown,
 	};
 	static constexpr auto kCacheEntityCount = static_cast<size_t>(CacheEntity::kUnknown);
@@ -87,11 +89,12 @@ public:
 	// TODO(hjiang): Use constants for cache entity name and operation name.
 	inline static const vector<const char *> CACHE_ENTITY_NAMES = []() {
 		vector<const char *> cache_entity_names;
-		cache_entity_names.reserve(kIoOperationCount);
+		cache_entity_names.reserve(kCacheEntityCount);
 		cache_entity_names.emplace_back("metadata");
 		cache_entity_names.emplace_back("data");
 		cache_entity_names.emplace_back("file handle");
 		cache_entity_names.emplace_back("glob");
+		D_ASSERT(cache_entity_names.size() == kCacheEntityCount);
 		return cache_entity_names;
 	}();
 	// Operation names, indexed by operation enums.
@@ -101,6 +104,8 @@ public:
 		oper_names.emplace_back("open");
 		oper_names.emplace_back("read");
 		oper_names.emplace_back("glob");
+		oper_names.emplace_back("disk_cache_read");
+		D_ASSERT(oper_names.size() == kIoOperationCount);
 		return oper_names;
 	}();
 

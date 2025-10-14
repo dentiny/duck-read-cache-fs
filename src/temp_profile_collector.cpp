@@ -20,6 +20,10 @@ constexpr double MIN_GLOB_LATENCY_MILLISEC = 0;
 constexpr double MAX_GLOB_LATENCY_MILLISEC = 1000;
 constexpr int GLOB_LATENCY_NUM_BKT = 100;
 
+constexpr double MIN_DISK_CACHE_READ_MILLISEC = 0;
+constexpr double MAX_DISK_CACHE_READ_MILLISEC = 500;
+constexpr int DISK_CACHE_READ_LATENCY_NUM_BKT = 100;
+
 const NoDestructor<string> LATENCY_HISTOGRAM_ITEM {"latency"};
 const NoDestructor<string> LATENCY_HISTOGRAM_UNIT {"millisec"};
 } // namespace
@@ -42,6 +46,14 @@ TempProfileCollector::TempProfileCollector() {
 	histograms[static_cast<idx_t>(IoOperation::kGlob)]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM,
 	                                                                         *LATENCY_HISTOGRAM_UNIT);
 	operation_events[static_cast<idx_t>(IoOperation::kGlob)] = OperationStatsMap {};
+
+	// Validate all histograms all histograms and operation maps are properly initialized.
+	// TODO(hjiang): Use config file for initialization, instead of manual.
+	histograms[static_cast<idx_t>(IoOperation::kDiskCacheRead)] = make_uniq<Histogram>(
+	    MIN_DISK_CACHE_READ_MILLISEC, MAX_DISK_CACHE_READ_MILLISEC, DISK_CACHE_READ_LATENCY_NUM_BKT);
+	histograms[static_cast<idx_t>(IoOperation::kDiskCacheRead)]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM,
+	                                                                                  *LATENCY_HISTOGRAM_UNIT);
+	operation_events[static_cast<idx_t>(IoOperation::kDiskCacheRead)] = OperationStatsMap {};
 }
 
 std::string TempProfileCollector::GenerateOperId() const {
@@ -118,11 +130,11 @@ std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 		stats = StringUtil::Format(
 		    "%s\n"
 		    "%s cache hit count = %d\n"
-		    "%s cache miss count = %d\n",
-		    "%s cache miss by in-use resource = %d\n", stats, CACHE_ENTITY_NAMES[cur_entity_idx],
-		    cache_access_count[cur_entity_idx * kCacheAccessCount], CACHE_ENTITY_NAMES[cur_entity_idx],
-		    cache_access_count[cur_entity_idx * kCacheAccessCount + 1], CACHE_ENTITY_NAMES[cur_entity_idx],
-		    CACHE_ENTITY_NAMES[cur_entity_idx * kCacheAccessCount + 2]);
+		    "%s cache miss count = %d\n"
+		    "%s cache miss by in-use resource = %d\n",
+		    stats, CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * kCacheAccessCount],
+		    CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * kCacheAccessCount + 1],
+		    CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * kCacheAccessCount + 2]);
 	}
 
 	// Record IO operation latency.
