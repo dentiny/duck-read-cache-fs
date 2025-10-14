@@ -17,6 +17,7 @@
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
 
+#include <algorithm>
 #include <array>
 
 namespace duckdb {
@@ -178,6 +179,51 @@ static void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, V
 	result.Reference(Value(SUCCESS));
 }
 
+// Extract or get httpfs filesystem.
+static unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
+	auto filesystems = vfs.ListSubSystems();
+	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
+		// Wrapped filesystem made by extensions could ends with httpfs filesystem.
+		return StringUtil::EndsWith(cur_fs_name, "HTTPFileSystem");
+	});
+	if (iter == filesystems.end()) {
+		return make_uniq<HTTPFileSystem>();
+	}
+	auto httpfs = vfs.ExtractSubSystem(*iter);
+	D_ASSERT(httpfs != nullptr);
+	return httpfs;
+}
+
+// Extract or get hugging filesystem.
+static unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
+	auto filesystems = vfs.ListSubSystems();
+	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
+		// Wrapped filesystem made by extensions could ends with httpfs filesystem.
+		return StringUtil::EndsWith(cur_fs_name, "HuggingFaceFileSystem");
+	});
+	if (iter == filesystems.end()) {
+		return make_uniq<HuggingFaceFileSystem>();
+	}
+	auto hf_fs = vfs.ExtractSubSystem(*iter);
+	D_ASSERT(hf_fs != nullptr);
+	return hf_fs;
+}
+
+// Extract or get s3 filesystem.
+static unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &instance) {
+	auto filesystems = vfs.ListSubSystems();
+	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
+		// Wrapped filesystem made by extensions could ends with s3 filesystem.
+		return StringUtil::EndsWith(cur_fs_name, "S3FileSystem");
+	});
+	if (iter == filesystems.end()) {
+		return make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
+	}
+	auto s3_fs = vfs.ExtractSubSystem(*iter);
+	D_ASSERT(s3_fs != nullptr);
+	return s3_fs;
+}
+
 // Cached httpfs cannot co-exist with non-cached version, because duckdb virtual filesystem doesn't provide a native fs
 // wrapper nor priority system, so co-existence doesn't guarantee cached version is actually used.
 //
@@ -211,31 +257,22 @@ static void LoadInternal(ExtensionLoader &loader) {
 	// By default register all filesystem instances inside of httpfs.
 	//
 	// Register http filesystem.
-	auto http_fs = vfs.ExtractSubSystem("HTTPFileSystem");
-	if (http_fs == nullptr) {
-		http_fs = make_uniq<HTTPFileSystem>();
-	}
-	auto observability_httpfs_filesystem = make_uniq<CacheFileSystem>(std::move(http_fs));
-	CacheFsRefRegistry::Get().Register(observability_httpfs_filesystem.get());
-	vfs.RegisterSubSystem(std::move(observability_httpfs_filesystem));
+	auto http_fs = ExtractOrCreateHttpfs(vfs);
+	auto cache_httpfs_filesystem = make_uniq<CacheFileSystem>(std::move(http_fs));
+	CacheFsRefRegistry::Get().Register(cache_httpfs_filesystem.get());
+	vfs.RegisterSubSystem(std::move(cache_httpfs_filesystem));
 
 	// Register hugging filesystem.
-	auto hf_fs = vfs.ExtractSubSystem("HuggingFaceFileSystem");
-	if (hf_fs == nullptr) {
-		hf_fs = make_uniq<HuggingFaceFileSystem>();
-	}
-	auto observability_hf_filesystem = make_uniq<CacheFileSystem>(std::move(hf_fs));
-	CacheFsRefRegistry::Get().Register(observability_hf_filesystem.get());
-	vfs.RegisterSubSystem(std::move(observability_hf_filesystem));
+	auto hf_fs = ExtractOrCreateHuggingfs(vfs);
+	auto cache_hf_filesystem = make_uniq<CacheFileSystem>(std::move(hf_fs));
+	CacheFsRefRegistry::Get().Register(cache_hf_filesystem.get());
+	vfs.RegisterSubSystem(std::move(cache_hf_filesystem));
 
 	// Register s3 filesystem.
-	auto s3_fs = vfs.ExtractSubSystem("S3FileSystem");
-	if (s3_fs == nullptr) {
-		s3_fs = make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
-	}
-	auto observability_s3_filesystem = make_uniq<CacheFileSystem>(std::move(s3_fs));
-	CacheFsRefRegistry::Get().Register(observability_s3_filesystem.get());
-	vfs.RegisterSubSystem(std::move(observability_s3_filesystem));
+	auto s3_fs = ExtractOrCreateS3fs(vfs, instance);
+	auto cache_s3_filesystem = make_uniq<CacheFileSystem>(std::move(s3_fs));
+	CacheFsRefRegistry::Get().Register(cache_s3_filesystem.get());
+	vfs.RegisterSubSystem(std::move(cache_s3_filesystem));
 
 	// Register extension configuration.
 	auto &config = DBConfig::GetConfig(instance);
