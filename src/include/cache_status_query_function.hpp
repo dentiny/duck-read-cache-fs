@@ -1,4 +1,4 @@
-// Function which queries cache status.
+// Functions which query cache status.
 
 #pragma once
 

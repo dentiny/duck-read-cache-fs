@@ -13,6 +13,7 @@
 #include "duckdb/common/opener_file_system.hpp"
 #include "duckdb/storage/external_file_cache.hpp"
 #include "fake_filesystem.hpp"
+#include "filesystem_status_query_function.hpp"
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
@@ -126,34 +127,6 @@ static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vec
 
 	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
-}
-
-// List all registered function for the database instance.
-static void ListRegisteredFileSystems(DataChunk &args, ExpressionState &state, Vector &result) {
-	auto &result_entries = ListVector::GetEntry(result);
-
-	// duckdb instance has a opener filesystem, which is a wrapper around virtual filesystem.
-	auto &duckdb_instance = GetDatabaseInstance(state);
-	auto &opener_filesystem = duckdb_instance.GetFileSystem().Cast<OpenerFileSystem>();
-	auto &vfs = opener_filesystem.GetFileSystem();
-	auto filesystems = vfs.ListSubSystems();
-	std::sort(filesystems.begin(), filesystems.end());
-
-	// Set filesystem instances.
-	ListVector::Reserve(result, filesystems.size());
-	ListVector::SetListSize(result, filesystems.size());
-	auto data = FlatVector::GetData<string_t>(result_entries);
-	for (int idx = 0; idx < filesystems.size(); ++idx) {
-		data[idx] = StringVector::AddString(result_entries, std::move(filesystems[idx]));
-	}
-
-	// Define the list element (offset + length)
-	auto list_data = FlatVector::GetData<list_entry_t>(result);
-	list_data[0].offset = 0;
-	list_data[0].length = filesystems.size();
-
-	// Set result as valid.
-	FlatVector::SetValidity(result, ValidityMask(filesystems.size()));
 }
 
 // Wrap the filesystem with extension cache filesystem.
@@ -400,13 +373,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                                              /*return_type=*/LogicalTypeId::BOOLEAN, WrapCacheFileSystem);
 	loader.RegisterFunction(wrap_cache_filesystem_function);
 
-	// Register a function to list all existing filesystem instances, which is useful for wrapping.
-	ScalarFunction list_registered_filesystem_function("cache_httpfs_list_registered_filesystems",
-	                                                   /*arguments=*/ {},
-	                                                   /*return_type=*/LogicalType::LIST(LogicalType::VARCHAR),
-	                                                   ListRegisteredFileSystems);
-	loader.RegisterFunction(list_registered_filesystem_function);
-
 	// Register on-disk data cache file size stat function.
 	ScalarFunction get_ondisk_data_cache_size_function("cache_httpfs_get_ondisk_data_cache_size", /*arguments=*/ {},
 	                                                   /*return_type=*/LogicalType::BIGINT, GetOnDiskDataCacheSize);
@@ -425,6 +391,9 @@ static void LoadInternal(ExtensionLoader &loader) {
 	ScalarFunction clear_profile_stats_function("cache_httpfs_clear_profile", /*arguments=*/ {},
 	                                            /*return_type=*/LogicalType::BOOLEAN, ResetProfileStats);
 	loader.RegisterFunction(clear_profile_stats_function);
+
+	// Register filesystem registration query function.
+	loader.RegisterFunction(ListRegisteredFileSystemsQueryFunc());
 
 	// Register cache access metrics.
 	loader.RegisterFunction(GetCacheAccessInfoQueryFunc());
