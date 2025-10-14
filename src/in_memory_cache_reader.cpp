@@ -1,5 +1,6 @@
 #include "in_memory_cache_reader.hpp"
 
+#include "cache_filesystem_logger.hpp"
 #include "crypto.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
@@ -119,6 +120,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			if (cache_block != nullptr) {
 				profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 				                                     BaseProfileCollector::CacheAccess::kCacheHit);
+				DUCKDB_LOG_OPEN_CACHE_HIT((handle));
 				cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
 				return;
 			}
@@ -126,6 +128,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
 			profile_collector->RecordCacheAccess(BaseProfileCollector::CacheEntity::kData,
 			                                     BaseProfileCollector::CacheAccess::kCacheMiss);
+			DUCKDB_LOG_OPEN_CACHE_MISS((handle));
 			auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
 			auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
