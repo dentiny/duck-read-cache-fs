@@ -35,6 +35,17 @@ const auto TEST_FILE_CONTENT = []() {
 }();
 const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
+
+void CreateSourceTestFile() {
+	auto local_filesystem = LocalFileSystem::CreateLocal();
+	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
+	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+	local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
+	                        TEST_FILE_SIZE, /*location=*/0);
+	file_handle->Sync();
+	file_handle->Close();
+}
+
 } // namespace
 
 // Test default directory works for uncached read.
@@ -446,6 +457,40 @@ TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") 
 	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
 }
 
+// Testing scenario: remove file should clear corresponding items in the cache.
+TEST_CASE("Test on file removal", "[on-disk cache filesystem test]") {
+	constexpr uint64_t test_block_size = 5;
+	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	g_cache_block_size = test_block_size;
+	SCOPE_EXIT {
+		ResetGlobalConfig();
+	};
+	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	// First uncached read.
+	{
+		auto handle = disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		const uint64_t start_offset = 0;
+		const uint64_t bytes_to_read = TEST_FILE_SIZE;
+		string content(bytes_to_read, '\0');
+		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                    start_offset);
+		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+	}
+
+	// Now remove the file and on-disk cache file.
+	disk_cache_fs->RemoveFile(TEST_FILENAME);
+	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 0);
+
+	// Check source file existence.
+	const bool exists = disk_cache_fs->FileExists(TEST_FILENAME);
+	REQUIRE(!exists);
+
+	// Re-create the immutable test file, otherwise other test cases will break.
+	CreateSourceTestFile();
+}
+
 // Testing scenario: check lru-based eviction policy.
 TEST_CASE("Test on lru eviction", "[on-disk cache filesystem test]") {
 	SCOPE_EXIT {
@@ -520,16 +565,9 @@ TEST_CASE("Test on lru eviction", "[on-disk cache filesystem test]") {
 int main(int argc, char **argv) {
 	// Set global cache type for testing.
 	*g_test_cache_type = *ON_DISK_CACHE_TYPE;
-
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
-	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-	local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
-	                        TEST_FILE_SIZE, /*location=*/0);
-	file_handle->Sync();
-	file_handle->Close();
+	CreateSourceTestFile();
 
 	int result = Catch::Session().run(argc, argv);
-	local_filesystem->RemoveFile(TEST_FILENAME);
+	LocalFileSystem::CreateLocal()->RemoveFile(TEST_FILENAME);
 	return result;
 }

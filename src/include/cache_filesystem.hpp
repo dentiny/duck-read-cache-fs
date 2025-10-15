@@ -101,6 +101,10 @@ public:
 	// It's worth noting data block cache won't get deleted.
 	void ClearCache(const std::string &filepath);
 
+	// Remove file from both internal filesystem and cache.
+	bool TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
+	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
+
 	// For other API calls, delegate to [internal_filesystem] to handle.
 	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle,
 	                                          bool write) override {
@@ -149,9 +153,6 @@ public:
 	}
 	bool IsPipe(const string &filename, optional_ptr<FileOpener> opener = nullptr) override {
 		return internal_filesystem->IsPipe(filename, opener);
-	}
-	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override {
-		internal_filesystem->RemoveFile(filename, opener);
 	}
 	void FileSync(FileHandle &handle) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();

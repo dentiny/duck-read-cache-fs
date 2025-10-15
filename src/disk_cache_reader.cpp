@@ -84,8 +84,8 @@ string Sha256ToHexString(const duckdb::hash_bytes &sha256) {
 
 // Get local cache filename for the given [remote_file].
 //
-// Cache filename is formatted as `<cache-directory>/<filename-sha256>.<filename>`. So we could get all cache files
-// under one directory, and get all cache files with commands like `ls`.
+// Cache filename is formatted as `<cache-directory>/<filename-sha256>-<filename>-<start-offset>-<size>`. So we could
+// get all cache files under one directory, and get all cache files with commands like `ls`.
 //
 // Considering the naming format, it's worth noting it might _NOT_ work for local files, including mounted filesystems.
 CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, const string &remote_file,
@@ -145,7 +145,7 @@ string GetLocalCacheFilePrefix(const string &remote_file) {
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
 
 	const string fname = StringUtil::GetFileName(remote_file);
-	return StringUtil::Format("%s.%s", remote_file_sha256_str, fname);
+	return StringUtil::Format("%s-%s", remote_file_sha256_str, fname);
 }
 
 // Attempt to evict cache files, if file size threshold reached.
