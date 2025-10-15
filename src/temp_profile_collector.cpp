@@ -8,52 +8,36 @@ namespace duckdb {
 
 namespace {
 // Heuristic estimation of single IO request latency, out of which range are classified as outliers.
-constexpr double MIN_READ_LATENCY_MILLISEC = 0;
-constexpr double MAX_READ_LATENCY_MILLISEC = 1000;
-constexpr int READ_LATENCY_NUM_BKT = 100;
+// Heuristic estimation of single IO request latency, out of which range are classified as outliers.
+struct LatencyHeuristic {
+	double min_latency_ms;
+	double max_latency_ms;
+	int num_buckets;
+};
 
-constexpr double MIN_OPEN_LATENCY_MILLISEC = 0;
-constexpr double MAX_OPEN_LATENCY_MILLISEC = 1000;
-constexpr int OPEN_LATENCY_NUM_BKT = 100;
-
-constexpr double MIN_GLOB_LATENCY_MILLISEC = 0;
-constexpr double MAX_GLOB_LATENCY_MILLISEC = 1000;
-constexpr int GLOB_LATENCY_NUM_BKT = 100;
-
-constexpr double MIN_DISK_CACHE_READ_MILLISEC = 0;
-constexpr double MAX_DISK_CACHE_READ_MILLISEC = 500;
-constexpr int DISK_CACHE_READ_LATENCY_NUM_BKT = 100;
+inline constexpr std::array<LatencyHeuristic, BaseProfileCollector::kIoOperationCount> kLatencyHeuristics = {{
+    // Read
+    {0, 1000, 100},
+    // Open
+    {0, 1000, 100},
+    // Glob.
+    {0, 1000, 100},
+    // Disk cache read
+    {0, 500, 100},
+}};
 
 const NoDestructor<string> LATENCY_HISTOGRAM_ITEM {"latency"};
 const NoDestructor<string> LATENCY_HISTOGRAM_UNIT {"millisec"};
 } // namespace
 
 TempProfileCollector::TempProfileCollector() {
-	histograms[static_cast<idx_t>(IoOperation::kRead)] =
-	    make_uniq<Histogram>(MIN_READ_LATENCY_MILLISEC, MAX_READ_LATENCY_MILLISEC, READ_LATENCY_NUM_BKT);
-	histograms[static_cast<idx_t>(IoOperation::kRead)]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM,
-	                                                                         *LATENCY_HISTOGRAM_UNIT);
-	operation_events[static_cast<idx_t>(IoOperation::kRead)] = OperationStatsMap {};
-
-	histograms[static_cast<idx_t>(IoOperation::kOpen)] =
-	    make_uniq<Histogram>(MIN_OPEN_LATENCY_MILLISEC, MAX_OPEN_LATENCY_MILLISEC, OPEN_LATENCY_NUM_BKT);
-	histograms[static_cast<idx_t>(IoOperation::kOpen)]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM,
-	                                                                         *LATENCY_HISTOGRAM_UNIT);
-	operation_events[static_cast<idx_t>(IoOperation::kOpen)] = OperationStatsMap {};
-
-	histograms[static_cast<idx_t>(IoOperation::kGlob)] =
-	    make_uniq<Histogram>(MIN_GLOB_LATENCY_MILLISEC, MAX_GLOB_LATENCY_MILLISEC, GLOB_LATENCY_NUM_BKT);
-	histograms[static_cast<idx_t>(IoOperation::kGlob)]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM,
-	                                                                         *LATENCY_HISTOGRAM_UNIT);
-	operation_events[static_cast<idx_t>(IoOperation::kGlob)] = OperationStatsMap {};
-
-	// Validate all histograms all histograms and operation maps are properly initialized.
-	// TODO(hjiang): Use config file for initialization, instead of manual.
-	histograms[static_cast<idx_t>(IoOperation::kDiskCacheRead)] = make_uniq<Histogram>(
-	    MIN_DISK_CACHE_READ_MILLISEC, MAX_DISK_CACHE_READ_MILLISEC, DISK_CACHE_READ_LATENCY_NUM_BKT);
-	histograms[static_cast<idx_t>(IoOperation::kDiskCacheRead)]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM,
-	                                                                                  *LATENCY_HISTOGRAM_UNIT);
-	operation_events[static_cast<idx_t>(IoOperation::kDiskCacheRead)] = OperationStatsMap {};
+	for (idx_t idx = 0; idx < kIoOperationCount; ++idx) {
+		histograms[idx] =
+		    make_uniq<Histogram>(kLatencyHeuristics[idx].min_latency_ms, kLatencyHeuristics[idx].max_latency_ms,
+		                         kLatencyHeuristics[idx].num_buckets);
+		histograms[idx]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM, *LATENCY_HISTOGRAM_UNIT);
+		operation_events[idx] = OperationStatsMap {};
+	}
 }
 
 std::string TempProfileCollector::GenerateOperId() const {
