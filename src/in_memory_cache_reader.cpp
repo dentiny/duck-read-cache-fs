@@ -1,5 +1,6 @@
 #include "in_memory_cache_reader.hpp"
 
+#include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "crypto.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -142,7 +143,10 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			// Copy to destination buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory(content);
 
-			// Attempt to cache file locally.
+			// Attempt to cache file locally, if not requested to exclude.
+			if (CacheExclusionManager::GetInstance().MatchAnyExclusion(handle.GetPath())) {
+				return;
+			}
 			cache->Put(std::move(block_key), make_shared_ptr<std::string>(std::move(content)));
 		});
 	}

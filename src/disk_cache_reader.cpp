@@ -4,6 +4,7 @@
 // - To avoid data race (open the file after deletion), read threads should open the file directly, instead of check
 // existence and open, which guarantees even the file get deleted due to staleness, read threads still get a snapshot.
 
+#include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "crypto.hpp"
 #include "disk_cache_reader.hpp"
@@ -169,6 +170,11 @@ void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, cons
 // Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
 void CacheLocal(DiskCacheReader &reader, const CacheReadChunk &chunk, FileSystem &local_filesystem,
                 const FileHandle &handle, const string &cache_directory, const string &local_cache_file) {
+	// If the source filepath matches exclusion regex, skip caching.
+	if (CacheExclusionManager::GetInstance().MatchAnyExclusion(handle.GetPath())) {
+		return;
+	}
+
 	// Skip local cache if insufficient disk space.
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
 	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
