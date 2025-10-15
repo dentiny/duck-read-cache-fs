@@ -52,6 +52,16 @@ void CacheFileSystem::SetMetadataCache() {
 	}
 }
 
+bool CacheFileSystem::TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+	ClearCache(filename);
+	return internal_filesystem->TryRemoveFile(filename, opener);
+}
+
+void CacheFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+	ClearCache(filename);
+	internal_filesystem->RemoveFile(filename, opener);
+}
+
 void CacheFileSystem::SetGlobCache() {
 	if (!g_enable_glob_cache) {
 		glob_cache = nullptr;
@@ -133,6 +143,7 @@ void CacheFileSystem::ClearCache(const std::string &filepath) {
 		glob_cache->Clear([&filepath](const std::string &key) { return key == filepath; });
 	}
 	ClearFileHandleCache(filepath);
+	cache_reader_manager.ClearCache(filepath);
 }
 
 bool CacheFileSystem::CanHandleFile(const string &fpath) {
