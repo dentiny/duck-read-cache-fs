@@ -1,0 +1,29 @@
+# name: test/sql/cache_profile.test
+# description: test cache profile information
+# group: [sql]
+
+require cache_httpfs
+
+# Before enabling profiling, no stats emitted.
+query I
+SELECT cache_httpfs_get_profile();
+----
+No valid access to cache filesystem
+
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+query I
+SELECT cache_httpfs_get_profile();
+----
+(noop profile collector)
+
+# Enable profile, stats should be emitted.
+statement ok
+SET cache_httpfs_profile_type='temp';
+
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+statement ok
+SELECT cache_httpfs_get_profile();

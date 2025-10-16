@@ -17,9 +17,8 @@ public:
 	TempProfileCollector();
 	~TempProfileCollector() override = default;
 
-	std::string GenerateOperId() const override;
-	void RecordOperationStart(IoOperation io_oper, const std::string &oper) override;
-	void RecordOperationEnd(IoOperation io_oper, const std::string &oper) override;
+	LatencyGuard RecordOperationStart(IoOperation io_oper) override;
+	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override;
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override;
 	std::string GetProfilerType() override {
 		return *TEMP_PROFILE_TYPE;
@@ -29,17 +28,10 @@ public:
 	std::pair<std::string, uint64_t> GetHumanReadableStats() override;
 
 private:
-	struct OperationStats {
-		// Accounted as time elapsed since unix epoch in milliseconds.
-		int64_t start_timestamp = 0;
-	};
-
-	using OperationStatsMap = unordered_map<string /*oper_id*/, OperationStats>;
-	std::array<OperationStatsMap, kIoOperationCount> operation_events;
 	// Only records finished operations, which maps from io operation to histogram.
 	std::array<unique_ptr<Histogram>, kIoOperationCount> histograms;
 	// Aggregated cache access condition.
-	std::array<uint64_t, kCacheEntityCount * BaseProfileCollector::kCacheAccessCount> cache_access_count {};
+	std::array<uint64_t, kCacheEntityCount * kCacheAccessCount> cache_access_count {};
 	// Latest access timestamp in milliseconds since unix epoch.
 	uint64_t latest_timestamp = 0;
 

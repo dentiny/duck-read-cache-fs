@@ -163,11 +163,11 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
                                                                   TableFunctionInitInput &input) {
 	auto result = make_uniq<CacheAccessInfoData>();
 	auto &aggregated_cache_access_infos = result->cache_access_info;
-	aggregated_cache_access_infos.resize(BaseProfileCollector::kCacheEntityCount);
+	aggregated_cache_access_infos.resize(kCacheEntityCount);
 
 	// Set cache type, because there could be no cache readers available.
-	for (idx_t idx = 0; idx < BaseProfileCollector::kCacheEntityCount; ++idx) {
-		aggregated_cache_access_infos[idx].cache_type = BaseProfileCollector::CACHE_ENTITY_NAMES[idx];
+	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
+		aggregated_cache_access_infos[idx].cache_type = CACHE_ENTITY_NAMES[idx];
 	}
 
 	// Get cache access info from all initialized cache readers.
@@ -179,8 +179,8 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 			continue;
 		}
 		auto cache_access_info = profiler_collector->GetCacheAccessInfo();
-		D_ASSERT(cache_access_info.size() == BaseProfileCollector::kCacheEntityCount);
-		for (idx_t idx = 0; idx < BaseProfileCollector::kCacheEntityCount; ++idx) {
+		D_ASSERT(cache_access_info.size() == kCacheEntityCount);
+		for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
 			auto &cur_cache_access_info = cache_access_info[idx];
 			aggregated_cache_access_infos[idx].cache_hit_count += cur_cache_access_info.cache_hit_count;
 			aggregated_cache_access_infos[idx].cache_miss_count += cur_cache_access_info.cache_miss_count;

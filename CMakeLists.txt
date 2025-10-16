@@ -20,6 +20,7 @@ include_directories(duckdb/third_party/httplib)
 # TODO(hjiang): httpfs has wasm client implementation, which is intentionally
 # ignored.
 set(EXTENSION_SOURCES
+    src/base_profile_collector.cpp
     src/cache_entry_info.cpp
     src/cache_exclusion_manager.cpp
     src/cache_exclusion_utils.cpp
