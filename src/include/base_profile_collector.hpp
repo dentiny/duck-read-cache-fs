@@ -45,7 +45,7 @@ public:
 	BaseProfileCollector(const BaseProfileCollector &) = delete;
 	BaseProfileCollector &operator=(const BaseProfileCollector &) = delete;
 
-	// Record the start of operation [io_oper] and return [`LatencyGuard`] for auto
+	// Record the start of operation [io_oper] and return [`LatencyGuard`] for auto latency record.
 	virtual LatencyGuard RecordOperationStart(IoOperation io_oper) = 0;
 	// Record the finish of operation [io_oper] with the elapse latency.
 	virtual void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) = 0;
