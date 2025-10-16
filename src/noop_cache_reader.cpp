@@ -8,11 +8,9 @@ void NoopCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
                                    idx_t requested_bytes_to_read, idx_t file_size) {
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
-	const string oper_id = profile_collector->GenerateOperId();
-	profile_collector->RecordOperationStart(BaseProfileCollector::IoOperation::kRead, oper_id);
+	const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
 	internal_filesystem->Read(*disk_cache_handle.internal_file_handle, buffer, requested_bytes_to_read,
 	                          requested_start_offset);
-	profile_collector->RecordOperationEnd(BaseProfileCollector::IoOperation::kRead, oper_id);
 }
 
 } // namespace duckdb

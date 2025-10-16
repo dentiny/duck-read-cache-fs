@@ -15,7 +15,7 @@ struct LatencyHeuristic {
 	int num_buckets;
 };
 
-inline constexpr std::array<LatencyHeuristic, BaseProfileCollector::kIoOperationCount> kLatencyHeuristics = {{
+inline constexpr std::array<LatencyHeuristic, kIoOperationCount> kLatencyHeuristics = {{
     // Read
     {0, 1000, 100},
     // Open
@@ -36,37 +36,20 @@ TempProfileCollector::TempProfileCollector() {
 		    make_uniq<Histogram>(kLatencyHeuristics[idx].min_latency_ms, kLatencyHeuristics[idx].max_latency_ms,
 		                         kLatencyHeuristics[idx].num_buckets);
 		histograms[idx]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM, *LATENCY_HISTOGRAM_UNIT);
-		operation_events[idx] = OperationStatsMap {};
 	}
 }
 
-std::string TempProfileCollector::GenerateOperId() const {
-	return UUID::ToString(UUID::GenerateRandomUUID());
-}
-
-void TempProfileCollector::RecordOperationStart(IoOperation io_oper, const std::string &oper_id) {
+LatencyGuard TempProfileCollector::RecordOperationStart(IoOperation io_oper) {
+	return LatencyGuard {*this, std::move(io_oper)};
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	auto &cur_oper_event = operation_events[static_cast<idx_t>(io_oper)];
-	const bool is_new = cur_oper_event
-	                        .emplace(oper_id,
-	                                 OperationStats {
-	                                     .start_timestamp = GetSteadyNowMilliSecSinceEpoch(),
-	                                 })
-	                        .second;
-	D_ASSERT(is_new);
 }
 
-void TempProfileCollector::RecordOperationEnd(IoOperation io_oper, const std::string &oper_id) {
+void TempProfileCollector::RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) {
 	const auto now = GetSteadyNowMilliSecSinceEpoch();
 
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	auto &cur_oper_event = operation_events[static_cast<idx_t>(io_oper)];
-	auto iter = cur_oper_event.find(oper_id);
-	D_ASSERT(iter != cur_oper_event.end());
-
 	auto &cur_histogram = histograms[static_cast<idx_t>(io_oper)];
-	cur_histogram->Add(now - iter->second.start_timestamp);
-	cur_oper_event.erase(iter);
+	cur_histogram->Add(latency_millisec);
 	latest_timestamp = now;
 }
 
@@ -78,9 +61,6 @@ void TempProfileCollector::RecordCacheAccess(CacheEntity cache_entity, CacheAcce
 
 void TempProfileCollector::Reset() {
 	std::lock_guard<std::mutex> lck(stats_mutex);
-	for (auto &cur_oper_event : operation_events) {
-		cur_oper_event.clear();
-	}
 	for (auto &cur_histogram : histograms) {
 		cur_histogram->Reset();
 	}
