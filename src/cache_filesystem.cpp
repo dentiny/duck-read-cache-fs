@@ -228,7 +228,7 @@ shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &han
 vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *opener) {
 	vector<OpenFileInfo> open_file_info;
 	{
-		auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kGlob);
+		const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kGlob);
 		open_file_info = internal_filesystem->Glob(path, opener);
 	}
 
