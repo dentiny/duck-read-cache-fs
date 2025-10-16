@@ -1,3 +1,25 @@
+# 0.8.0
+
+## Added
+
+- Record disk cache read latency ([#268])
+
+[#268]: https://github.com/dentiny/duck-read-cache-fs/pull/268
+
+- Add exclusion regex on filepath to disable cache on certain files ([#275])
+
+[#275]: https://github.com/dentiny/duck-read-cache-fs/pull/275
+
+## Fixed
+
+- Fix httpfs filesystems wrapping ([#266])
+
+[#266]: https://github.com/dentiny/duck-read-cache-fs/pull/266
+
+- Fix cache and file removal ([#272])
+
+[#272]: https://github.com/dentiny/duck-read-cache-fs/pull/272
+
 # 0.7.2
 
 ## Added
