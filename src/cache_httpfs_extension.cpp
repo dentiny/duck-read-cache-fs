@@ -2,6 +2,7 @@
 
 #include "cache_httpfs_extension.hpp"
 
+#include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_ref_registry.hpp"
@@ -349,6 +350,19 @@ static void LoadInternal(ExtensionLoader &loader) {
 	config.AddExtensionOption("cache_httpfs_glob_cache_entry_timeout_millisec",
 	                          "Cache entry timeout in milliseconds for glob cache.", LogicalTypeId::UBIGINT,
 	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC));
+
+	// Cache exclusion regex list.
+	ScalarFunction add_cache_exclusion_regex("cache_httpfs_add_exclusion_regex",
+	                                         /*arguments=*/ {LogicalType::VARCHAR},
+	                                         /*return_type=*/LogicalType::BOOLEAN, AddCacheExclusionRegex);
+	loader.RegisterFunction(add_cache_exclusion_regex);
+
+	ScalarFunction reset_cache_exclusion_regex("cache_httpfs_reset_exclusion_regex",
+	                                           /*arguments=*/ {},
+	                                           /*return_type=*/LogicalType::BOOLEAN, ResetCacheExclusionRegex);
+	loader.RegisterFunction(reset_cache_exclusion_regex);
+
+	loader.RegisterFunction(ListCacheExclusionRegex());
 
 	// Register cache cleanup function for data cache (both in-memory and on-disk cache) and other types of cache.
 	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},

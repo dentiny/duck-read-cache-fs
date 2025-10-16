@@ -21,6 +21,8 @@ include_directories(duckdb/third_party/httplib)
 # ignored.
 set(EXTENSION_SOURCES
     src/cache_entry_info.cpp
+    src/cache_exclusion_manager.cpp
+    src/cache_exclusion_utils.cpp
     src/cache_httpfs_extension.cpp
     src/cache_filesystem.cpp
     src/cache_filesystem_config.cpp
@@ -172,6 +174,10 @@ target_link_libraries(test_cache_filesystem_with_mock ${EXTENSION_NAME})
 
 add_executable(test_no_destructor unit/test_no_destructor.cpp)
 target_link_libraries(test_no_destructor ${EXTENSION_NAME})
+
+add_executable(test_cache_exclusion_manager
+               unit/test_cache_exclusion_manager.cpp)
+target_link_libraries(test_cache_exclusion_manager ${EXTENSION_NAME})
 
 # Benchmark
 add_executable(read_s3_object benchmark/read_s3_object.cpp)
