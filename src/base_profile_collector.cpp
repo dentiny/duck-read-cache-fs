@@ -10,16 +10,16 @@ LatencyGuard::LatencyGuard(BaseProfileCollector &profile_collector_p, IoOperatio
 }
 
 LatencyGuard::~LatencyGuard() {
-    if (disabled) {
-        return;
-    }
+	if (disabled) {
+		return;
+	}
 	const auto now = GetSteadyNowMilliSecSinceEpoch();
 	const auto latency_millisec = now - start_timestamp;
 	profile_collector.RecordOperationEnd(io_operation, latency_millisec);
 }
 
 void LatencyGuard::Disable() {
-    disabled = true;
+	disabled = true;
 }
 
 } // namespace duckdb

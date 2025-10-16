@@ -41,25 +41,25 @@ inline constexpr auto kCacheAccessCount = static_cast<size_t>(CacheAccess::kUnkn
 //
 // TODO(hjiang): Use constants for cache entity name and operation name.
 inline const vector<const char *> CACHE_ENTITY_NAMES = []() {
-    vector<const char *> cache_entity_names;
-    cache_entity_names.reserve(kCacheEntityCount);
-    cache_entity_names.emplace_back("metadata");
-    cache_entity_names.emplace_back("data");
-    cache_entity_names.emplace_back("file handle");
-    cache_entity_names.emplace_back("glob");
-    D_ASSERT(cache_entity_names.size() == kCacheEntityCount);
-    return cache_entity_names;
+	vector<const char *> cache_entity_names;
+	cache_entity_names.reserve(kCacheEntityCount);
+	cache_entity_names.emplace_back("metadata");
+	cache_entity_names.emplace_back("data");
+	cache_entity_names.emplace_back("file handle");
+	cache_entity_names.emplace_back("glob");
+	D_ASSERT(cache_entity_names.size() == kCacheEntityCount);
+	return cache_entity_names;
 }();
 // Operation names, indexed by operation enums.
 inline const vector<const char *> OPER_NAMES = []() {
-    vector<const char *> oper_names;
-    oper_names.reserve(kIoOperationCount);
-    oper_names.emplace_back("open");
-    oper_names.emplace_back("read");
-    oper_names.emplace_back("glob");
-    oper_names.emplace_back("disk_cache_read");
-    D_ASSERT(oper_names.size() == kIoOperationCount);
-    return oper_names;
+	vector<const char *> oper_names;
+	oper_names.reserve(kIoOperationCount);
+	oper_names.emplace_back("open");
+	oper_names.emplace_back("read");
+	oper_names.emplace_back("glob");
+	oper_names.emplace_back("disk_cache_read");
+	D_ASSERT(oper_names.size() == kIoOperationCount);
+	return oper_names;
 }();
 
 } // namespace duckdb

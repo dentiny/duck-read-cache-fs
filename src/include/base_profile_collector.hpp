@@ -75,6 +75,7 @@ public:
 		DynamicCastCheck<TARGET>(this);
 		return reinterpret_cast<const TARGET &>(*this);
 	}
+
 protected:
 	std::string cache_reader_type = "";
 };
@@ -85,7 +86,7 @@ public:
 	~NoopProfileCollector() override = default;
 
 	LatencyGuard RecordOperationStart(IoOperation io_oper) override {
-		LatencyGuard latency_guard{*this, std::move(io_oper)};
+		LatencyGuard latency_guard {*this, std::move(io_oper)};
 		latency_guard.Disable();
 		return latency_guard;
 	}
