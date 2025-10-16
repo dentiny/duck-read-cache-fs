@@ -1,5 +1,6 @@
 #include "cache_filesystem.hpp"
 
+#include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
@@ -413,7 +414,15 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 		return 0;
 	}
 
+	// If the source filepath matches exclusion regex, skip caching.
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
+	if (CacheExclusionManager::GetInstance().MatchAnyExclusion(handle.GetPath())) {
+		auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
+		internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, nr_bytes, location);
+		return bytes_to_read;
+	}
+
+	// Leverage cache read manager.
 	cache_reader_manager.GetCacheReader()->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read,
 	                                                    file_size);
 

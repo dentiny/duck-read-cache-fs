@@ -4,6 +4,9 @@
 
 require cache_httpfs
 
+statement ok
+SET cache_httpfs_type='on_disk';
+
 query I
 SELECT COUNT(*) FROM cache_httpfs_list_exclusion_regex();
 ----
