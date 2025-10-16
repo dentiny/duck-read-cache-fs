@@ -16,6 +16,9 @@ class BaseProfileCollector;
 // A RAII guard to measure latency for IO operations.
 class LatencyGuard {
 public:
+	// Constructor which doesn't report latency.
+	LatencyGuard(BaseProfileCollector &profile_collector_p);
+	// Constructor which auto reports latency metrics.
 	LatencyGuard(BaseProfileCollector &profile_collector_p, IoOperation io_operation_p);
 	~LatencyGuard();
 
@@ -24,14 +27,10 @@ public:
 	LatencyGuard(LatencyGuard &&) = default;
 	LatencyGuard &operator=(LatencyGuard &&) = default;
 
-	// Disable latency measurement.
-	void Disable();
-
 private:
 	BaseProfileCollector &profile_collector;
 	IoOperation io_operation = IoOperation::kUnknown;
 	int64_t start_timestamp = 0;
-	bool disabled = false;
 };
 
 // A commonly seen way to lay filesystem features is decorator pattern, with each feature as a new class and layer.
@@ -86,9 +85,7 @@ public:
 	~NoopProfileCollector() override = default;
 
 	LatencyGuard RecordOperationStart(IoOperation io_oper) override {
-		LatencyGuard latency_guard {*this, std::move(io_oper)};
-		latency_guard.Disable();
-		return latency_guard;
+		return LatencyGuard {*this, std::move(io_oper)};
 	}
 	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override {
 	}
