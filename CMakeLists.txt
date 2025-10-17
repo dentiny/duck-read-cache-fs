@@ -31,6 +31,7 @@ set(EXTENSION_SOURCES
     src/cache_status_query_function.cpp
     src/cache_reader_manager.cpp
     src/disk_cache_reader.cpp
+    src/extension_config_query_function.cpp
     src/in_memory_cache_reader.cpp
     src/histogram.cpp
     src/filesystem_status_query_function.cpp

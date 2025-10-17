@@ -1,0 +1,47 @@
+# name: test/sql/extension_config.test
+# description: test extension config fetching
+# group: [sql]
+
+require cache_httpfs
+
+# Query cache type.
+query IIII
+SELECT * FROM cache_httpfs_get_cache_type();
+----
+on_disk	enabled	enabled	enabled
+
+# Query data cache config.
+query IIII
+SELECT * FROM cache_httpfs_get_data_cache_config();
+----
+on_disk	[/tmp/duckdb_cache_httpfs_cache]	524288	creation_timestamp
+
+# Currently implementation late updates cache type on IO access, to check data cache config after update, have to perform an IO operation first.
+statement ok
+SET cache_httpfs_type='in_mem';
+
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv') LIMIT 1;
+
+query III
+SELECT * FROM cache_httpfs_get_data_cache_config();
+----
+in_mem		524288	lru
+
+# Query metadata cache config.
+query II
+SELECT * FROM cache_httpfs_get_metadata_cache_config();
+----
+enabled		250
+
+# Query file handle cache config.
+query II
+SELECT * FROM cache_httpfs_get_file_handle_cache_config();
+----
+enabled		250
+
+# Query glob cache config.
+query II
+SELECT * FROM cache_httpfs_get_glob_cache_config();
+----
+enabled		64

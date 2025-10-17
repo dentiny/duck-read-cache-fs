@@ -13,6 +13,7 @@
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/opener_file_system.hpp"
 #include "duckdb/storage/external_file_cache.hpp"
+#include "extension_config_query_function.hpp"
 #include "fake_filesystem.hpp"
 #include "filesystem_status_query_function.hpp"
 #include "hffs.hpp"
@@ -405,6 +406,14 @@ static void LoadInternal(ExtensionLoader &loader) {
 	ScalarFunction clear_profile_stats_function("cache_httpfs_clear_profile", /*arguments=*/ {},
 	                                            /*return_type=*/LogicalType::BOOLEAN, ResetProfileStats);
 	loader.RegisterFunction(clear_profile_stats_function);
+
+	// Register table function to get current cache config.
+	loader.RegisterFunction(GetDataCacheConfigQueryFunc());
+	loader.RegisterFunction(GetMetadataCacheConfigQueryFunc());
+	loader.RegisterFunction(GetFileHandleCacheConfigQueryFunc());
+	loader.RegisterFunction(GetGlobCacheConfigQueryFunc());
+	loader.RegisterFunction(GetCacheTypeQueryFunc());
+	loader.RegisterFunction(GetCacheConfigQueryFunc());
 
 	// Register filesystem registration query function.
 	loader.RegisterFunction(ListRegisteredFileSystemsQueryFunc());
