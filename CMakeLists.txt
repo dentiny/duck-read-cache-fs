@@ -40,6 +40,7 @@ set(EXTENSION_SOURCES
     src/utils/fake_filesystem.cpp
     src/utils/filesystem_utils.cpp
     src/utils/mock_filesystem.cpp
+    src/utils/test_utils.cpp
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
     duckdb-httpfs/src/create_secret_functions.cpp

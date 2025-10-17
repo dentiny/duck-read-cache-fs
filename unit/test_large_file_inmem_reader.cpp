@@ -12,6 +12,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
+#include "test_utils.hpp"
 
 #include <utime.h>
 
@@ -40,7 +41,7 @@ TEST_CASE("Read all bytes in one read operation", "[on-disk cache filesystem tes
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);

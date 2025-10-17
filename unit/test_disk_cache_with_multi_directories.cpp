@@ -11,6 +11,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
+#include "test_utils.hpp"
 
 #include <utime.h>
 
@@ -54,7 +55,7 @@ TEST_CASE("Test for cache directory config with multiple directories", "[on-disk
 	};
 
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 		delete_cache_directories();
 	};
 

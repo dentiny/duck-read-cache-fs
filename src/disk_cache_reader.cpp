@@ -394,13 +394,13 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			// Copy to destination buffer, if bytes are read into [content] buffer rather than user-provided buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory();
 
-			// Update in-memory cache.
-			in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
-
 			// Attempt to cache file locally.
 			const auto &cache_directory = (*g_on_disk_cache_directories)[cache_destination.cache_directory_idx];
 			CacheLocal(*this, cache_read_chunk, *local_filesystem, handle, cache_directory,
 			           cache_destination.cache_filepath);
+
+			// Update in-memory cache.
+			in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
 		});
 	}
 	io_threads.Wait();
