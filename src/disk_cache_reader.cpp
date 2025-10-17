@@ -201,8 +201,10 @@ void CacheLocal(DiskCacheReader &reader, const CacheReadChunk &chunk, FileSystem
 	const auto local_temp_file = StringUtil::Format("%s%s.%s.httpfs_local_cache", cache_directory, fname,
 	                                                UUID::ToString(UUID::GenerateRandomUUID()));
 	{
-		auto file_handle = local_filesystem.OpenFile(local_temp_file, FileOpenFlags::FILE_FLAGS_WRITE |
-		                                                                  FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		auto file_handle = local_filesystem.OpenFile(
+		    local_temp_file, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW |
+		                         // We do our own LRU caching, so use direct IO to avoid double caching.
+		                         FileOpenFlags::FILE_FLAGS_DIRECT_IO);
 		local_filesystem.Write(*file_handle, chunk.GetAddressToReadTo(),
 		                       /*nr_bytes=*/chunk.chunk_size,
 		                       /*location=*/0);
@@ -348,9 +350,11 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			// thread and lead to data race.
 			//
 			// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
-			auto file_handle = local_filesystem->OpenFile(cache_destination.cache_filepath,
-			                                              FileOpenFlags::FILE_FLAGS_READ |
-			                                                  FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+			auto file_handle = local_filesystem->OpenFile(
+			    cache_destination.cache_filepath,
+			    FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS |
+			        // We do our own LRU caching, so use direct IO to avoid double caching.
+			        FileOpenFlags::FILE_FLAGS_DIRECT_IO);
 			if (file_handle != nullptr) {
 				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 				DUCKDB_LOG_READ_CACHE_HIT((handle));
