@@ -9,6 +9,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
+#include "test_utils.hpp"
 
 #include <utime.h>
 
@@ -41,7 +42,7 @@ void PerformIoOperation(CacheFileSystem *cache_filesystem) {
 
 TEST_CASE("Test glob operation", "[cache filesystem test]") {
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 	g_enable_glob_cache = true;
 
@@ -63,7 +64,7 @@ TEST_CASE("Test glob operation", "[cache filesystem test]") {
 
 TEST_CASE("Test clear cache", "[cache filesystem test]") {
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 	g_enable_glob_cache = true;
 	g_enable_file_handle_cache = true;

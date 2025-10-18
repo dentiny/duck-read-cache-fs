@@ -10,6 +10,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "scope_guard.hpp"
+#include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -28,7 +29,7 @@ const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::Ge
 TEST_CASE("Test on in-memory cache filesystem", "[in-memory cache filesystem test]") {
 	g_cache_block_size = TEST_FILE_SIZE;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
@@ -59,7 +60,7 @@ TEST_CASE("Test on in-memory cache filesystem", "[in-memory cache filesystem tes
 TEST_CASE("Test on concurrent access", "[in-memory cache filesystem test]") {
 	g_cache_block_size = 5;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());

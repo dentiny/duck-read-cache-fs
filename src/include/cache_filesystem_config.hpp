@@ -52,10 +52,19 @@ inline NoDestructor<string> DEFAULT_ON_DISK_EVICTION_POLICY {*ON_DISK_CREATION_T
 // filesystems. The value here is the decimal representation for percentage value; for example, 0.05 means 5%.
 inline constexpr double MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE = 0.05;
 
+// By default, enable in-memory cache for disk cache reader.
+inline constexpr bool DEFAULT_ENABLE_DISK_READER_MEM_CACHE = true;
+
+// Maximum in-memory cache block for disk cache reader.
+inline constexpr idx_t DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT = 256;
+
+// Default timeout in milliseconds for in-memory cache block for disk cache reader.
+inline constexpr idx_t DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC = 1800ULL * 1000 /*30min*/;
+
 // Maximum in-memory cache block number, which caps the overall memory consumption as (block size * max block count).
 inline constexpr idx_t DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT = 256;
 
-// Default timeout in seconds for in-memory block cache entries.
+// Default timeout in milliseconds for in-memory block cache entries.
 inline constexpr idx_t DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
 
 // Max number of cache entries for file metadata cache.
@@ -122,6 +131,11 @@ inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 inline NoDestructor<vector<string>> g_on_disk_cache_directories {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
 inline idx_t g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 inline NoDestructor<string> g_on_disk_eviction_policy {*DEFAULT_ON_DISK_EVICTION_POLICY};
+
+// In-memory write-through / read-through cache for disk cache reader.
+inline bool g_enable_disk_reader_mem_cache = DEFAULT_ENABLE_DISK_READER_MEM_CACHE;
+inline idx_t g_disk_reader_max_mem_cache_block_count = DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT;
+inline idx_t g_disk_reader_max_mem_cache_timeout_millisec = DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC;
 
 // In-memory cache configuration.
 inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;

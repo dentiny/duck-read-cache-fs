@@ -8,6 +8,7 @@
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
 #include "scope_guard.hpp"
+#include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -43,7 +44,7 @@ CacheAccessInfo GetFileHandleCacheInfo(BaseProfileCollector *profiler) {
 TEST_CASE("Test cache stats collection disabled", "[profile collector]") {
 	*g_profile_type = *NOOP_PROFILE_TYPE;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	// First access, there're no cache entries inside of cache filesystem.
@@ -67,7 +68,7 @@ TEST_CASE("Test cache stats collection disabled", "[profile collector]") {
 TEST_CASE("Test cache stats collection", "[profile collector]") {
 	*g_profile_type = *TEMP_PROFILE_TYPE;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	// First access, there're no cache entries inside of cache filesystem.

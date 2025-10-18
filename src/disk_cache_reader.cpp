@@ -35,6 +35,8 @@ struct CacheFileDestination {
 
 // All read requests are split into chunks, and executed in parallel.
 // A [CacheReadChunk] represents a chunked IO request and its corresponding partial IO request.
+//
+// TODO(hjiang): Merge on-disk read chunk with in-memory one.
 struct CacheReadChunk {
 	// Requested memory address and file offset to read from for current chunk.
 	char *requested_start_addr = nullptr;
@@ -65,6 +67,22 @@ struct CacheReadChunk {
 			const idx_t delta_offset = requested_start_offset - aligned_start_offset;
 			std::memmove(requested_start_addr, const_cast<char *>(content.data()) + delta_offset, bytes_to_copy);
 		}
+	}
+
+	// Copy from [buffer] to application-provided buffer.
+	void CopyBufferToRequestedMemory(const std::string &buffer) {
+		const idx_t delta_offset = requested_start_offset - aligned_start_offset;
+		std::memmove(requested_start_addr, const_cast<char *>(buffer.data()) + delta_offset, bytes_to_copy);
+	}
+
+	// Take as memory buffer. [content] is not usable afterwards.
+	string TakeAsBuffer() {
+		if (!content.empty()) {
+			auto buffer = std::move(content);
+			return buffer;
+		}
+		string buffer {requested_start_addr, chunk_size};
+		return buffer;
 	}
 };
 
@@ -183,8 +201,12 @@ void CacheLocal(DiskCacheReader &reader, const CacheReadChunk &chunk, FileSystem
 	const auto local_temp_file = StringUtil::Format("%s%s.%s.httpfs_local_cache", cache_directory, fname,
 	                                                UUID::ToString(UUID::GenerateRandomUUID()));
 	{
-		auto file_handle = local_filesystem.OpenFile(local_temp_file, FileOpenFlags::FILE_FLAGS_WRITE |
-		                                                                  FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
+		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
+		if (g_enable_disk_reader_mem_cache) {
+			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
+		}
+		auto file_handle = local_filesystem.OpenFile(local_temp_file, std::move(file_open_flags));
 		local_filesystem.Write(*file_handle, chunk.GetAddressToReadTo(),
 		                       /*nr_bytes=*/chunk.chunk_size,
 		                       /*location=*/0);
@@ -235,6 +257,13 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 
 void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                    idx_t requested_bytes_to_read, idx_t file_size) {
+	std::call_once(cache_init_flag, [this]() {
+		if (g_enable_disk_reader_mem_cache) {
+			in_mem_cache_blocks = make_uniq<InMemCache>(g_disk_reader_max_mem_cache_block_count,
+			                                            g_disk_reader_max_mem_cache_timeout_millisec);
+		}
+	});
+
 	const idx_t block_size = g_cache_block_size;
 	const idx_t aligned_start_offset = requested_start_offset / block_size * block_size;
 	const idx_t aligned_last_chunk_offset =
@@ -297,8 +326,25 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
+		//
+		// TODO(hjiang): Refactor the thread function.
 		io_threads.Push([this, &handle, block_size, cache_read_chunk = std::move(cache_read_chunk)]() mutable {
 			SetThreadName("RdCachRdThd");
+
+			// Attempt in-memory cache block first, so potentially we don't need to access disk storage.
+			InMemCacheBlock block_key;
+			block_key.fname = handle.GetPath();
+			block_key.start_off = cache_read_chunk.aligned_start_offset;
+			block_key.blk_size = cache_read_chunk.chunk_size;
+			if (in_mem_cache_blocks != nullptr) {
+				auto cache_block = in_mem_cache_blocks->Get(block_key);
+				if (cache_block != nullptr) {
+					profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+					DUCKDB_LOG_READ_CACHE_HIT((handle));
+					cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
+					return;
+				}
+			}
 
 			// Check local cache first, see if we could do a cached read.
 			auto cache_destination =
@@ -307,9 +353,15 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 			// Attempt to open the file directly, so a successfully opened file handle won't be deleted by cleanup
 			// thread and lead to data race.
-			auto file_handle = local_filesystem->OpenFile(cache_destination.cache_filepath,
-			                                              FileOpenFlags::FILE_FLAGS_READ |
-			                                                  FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+			//
+			// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
+			auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
+			// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double
+			// caching.
+			if (g_enable_disk_reader_mem_cache) {
+				file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
+			}
+			auto file_handle = local_filesystem->OpenFile(cache_destination.cache_filepath, std::move(file_open_flags));
 			if (file_handle != nullptr) {
 				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 				DUCKDB_LOG_READ_CACHE_HIT((handle));
@@ -321,7 +373,14 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 				}
 				cache_read_chunk.CopyBufferToRequestedMemory();
 
+				// Update in-memory cache if applicable.
+				if (in_mem_cache_blocks != nullptr) {
+					in_mem_cache_blocks->Put(std::move(block_key),
+					                         make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
+				}
+
 				// Update access and modification timestamp for the cache file, so it won't get evicted.
+				// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
 				const int ret_code = utime(cache_destination.cache_filepath.data(), /*times=*/nullptr);
 				// It's possible the cache file has been requested to delete by eviction thread, so `ENOENT` is a
 				// tolarable error.
@@ -352,6 +411,12 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			const auto &cache_directory = (*g_on_disk_cache_directories)[cache_destination.cache_directory_idx];
 			CacheLocal(*this, cache_read_chunk, *local_filesystem, handle, cache_directory,
 			           cache_destination.cache_filepath);
+
+			// Update in-memory cache if applicable.
+			if (in_mem_cache_blocks != nullptr) {
+				in_mem_cache_blocks->Put(std::move(block_key),
+				                         make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
+			}
 		});
 	}
 	io_threads.Wait();
@@ -362,6 +427,9 @@ void DiskCacheReader::ClearCache() {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		// Create an empty directory, otherwise later read access errors.
 		local_filesystem->CreateDirectory(cur_cache_dir);
+	}
+	if (in_mem_cache_blocks != nullptr) {
+		in_mem_cache_blocks->Clear();
 	}
 }
 
@@ -374,6 +442,9 @@ void DiskCacheReader::ClearCache(const string &fname) {
 				local_filesystem->RemoveFile(filepath);
 			}
 		});
+	}
+	if (in_mem_cache_blocks != nullptr) {
+		in_mem_cache_blocks->Clear([&fname](const InMemCacheBlock &block) { return block.fname == fname; });
 	}
 }
 

@@ -14,6 +14,8 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
+#include "in_mem_cache_block.hpp"
+#include "shared_lru_cache.hpp"
 
 namespace duckdb {
 
@@ -39,12 +41,20 @@ public:
 	string EvictCacheBlockLru();
 
 private:
+	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
+
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
 	// Used for on-disk cache block LRU-based eviction.
 	std::mutex cache_file_creation_timestamp_map_mutex;
 	// Maps from last access timestamp to filepath.
 	map<timestamp_t, string> cache_file_creation_timestamp_map;
+	// Once flag to guard against cache's initialization.
+	std::once_flag cache_init_flag;
+	// LRU cache to store blocks; late initialized after first access.
+	// Used to avoid local disk IO.
+	// NOTICE: cache key uses remote filepath, instead of local cache filepath.
+	unique_ptr<InMemCache> in_mem_cache_blocks;
 };
 
 } // namespace duckdb

@@ -312,6 +312,19 @@ static void LoadInternal(ExtensionLoader &loader) {
 	    "Overrides 'cache_httpfs_cache_directory' if set.",
 	    LogicalType::VARCHAR, std::string {});
 
+	// Memory cache for disk cache reader.
+	config.AddExtensionOption("cache_httpfs_disk_cache_reader_enable_memory_cache",
+	                          "Whether enable process-wise read-through/write-through cache for disk cache reader. "
+	                          "When enabled, local cache file will be accessed with direct IO.",
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_DISK_READER_MEM_CACHE);
+	config.AddExtensionOption(
+	    "cache_httpfs_disk_cache_reader_mem_cache_block_count",
+	    "Max number of cache blocks for the read-through/write-through cache for disk cache reader.",
+	    LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT));
+	config.AddExtensionOption("cache_httpfs_disk_cache_reader_mem_cache_timeout_millisec",
+	                          "Timeout in milliseconds for the read-through/write-through cache for disk cache reader.",
+	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC));
+
 	// In-memory cache config.
 	config.AddExtensionOption("cache_httpfs_max_in_mem_cache_block_count",
 	                          "Max in-memory cache block count for in-memory caches for all cache filesystems, so "

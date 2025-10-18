@@ -18,6 +18,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
+#include "test_utils.hpp"
 
 #include <utime.h>
 
@@ -75,7 +76,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhil
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
@@ -111,7 +112,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first and last
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
@@ -146,7 +147,7 @@ TEST_CASE("Test on disk cache filesystem with request for the last part of the f
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
@@ -185,7 +186,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle 
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
@@ -221,7 +222,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk first and last one
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
@@ -256,7 +257,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", 
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
@@ -297,7 +298,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at middle of file"
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
@@ -338,7 +339,7 @@ TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", 
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
@@ -383,7 +384,7 @@ TEST_CASE("Test on reading non-existent file", "[on-disk cache filesystem test]"
 TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
 	g_cache_block_size = 5;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
@@ -414,10 +415,12 @@ TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
 // Testing scenario: check timestamp-based eviction policy.
 TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") {
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	// Disable in-memory block cache, so that disk cache completely works on persistent content.
+	g_enable_disk_reader_mem_cache = false;
 
 	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
@@ -463,7 +466,7 @@ TEST_CASE("Test on file removal", "[on-disk cache filesystem test]") {
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	g_cache_block_size = test_block_size;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
@@ -494,11 +497,13 @@ TEST_CASE("Test on file removal", "[on-disk cache filesystem test]") {
 // Testing scenario: check lru-based eviction policy.
 TEST_CASE("Test on lru eviction", "[on-disk cache filesystem test]") {
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	*g_on_disk_eviction_policy = *ON_DISK_LRU_SINGLE_PROC_EVICTION;
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	// Disable in-memory block cache, so that disk cache completely works on persistent content.
+	g_enable_disk_reader_mem_cache = false;
 
 	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |

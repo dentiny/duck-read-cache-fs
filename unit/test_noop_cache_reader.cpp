@@ -11,6 +11,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "noop_cache_reader.hpp"
 #include "scope_guard.hpp"
+#include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -29,7 +30,7 @@ const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::Ge
 TEST_CASE("Test on noop cache filesystem", "[noop cache filesystem test]") {
 	g_cache_block_size = TEST_FILE_SIZE;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	auto noop_filesystem = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
@@ -60,7 +61,7 @@ TEST_CASE("Test on noop cache filesystem", "[noop cache filesystem test]") {
 TEST_CASE("Test noop read whole file", "[noop cache filesystem test]") {
 	g_cache_block_size = TEST_FILE_SIZE;
 	SCOPE_EXIT {
-		ResetGlobalConfig();
+		ResetGlobalStateAndConfig();
 	};
 
 	auto noop_filesystem = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
