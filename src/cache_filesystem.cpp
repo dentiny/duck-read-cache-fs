@@ -134,6 +134,7 @@ void CacheFileSystem::ClearCache() {
 		glob_cache->Clear();
 	}
 	ClearFileHandleCache();
+	cache_reader_manager.ClearCache();
 }
 
 void CacheFileSystem::ClearCache(const std::string &filepath) {
