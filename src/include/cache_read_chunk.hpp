@@ -33,9 +33,9 @@ struct CacheReadChunk {
 
 	// Copy from [content] to application-provided buffer.
 	void CopyBufferToRequestedMemory() {
-        D_ASSERT(!content.empty());
-        const idx_t delta_offset = requested_start_offset - aligned_start_offset;
-        std::memmove(requested_start_addr, const_cast<char *>(content.data()) + delta_offset, bytes_to_copy);
+		D_ASSERT(!content.empty());
+		const idx_t delta_offset = requested_start_offset - aligned_start_offset;
+		std::memmove(requested_start_addr, const_cast<char *>(content.data()) + delta_offset, bytes_to_copy);
 	}
 
 	// Copy from [buffer] to application-provided buffer.
@@ -47,9 +47,9 @@ struct CacheReadChunk {
 	// Take as memory buffer. [content] is not usable afterwards.
 	string TakeAsBuffer() {
 		D_ASSERT(!content.empty());
-        auto buffer = std::move(content);
-        return buffer;
+		auto buffer = std::move(content);
+		return buffer;
 	}
 };
 
-}  // namespace duckdb
+} // namespace duckdb

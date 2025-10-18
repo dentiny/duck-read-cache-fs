@@ -1,6 +1,7 @@
 #include "in_memory_cache_reader.hpp"
 
 #include "cache_filesystem_logger.hpp"
+#include "cache_read_chunk.hpp"
 #include "crypto.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
@@ -15,32 +16,6 @@
 #include <utime.h>
 
 namespace duckdb {
-
-namespace {
-
-// All read requests are split into chunks, and executed in parallel.
-// A [CacheReadChunk] represents a chunked IO request and its corresponding partial IO request.
-struct CacheReadChunk {
-	// Requested memory address and file offset to read from for current chunk.
-	char *requested_start_addr = nullptr;
-	idx_t requested_start_offset = 0;
-	// Block size aligned [requested_start_offset].
-	idx_t aligned_start_offset = 0;
-
-	// Number of bytes for the chunk for IO operations, apart from the last chunk it's always cache block size.
-	idx_t chunk_size = 0;
-
-	// Number of bytes to copy from [content] to requested memory address.
-	idx_t bytes_to_copy = 0;
-
-	// Copy from [content] to application-provided buffer.
-	void CopyBufferToRequestedMemory(const std::string &content) {
-		const idx_t delta_offset = requested_start_offset - aligned_start_offset;
-		std::memmove(requested_start_addr, const_cast<char *>(content.data()) + delta_offset, bytes_to_copy);
-	}
-};
-
-} // namespace
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                        idx_t requested_bytes_to_read, idx_t file_size) {
@@ -127,19 +102,20 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
 			profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
 			DUCKDB_LOG_OPEN_CACHE_MISS((handle));
-			auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
+			cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
 			auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
 
 			{
 				const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
-				internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, const_cast<char *>(content.data()),
-				                          content.length(), cache_read_chunk.aligned_start_offset);
+				internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle,
+				                          cache_read_chunk.GetAddressToReadTo(), cache_read_chunk.chunk_size,
+				                          cache_read_chunk.aligned_start_offset);
 			}
 
 			// Copy to destination buffer.
-			cache_read_chunk.CopyBufferToRequestedMemory(content);
-			cache->Put(std::move(block_key), make_shared_ptr<std::string>(std::move(content)));
+			cache_read_chunk.CopyBufferToRequestedMemory();
+			cache->Put(std::move(block_key), make_shared_ptr<std::string>(cache_read_chunk.TakeAsBuffer()));
 		});
 	}
 	io_threads.Wait();
