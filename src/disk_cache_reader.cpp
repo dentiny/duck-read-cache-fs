@@ -5,6 +5,7 @@
 // existence and open, which guarantees even the file get deleted due to staleness, read threads still get a snapshot.
 
 #include "cache_filesystem_logger.hpp"
+#include "cache_read_chunk.hpp"
 #include "crypto.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
@@ -31,59 +32,6 @@ struct CacheFileDestination {
 	idx_t cache_directory_idx = 0;
 	// Local cache filepath.
 	string cache_filepath;
-};
-
-// All read requests are split into chunks, and executed in parallel.
-// A [CacheReadChunk] represents a chunked IO request and its corresponding partial IO request.
-//
-// TODO(hjiang): Merge on-disk read chunk with in-memory one.
-struct CacheReadChunk {
-	// Requested memory address and file offset to read from for current chunk.
-	char *requested_start_addr = nullptr;
-	idx_t requested_start_offset = 0;
-	// Block size aligned [requested_start_offset].
-	idx_t aligned_start_offset = 0;
-
-	// Number of bytes for the chunk for IO operations, apart from the last chunk it's always cache block size.
-	idx_t chunk_size = 0;
-
-	// Always allocate block size of memory for first and last chunk.
-	// For middle chunks, [content] is not allocated, and bytes directly reading into [requested_start_addr] to save
-	// memory allocation.
-	string content;
-	// Number of bytes to copy from [content] to requested memory address.
-	idx_t bytes_to_copy = 0;
-
-	// For first or last blocks, [content] is always allocated and bytes are read into [content] first then copied to
-	// user-provided buffer. Otherwise (middle block), bytes are directly read into user-provided buffer to save memory
-	// allocation.
-	char *GetAddressToReadTo() const {
-		return content.empty() ? requested_start_addr : const_cast<char *>(content.data());
-	}
-
-	// Copy from [content] to application-provided buffer.
-	void CopyBufferToRequestedMemory() {
-		if (!content.empty()) {
-			const idx_t delta_offset = requested_start_offset - aligned_start_offset;
-			std::memmove(requested_start_addr, const_cast<char *>(content.data()) + delta_offset, bytes_to_copy);
-		}
-	}
-
-	// Copy from [buffer] to application-provided buffer.
-	void CopyBufferToRequestedMemory(const std::string &buffer) {
-		const idx_t delta_offset = requested_start_offset - aligned_start_offset;
-		std::memmove(requested_start_addr, const_cast<char *>(buffer.data()) + delta_offset, bytes_to_copy);
-	}
-
-	// Take as memory buffer. [content] is not usable afterwards.
-	string TakeAsBuffer() {
-		if (!content.empty()) {
-			auto buffer = std::move(content);
-			return buffer;
-		}
-		string buffer {requested_start_addr, chunk_size};
-		return buffer;
-	}
 };
 
 // Convert SHA256 value to hex string.
@@ -294,6 +242,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		// Case-1: If there's only one chunk, which serves as both the first chunk and the last one.
 		if (io_start_offset == aligned_start_offset && io_start_offset == aligned_last_chunk_offset) {
 			cache_read_chunk.chunk_size = MinValue<idx_t>(block_size, file_size - io_start_offset);
+			// TODO(hjiang): No need to always allocate.
 			cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			cache_read_chunk.bytes_to_copy = requested_bytes_to_read;
 		}
@@ -304,12 +253,14 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			already_read_bytes += block_size - delta_offset;
 
 			cache_read_chunk.chunk_size = block_size;
+			// TODO(hjiang): No need to always allocate.
 			cache_read_chunk.content = CreateResizeUninitializedString(block_size);
 			cache_read_chunk.bytes_to_copy = block_size - delta_offset;
 		}
 		// Case-3: Last chunk.
 		else if (io_start_offset == aligned_last_chunk_offset) {
 			cache_read_chunk.chunk_size = MinValue<idx_t>(block_size, file_size - io_start_offset);
+			// TODO(hjiang): No need to always allocate.
 			cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			cache_read_chunk.bytes_to_copy = requested_bytes_to_read - already_read_bytes;
 		}
@@ -320,6 +271,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 			cache_read_chunk.bytes_to_copy = block_size;
 			cache_read_chunk.chunk_size = block_size;
+			// TODO(hjiang): No need to always allocate.
+			cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 		}
 
 		// Update read offset for next chunk read.
