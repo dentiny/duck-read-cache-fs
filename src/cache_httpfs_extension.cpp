@@ -314,7 +314,8 @@ static void LoadInternal(ExtensionLoader &loader) {
 
 	// Memory cache for disk cache reader.
 	config.AddExtensionOption("cache_httpfs_disk_cache_reader_enable_memory_cache",
-	                          "Whether enable process-wise read-through/write-through cache for disk cache reader.",
+	                          "Whether enable process-wise read-through/write-through cache for disk cache reader. "
+	                          "When enabled, local cache file will be accessed with direct IO.",
 	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_DISK_READER_MEM_CACHE);
 	config.AddExtensionOption(
 	    "cache_httpfs_disk_cache_reader_mem_cache_block_count",
