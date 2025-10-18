@@ -1,3 +1,15 @@
+# 0.9.0
+
+## Added
+
+- Add a table function to list all cache configurations ([#279])
+
+[#279]: https://github.com/dentiny/duck-read-cache-fs/pull/279
+
+- Add an in-memory cache within disk cache reader ([#280])
+
+[#280]: https://github.com/dentiny/duck-read-cache-fs/pull/280
+
 # 0.8.0
 
 ## Added
