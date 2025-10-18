@@ -419,6 +419,8 @@ TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") 
 	};
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	// Disable in-memory block cache, so that disk cache completely works on persistent content.
+	g_enable_disk_reader_mem_cache = false;
 
 	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
@@ -500,6 +502,8 @@ TEST_CASE("Test on lru eviction", "[on-disk cache filesystem test]") {
 	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	*g_on_disk_eviction_policy = *ON_DISK_LRU_SINGLE_PROC_EVICTION;
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	// Disable in-memory block cache, so that disk cache completely works on persistent content.
+	g_enable_disk_reader_mem_cache = false;
 
 	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |

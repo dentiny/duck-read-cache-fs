@@ -257,8 +257,10 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
                                    idx_t requested_bytes_to_read, idx_t file_size) {
 	// TODO(hjiang): Use in-memory cache configs temporarily, will setup dedicated config in the next PR.
 	std::call_once(cache_init_flag, [this]() {
-		in_mem_cache_blocks =
-		    make_uniq<InMemCache>(g_max_in_mem_cache_block_count, g_in_mem_cache_block_timeout_millisec);
+		if (g_enable_disk_reader_mem_cache) {
+			in_mem_cache_blocks = make_uniq<InMemCache>(g_max_disk_reader_mem_cache_block_count,
+			                                            g_max_disk_reader_mem_cache_timeout_millisec);
+		}
 	});
 
 	const idx_t block_size = g_cache_block_size;
@@ -333,12 +335,14 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			block_key.fname = handle.GetPath();
 			block_key.start_off = cache_read_chunk.aligned_start_offset;
 			block_key.blk_size = cache_read_chunk.chunk_size;
-			auto cache_block = in_mem_cache_blocks->Get(block_key);
-			if (cache_block != nullptr) {
-				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
-				DUCKDB_LOG_READ_CACHE_HIT((handle));
-				cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
-				return;
+			if (in_mem_cache_blocks != nullptr) {
+				auto cache_block = in_mem_cache_blocks->Get(block_key);
+				if (cache_block != nullptr) {
+					profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+					DUCKDB_LOG_READ_CACHE_HIT((handle));
+					cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
+					return;
+				}
 			}
 
 			// Check local cache first, see if we could do a cached read.
@@ -366,9 +370,11 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 				}
 				cache_read_chunk.CopyBufferToRequestedMemory();
 
-				// Update in-memory cache.
-				in_mem_cache_blocks->Put(std::move(block_key),
-				                         make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
+				// Update in-memory cache if applicable.
+				if (in_mem_cache_blocks != nullptr) {
+					in_mem_cache_blocks->Put(std::move(block_key),
+					                         make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
+				}
 
 				// Update access and modification timestamp for the cache file, so it won't get evicted.
 				// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
@@ -403,8 +409,11 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			CacheLocal(*this, cache_read_chunk, *local_filesystem, handle, cache_directory,
 			           cache_destination.cache_filepath);
 
-			// Update in-memory cache.
-			in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
+			// Update in-memory cache if applicable.
+			if (in_mem_cache_blocks != nullptr) {
+				in_mem_cache_blocks->Put(std::move(block_key),
+				                         make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
+			}
 		});
 	}
 	io_threads.Wait();
