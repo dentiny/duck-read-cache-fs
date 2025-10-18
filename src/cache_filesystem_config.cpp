@@ -26,8 +26,6 @@ vector<string> ParseCacheDirectoryConfig(const std::string &directory_config_str
 } // namespace
 
 void SetGlobalConfig(optional_ptr<FileOpener> opener) {
-	std::cerr << "set global config";
-
 	if (opener == nullptr) {
 		// Testing cache type has higher priority than [g_cache_type].
 		if (!g_test_cache_type->empty()) {
@@ -90,9 +88,6 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 
 	// Check and update configurations for on-disk cache type.
 	if (*g_cache_type == *ON_DISK_CACHE_TYPE) {
-
-		std::cerr << "is on disk cache" << std::endl;
-
 		// Check and update cache directory if necessary.
 		//
 		// TODO(hjiang): Parse cache directory might be expensive, consider adding a cache besides.
