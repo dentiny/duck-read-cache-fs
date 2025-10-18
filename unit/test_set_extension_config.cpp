@@ -12,6 +12,8 @@
 #include "duckdb/main/connection.hpp"
 #include "filesystem_utils.hpp"
 #include "in_memory_cache_reader.hpp"
+#include "scope_guard.hpp"
+#include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -35,6 +37,10 @@ void CleanupTestDirectory() {
 } // namespace
 
 TEST_CASE("Test on incorrect config", "[extension config test]") {
+	SCOPE_EXIT {
+		ResetGlobalStateAndConfig();
+	};
+
 	DuckDB db(nullptr);
 	Connection con(db);
 
@@ -49,6 +55,10 @@ TEST_CASE("Test on incorrect config", "[extension config test]") {
 }
 
 TEST_CASE("Test on correct config", "[extension config test]") {
+	SCOPE_EXIT {
+		ResetGlobalStateAndConfig();
+	};
+
 	DuckDB db(nullptr);
 	Connection con(db);
 
@@ -66,6 +76,10 @@ TEST_CASE("Test on correct config", "[extension config test]") {
 }
 
 TEST_CASE("Test on changing extension config change default cache dir path setting", "[extension config test]") {
+	SCOPE_EXIT {
+		ResetGlobalStateAndConfig();
+	};
+
 	DuckDB db(nullptr);
 	auto &instance = db.instance;
 	auto &fs = instance->GetFileSystem();
@@ -73,6 +87,7 @@ TEST_CASE("Test on changing extension config change default cache dir path setti
 
 	Connection con(db);
 	con.Query(StringUtil::Format("SET cache_httpfs_cache_directory ='%s'", TEST_ON_DISK_CACHE_DIRECTORY));
+	con.Query("SET cache_httpfs_disk_cache_reader_enable_memory_cache=false");
 	con.Query("CREATE TABLE integers AS SELECT i, i+1 as j FROM range(10) r(i)");
 	con.Query(StringUtil::Format("COPY integers TO '%s'", TEST_ON_DISK_CACHE_FILE));
 

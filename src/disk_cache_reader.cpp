@@ -255,7 +255,6 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 
 void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                    idx_t requested_bytes_to_read, idx_t file_size) {
-	// TODO(hjiang): Use in-memory cache configs temporarily, will setup dedicated config in the next PR.
 	std::call_once(cache_init_flag, [this]() {
 		if (g_enable_disk_reader_mem_cache) {
 			in_mem_cache_blocks = make_uniq<InMemCache>(g_max_disk_reader_mem_cache_block_count,
