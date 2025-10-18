@@ -257,8 +257,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
                                    idx_t requested_bytes_to_read, idx_t file_size) {
 	std::call_once(cache_init_flag, [this]() {
 		if (g_enable_disk_reader_mem_cache) {
-			in_mem_cache_blocks = make_uniq<InMemCache>(g_max_disk_reader_mem_cache_block_count,
-			                                            g_max_disk_reader_mem_cache_timeout_millisec);
+			in_mem_cache_blocks = make_uniq<InMemCache>(g_disk_reader_max_mem_cache_block_count,
+			                                            g_disk_reader_max_mem_cache_timeout_millisec);
 		}
 	});
 

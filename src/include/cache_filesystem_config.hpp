@@ -134,8 +134,8 @@ inline NoDestructor<string> g_on_disk_eviction_policy {*DEFAULT_ON_DISK_EVICTION
 
 // In-memory write-through / read-through cache for disk cache reader.
 inline bool g_enable_disk_reader_mem_cache = DEFAULT_ENABLE_DISK_READER_MEM_CACHE;
-inline idx_t g_max_disk_reader_mem_cache_block_count = DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT;
-inline idx_t g_max_disk_reader_mem_cache_timeout_millisec = DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC;
+inline idx_t g_disk_reader_max_mem_cache_block_count = DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT;
+inline idx_t g_disk_reader_max_mem_cache_timeout_millisec = DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC;
 
 // In-memory cache configuration.
 inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;

@@ -121,10 +121,10 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		g_enable_disk_reader_mem_cache = val.GetValue<bool>();
 
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_disk_cache_reader_mem_cache_block_count", val);
-		g_max_disk_reader_mem_cache_block_count = val.GetValue<idx_t>();
+		g_disk_reader_max_mem_cache_block_count = val.GetValue<idx_t>();
 
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_disk_cache_reader_mem_cache_timeout_millisec", val);
-		g_max_disk_reader_mem_cache_timeout_millisec = val.GetValue<idx_t>();
+		g_disk_reader_max_mem_cache_timeout_millisec = val.GetValue<idx_t>();
 	}
 
 	//===--------------------------------------------------------------------===//
@@ -218,8 +218,8 @@ void ResetGlobalConfig() {
 	*g_on_disk_eviction_policy = *DEFAULT_ON_DISK_EVICTION_POLICY;
 
 	g_enable_disk_reader_mem_cache = DEFAULT_ENABLE_DISK_READER_MEM_CACHE;
-	g_max_disk_reader_mem_cache_block_count = DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT;
-	g_max_disk_reader_mem_cache_timeout_millisec = DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC;
+	g_disk_reader_max_mem_cache_block_count = DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT;
+	g_disk_reader_max_mem_cache_timeout_millisec = DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC;
 
 	// In-memory cache configuration.
 	g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
