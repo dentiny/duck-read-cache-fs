@@ -134,7 +134,8 @@ void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, cons
 
 // Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
 void CacheLocal(DiskCacheReader &reader, const CacheReadChunk &chunk, FileSystem &local_filesystem,
-                const FileHandle &handle, const string &cache_directory, const string &local_cache_file) {
+                const FileHandle &handle, const string &cache_directory, const string &local_cache_file,
+                const string &content) {
 	// Skip local cache if insufficient disk space.
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
 	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
@@ -155,7 +156,7 @@ void CacheLocal(DiskCacheReader &reader, const CacheReadChunk &chunk, FileSystem
 			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
 		}
 		auto file_handle = local_filesystem.OpenFile(local_temp_file, std::move(file_open_flags));
-		local_filesystem.Write(*file_handle, chunk.GetAddressToReadTo(),
+		local_filesystem.Write(*file_handle, const_cast<char *>(content.data()),
 		                       /*nr_bytes=*/chunk.chunk_size,
 		                       /*location=*/0);
 		file_handle->Sync();
@@ -242,8 +243,6 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		// Case-1: If there's only one chunk, which serves as both the first chunk and the last one.
 		if (io_start_offset == aligned_start_offset && io_start_offset == aligned_last_chunk_offset) {
 			cache_read_chunk.chunk_size = MinValue<idx_t>(block_size, file_size - io_start_offset);
-			// TODO(hjiang): No need to always allocate.
-			cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			cache_read_chunk.bytes_to_copy = requested_bytes_to_read;
 		}
 		// Case-2: First chunk.
@@ -253,15 +252,11 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			already_read_bytes += block_size - delta_offset;
 
 			cache_read_chunk.chunk_size = block_size;
-			// TODO(hjiang): No need to always allocate.
-			cache_read_chunk.content = CreateResizeUninitializedString(block_size);
 			cache_read_chunk.bytes_to_copy = block_size - delta_offset;
 		}
 		// Case-3: Last chunk.
 		else if (io_start_offset == aligned_last_chunk_offset) {
 			cache_read_chunk.chunk_size = MinValue<idx_t>(block_size, file_size - io_start_offset);
-			// TODO(hjiang): No need to always allocate.
-			cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 			cache_read_chunk.bytes_to_copy = requested_bytes_to_read - already_read_bytes;
 		}
 		// Case-4: Middle chunks.
@@ -271,8 +266,6 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 			cache_read_chunk.bytes_to_copy = block_size;
 			cache_read_chunk.chunk_size = block_size;
-			// TODO(hjiang): No need to always allocate.
-			cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 		}
 
 		// Update read offset for next chunk read.
@@ -304,6 +297,10 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			    GetLocalCacheFile(*g_on_disk_cache_directories, handle.GetPath(), cache_read_chunk.aligned_start_offset,
 			                      cache_read_chunk.chunk_size);
 
+			// Create cache content.
+			auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
+			void *addr = const_cast<char *>(content.data());
+
 			// Attempt to open the file directly, so a successfully opened file handle won't be deleted by cleanup
 			// thread and lead to data race.
 			//
@@ -318,18 +315,15 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			if (file_handle != nullptr) {
 				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 				DUCKDB_LOG_READ_CACHE_HIT((handle));
-				void *addr = !cache_read_chunk.content.empty() ? const_cast<char *>(cache_read_chunk.content.data())
-				                                               : cache_read_chunk.requested_start_addr;
 				{
 					const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kDiskCacheRead);
 					local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
 				}
-				cache_read_chunk.CopyBufferToRequestedMemory();
+				cache_read_chunk.CopyBufferToRequestedMemory(content);
 
 				// Update in-memory cache if applicable.
 				if (in_mem_cache_blocks != nullptr) {
-					in_mem_cache_blocks->Put(std::move(block_key),
-					                         make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
+					in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(std::move(content)));
 				}
 
 				// Update access and modification timestamp for the cache file, so it won't get evicted.
@@ -352,23 +346,21 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 			{
 				const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
-				internal_filesystem->Read(*disk_cache_handle.internal_file_handle,
-				                          cache_read_chunk.GetAddressToReadTo(), cache_read_chunk.chunk_size,
+				internal_filesystem->Read(*disk_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
 				                          cache_read_chunk.aligned_start_offset);
 			}
 
 			// Copy to destination buffer, if bytes are read into [content] buffer rather than user-provided buffer.
-			cache_read_chunk.CopyBufferToRequestedMemory();
+			cache_read_chunk.CopyBufferToRequestedMemory(content);
 
 			// Attempt to cache file locally.
 			const auto &cache_directory = (*g_on_disk_cache_directories)[cache_destination.cache_directory_idx];
 			CacheLocal(*this, cache_read_chunk, *local_filesystem, handle, cache_directory,
-			           cache_destination.cache_filepath);
+			           cache_destination.cache_filepath, content);
 
 			// Update in-memory cache if applicable.
 			if (in_mem_cache_blocks != nullptr) {
-				in_mem_cache_blocks->Put(std::move(block_key),
-				                         make_shared_ptr<string>(cache_read_chunk.TakeAsBuffer()));
+				in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(std::move(content)));
 			}
 		});
 	}

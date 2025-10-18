@@ -102,20 +102,20 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
 			profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
 			DUCKDB_LOG_OPEN_CACHE_MISS((handle));
-			cache_read_chunk.content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
+			auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
+			void *addr = const_cast<char *>(content.data());
 			auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
 			auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
 
 			{
 				const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
-				internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle,
-				                          cache_read_chunk.GetAddressToReadTo(), cache_read_chunk.chunk_size,
+				internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
 				                          cache_read_chunk.aligned_start_offset);
 			}
 
 			// Copy to destination buffer.
-			cache_read_chunk.CopyBufferToRequestedMemory();
-			cache->Put(std::move(block_key), make_shared_ptr<std::string>(cache_read_chunk.TakeAsBuffer()));
+			cache_read_chunk.CopyBufferToRequestedMemory(content);
+			cache->Put(std::move(block_key), make_shared_ptr<std::string>(std::move(content)));
 		});
 	}
 	io_threads.Wait();
