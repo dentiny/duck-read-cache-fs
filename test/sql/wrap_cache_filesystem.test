@@ -27,6 +27,10 @@ COPY (SELECT * FROM read_csv('https://raw.githubusercontent.com/dentiny/duck-rea
 statement ok
 SELECT cache_httpfs_clear_cache();
 
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
+----
+
 query I
 SELECT COUNT(*) FROM read_csv('/tmp/cache_httpfs_fake_filesystem/stock-exchanges.csv');
 ----
