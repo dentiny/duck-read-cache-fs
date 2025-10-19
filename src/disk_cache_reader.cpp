@@ -188,6 +188,23 @@ string DiskCacheReader::EvictCacheBlockLru() {
 
 vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	vector<DataCacheEntryInfo> cache_entries_info;
+
+	// Fill in in-memory cache blocks for on disk cache reader.
+	if (in_mem_cache_blocks != nullptr) {
+		auto keys = in_mem_cache_blocks->Keys();
+		cache_entries_info.reserve(keys.size());
+		for (auto &cur_key : keys) {
+			cache_entries_info.emplace_back(DataCacheEntryInfo {
+			    .cache_filepath = "(no disk cache)",
+			    .remote_filename = std::move(cur_key.fname),
+			    .start_offset = cur_key.start_off,
+			    .end_offset = cur_key.start_off + cur_key.blk_size,
+			    .cache_type = "in-mem-disk-cache",
+			});
+		}
+	}
+
+	// Fill in on disk cache entries.
 	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir,
 		                            [&cache_entries_info, cur_cache_dir](const std::string &fname, bool /*unused*/) {
@@ -201,6 +218,7 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 			                            });
 		                            });
 	}
+
 	return cache_entries_info;
 }
 

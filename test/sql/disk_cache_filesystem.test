@@ -309,6 +309,7 @@ SELECT COUNT(*) FROM glob('/tmp/duckdb_cache_httpfs_cache/*');
 query IIIII
 SELECT * FROM cache_httpfs_cache_status_query();
 ----
+(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem-disk-cache
 /tmp/duckdb_cache_httpfs_cache/c1b7e15bc8fe00a09fd6ea693ca6bdf109f622f26f4c6b34ad568a300854b5e2-stock-exchanges.csv-0-16222	stock/exchanges.csv	0	16222	on-disk
 
 # Query parquet file.
