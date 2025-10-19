@@ -25,16 +25,18 @@
 
 namespace duckdb {
 
+namespace {
+
 // Get database instance from expression state.
 // Returned instance ownership lies in the given [`state`].
-static DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
+DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
 	auto *executor = state.root.executor;
 	auto &client_context = executor->GetContext();
 	return *client_context.db.get();
 }
 
 // Clear both in-memory and on-disk data block cache.
-static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
+void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
 	// Special handle local disk cache clear, since it's possible disk cache reader hasn't been initialized.
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
@@ -55,7 +57,7 @@ static void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector 
 	result.Reference(Value(SUCCESS));
 }
 
-static void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
+void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
 	D_ASSERT(args.ColumnCount() == 1);
 	const string filepath = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
@@ -73,7 +75,7 @@ static void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vec
 }
 
 // Get on-disk data cache file size for all cache filesystems.
-static void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vector &result) {
+void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 
 	int64_t total_cache_size = 0;
@@ -88,7 +90,7 @@ static void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state
 	result.Reference(Value(total_cache_size));
 }
 
-static void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
+void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	string latest_stat;
 	uint64_t latest_timestamp = 0;
 	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
@@ -116,7 +118,7 @@ static void GetProfileStats(const DataChunk &args, ExpressionState &state, Vecto
 	result.Reference(Value(std::move(latest_stat)));
 }
 
-static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
+void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
 		auto *profile_collector = cur_filesystem->GetProfileCollector();
@@ -133,7 +135,7 @@ static void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vec
 
 // Wrap the filesystem with extension cache filesystem.
 // Throw exception if the requested filesystem hasn't been registered into duckdb instance.
-static void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &result) {
+void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &result) {
 	D_ASSERT(args.ColumnCount() == 1);
 	const string filesystem_name = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
@@ -155,7 +157,7 @@ static void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, V
 }
 
 // Extract or get httpfs filesystem.
-static unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
+unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
 	auto filesystems = vfs.ListSubSystems();
 	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
 		// Wrapped filesystem made by extensions could ends with httpfs filesystem.
@@ -170,7 +172,7 @@ static unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
 }
 
 // Extract or get hugging filesystem.
-static unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
+unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
 	auto filesystems = vfs.ListSubSystems();
 	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
 		// Wrapped filesystem made by extensions could ends with httpfs filesystem.
@@ -185,7 +187,7 @@ static unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
 }
 
 // Extract or get s3 filesystem.
-static unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &instance) {
+unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &instance) {
 	auto filesystems = vfs.ListSubSystems();
 	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
 		// Wrapped filesystem made by extensions could ends with s3 filesystem.
@@ -206,7 +208,7 @@ static unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInsta
 // 1. When we register cached filesystem, if uncached version already registered, we unregister them.
 // 2. If uncached filesystem is registered later somehow, cached version is set mutual set so it has higher priority
 // than uncached version.
-static void LoadInternal(ExtensionLoader &loader) {
+void LoadInternal(ExtensionLoader &loader) {
 	// It's legal to reset database and reload extension, reset all global variable at load.
 	CacheFsRefRegistry::Get().Reset();
 	CacheReaderManager::Get().Reset();
@@ -445,6 +447,8 @@ static void LoadInternal(ExtensionLoader &loader) {
 	    "Adds a read cache filesystem to DuckDB, which acts as a wrapper of duckdb-compatible filesystems.");
 	loader.SetDescription(description);
 }
+
+} // namespace
 
 void CacheHttpfsExtension::Load(ExtensionLoader &loader) {
 	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,
