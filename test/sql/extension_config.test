@@ -11,10 +11,10 @@ SELECT * FROM cache_httpfs_get_cache_type();
 on_disk	enabled	enabled	enabled
 
 # Query data cache config.
-query IIII
+query IIIII
 SELECT * FROM cache_httpfs_get_data_cache_config();
 ----
-on_disk	[/tmp/duckdb_cache_httpfs_cache]	524288	creation_timestamp
+on_disk	[/tmp/duckdb_cache_httpfs_cache]	524288	creation_timestamp	page-cache
 
 # Currently implementation late updates cache type on IO access, to check data cache config after update, have to perform an IO operation first.
 statement ok
