@@ -15,6 +15,14 @@ struct CacheConfigData : public GlobalTableFunctionState {
 	bool emitted = false;
 };
 
+// Get in-memory cache type for disk cache reader in duckdb [`Value`].
+Value GetDiskCacheReaderMemoryCacheType() {
+	if (g_enable_disk_reader_mem_cache) {
+		return Value {"on-disk-memory-cache"};
+	}
+	return Value {"page-cache"};
+}
+
 // Get disk cache directories in duckdb [`Value`].
 Value GetDiskCacheDirectories() {
 	vector<Value> directories;
@@ -48,6 +56,9 @@ void DataCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<
 
 		return_types.emplace_back(LogicalType::VARCHAR);
 		names.emplace_back("disk cache eviction policy");
+
+		return_types.emplace_back(LogicalType::VARCHAR);
+		names.emplace_back("disk cache memory cache");
 	} else if (*g_cache_type == *IN_MEM_CACHE_TYPE) {
 		return_types.emplace_back(LogicalType::UBIGINT);
 		names.emplace_back("in-memory cache block size");
@@ -63,6 +74,7 @@ void FillDataCacheConfig(DataChunk &output, idx_t &col) {
 		output.SetValue(col++, /*index=*/0, GetDiskCacheDirectories());
 		output.SetValue(col++, /*index=*/0, Value::UBIGINT(g_cache_block_size));
 		output.SetValue(col++, /*index=*/0, *g_on_disk_eviction_policy);
+		output.SetValue(col++, /*index=*/0, GetDiskCacheReaderMemoryCacheType());
 	} else if (*g_cache_type == *IN_MEM_CACHE_TYPE) {
 		output.SetValue(col++, /*index=*/0, Value::UBIGINT(g_cache_block_size));
 		output.SetValue(col++, /*index=*/0, "lru"); // currently only LRU supported
