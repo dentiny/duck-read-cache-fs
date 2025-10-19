@@ -53,7 +53,7 @@ inline NoDestructor<string> DEFAULT_ON_DISK_EVICTION_POLICY {*ON_DISK_CREATION_T
 inline constexpr double MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE = 0.05;
 
 // By default, enable in-memory cache for disk cache reader.
-inline constexpr bool DEFAULT_ENABLE_DISK_READER_MEM_CACHE = true;
+inline constexpr bool DEFAULT_ENABLE_DISK_READER_MEM_CACHE = false;
 
 // Maximum in-memory cache block for disk cache reader.
 inline constexpr idx_t DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT = 256;

@@ -38,7 +38,5 @@ SELECT COUNT(*) FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.pa
 query IIIII
 SELECT * FROM cache_httpfs_cache_status_query();
 ----
-(no disk cache)	https://blobs.duckdb.org/data/taxi_2019_04.parquet	126877696	127056503	in-mem-disk-cache
-(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem-disk-cache
 /tmp/duckdb_cache_httpfs_cache_1/c1b7e15bc8fe00a09fd6ea693ca6bdf109f622f26f4c6b34ad568a300854b5e2-stock-exchanges.csv-0-16222	stock/exchanges.csv	0	16222	on-disk
 /tmp/duckdb_cache_httpfs_cache_2/9a30b02c260f8209e5648653bcedd2e125f0a796061b24a0b996c4bc867d38c7-taxi_2019_04.parquet-126877696-178807	taxi_2019_04.parquet	126877696	127056503	on-disk
