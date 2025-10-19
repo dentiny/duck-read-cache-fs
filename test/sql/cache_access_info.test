@@ -22,10 +22,9 @@ SET cache_httpfs_profile_type='temp';
 statement ok
 SELECT cache_httpfs_clear_cache();
 
-query I
-SELECT COUNT(*) FROM cache_httpfs_cache_status_query();
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
 ----
-0
 
 statement ok
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');

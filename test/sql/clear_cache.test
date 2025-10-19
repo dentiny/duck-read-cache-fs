@@ -7,10 +7,9 @@ require cache_httpfs
 statement ok
 SELECT cache_httpfs_clear_cache();
 
-query I
-SELECT COUNT(*) FROM cache_httpfs_cache_status_query();
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
 ----
-0
 
 # Cannot use on-disk cache, because it doesn't support clear cache by filepath.
 statement ok

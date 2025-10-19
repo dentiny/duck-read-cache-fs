@@ -20,10 +20,9 @@ statement ok
 SELECT cache_httpfs_clear_cache();
 
 # Check no cache entry after clearing cache.
-query I
-SELECT COUNT(*) FROM cache_httpfs_cache_status_query();
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
 ----
-0
 
 query I
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
