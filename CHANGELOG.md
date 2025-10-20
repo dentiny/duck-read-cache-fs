@@ -1,3 +1,11 @@
+# 0.9.1
+
+## Fixed
+
+- Manually load `httpfs` extension, so the extension achieves compatibility with `httpfs` and is able to attach database with remote database files ([#291])
+
+[#291]: https://github.com/dentiny/duck-read-cache-fs/pull/291
+
 # 0.9.0
 
 ## Added
