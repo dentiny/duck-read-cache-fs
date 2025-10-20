@@ -56,6 +56,13 @@ D SELECT * FROM duckdb_settings() WHERE name LIKE 'cache_httpfs%';
 D SELECT * FROM duckdb_functions() WHERE function_name LIKE 'cache_httpfs%';
 ```
 
+- The extension provides LRU-based bufferpool upon disk cache blocks, so users don't need to access storage unless necessary. It's disabled by default, which turns to leverage page cache.
+```sql
+D SET cache_httpfs_disk_cache_reader_enable_memory_cache=true;
+-- The max bufferpool size is `cache_httpfs_disk_cache_reader_mem_cache_block_count` * `cache_httpfs_cache_block_size`, you can tune it via
+D SET cache_httpfs_disk_cache_reader_mem_cache_block_count=2048;
+```
+
 - Users could clear cache, whether it's in-memory or on-disk with
 ```sql
 D SELECT cache_httpfs_clear_cache();
@@ -89,4 +96,41 @@ D SELECT * FROM cache_httpfs_cache_access_info_query();
 │ file handle │               0 │                0 │                    0 │
 │ glob        │               0 │                0 │                    0 │
 └─────────────┴─────────────────┴──────────────────┴──────────────────────┘
+```
+
+- For certain files, applications or users might don't want to cache them. For example, configurations file are usually read and parsed only once. The extension is able to blacklist caching for certain files via exclusion regex.
+```sql
+D SET cache_httpfs_add_exclusion_regex('.*config.*');
+```
+
+- The extension provides table function to list current active configuration, example usage
+```sql
+D SELECT * FROM cache_httpfs_get_data_cache_config();
+┌─────────────────┬──────────────────────────────────┬───────────────────────┬────────────────────────────┬─────────────────────────┐
+│ data cache type │      disk cache directories      │ disk cache block size │ disk cache eviction policy │ disk cache memory cache │
+│     varchar     │            varchar[]             │        uint64         │          varchar           │         varchar         │
+├─────────────────┼──────────────────────────────────┼───────────────────────┼────────────────────────────┼─────────────────────────┤
+│ on_disk         │ [/tmp/duckdb_cache_httpfs_cache] │        524288         │ creation_timestamp         │ page-cache              │
+└─────────────────┴──────────────────────────────────┴───────────────────────┴────────────────────────────┴─────────────────────────┘
+D SELECT * FROM cache_httpfs_get_metadata_cache_config();
+┌─────────────────────┬───────────────────────────┐
+│ metadata cache type │ metadata cache entry size │
+│       varchar       │          uint64           │
+├─────────────────────┼───────────────────────────┤
+│ enabled             │            250            │
+└─────────────────────┴───────────────────────────┘
+D SELECT * FROM cache_httpfs_get_file_handle_cache_config();
+┌────────────────────────┬──────────────────────────────┐
+│ file handle cache type │ file handle cache entry size │
+│        varchar         │            uint64            │
+├────────────────────────┼──────────────────────────────┤
+│ enabled                │             250              │
+└────────────────────────┴──────────────────────────────┘
+D SELECT * FROM cache_httpfs_get_glob_cache_config();
+┌─────────────────┬───────────────────────┐
+│ glob cache type │ glob cache entry size │
+│     varchar     │        uint64         │
+├─────────────────┼───────────────────────┤
+│ enabled         │          64           │
+└─────────────────┴───────────────────────┘
 ```
