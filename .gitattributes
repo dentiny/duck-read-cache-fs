@@ -1,0 +1,5 @@
+# Prevent Git from messing with binary files
+*.duckdb binary
+*.db binary
+*.parquet binary
+*.arrow binary
