@@ -182,6 +182,10 @@ std::string CacheFileSystem::GetName() const {
 }
 
 unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle) {
+	if (internal_file_handle == nullptr) {
+		return nullptr;
+	}
+
 	const auto flags = internal_file_handle->GetFlags();
 	D_ASSERT(flags.OpenForReading());
 
@@ -345,7 +349,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 		const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kOpen);
 		file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	}
-	DUCKDB_LOG_OPEN_CACHE_MISS((*file_handle));
+	DUCKDB_LOG_OPEN_CACHE_MISS_PTR((file_handle));
 	return CreateCacheFileHandleForRead(std::move(file_handle));
 }
 
