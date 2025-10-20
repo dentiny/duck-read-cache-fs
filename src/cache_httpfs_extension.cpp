@@ -12,6 +12,7 @@
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/opener_file_system.hpp"
+#include "duckdb/main/extension_manager.hpp"
 #include "duckdb/storage/external_file_cache.hpp"
 #include "extension_config_query_function.hpp"
 #include "fake_filesystem.hpp"
@@ -219,6 +220,14 @@ void LoadInternal(ExtensionLoader &loader) {
 	auto &instance = loader.GetDatabaseInstance();
 	instance.config.options.enable_external_file_cache = false;
 	instance.GetExternalFileCache().SetEnabled(false);
+
+	// Register into extension manager to keep compatibility as httpfs.
+	auto &extension_manager = ExtensionManager::Get(instance);
+	auto extension_active_load = extension_manager.BeginLoad("httpfs");
+	// Manually fill in the extension install info for
+	ExtensionInstallInfo extension_install_info;
+	extension_install_info.mode = ExtensionInstallMode::UNKNOWN;
+	extension_active_load->FinishLoad(extension_install_info);
 
 	// Register filesystem instance to instance.
 	// Here we register both in-memory filesystem and on-disk filesystem, and leverage global configuration to decide

@@ -1,0 +1,13 @@
+# name: test/sql/attach_db.test
+# description: test database file attachment
+# group: [sql]
+
+require cache_httpfs
+
+statement ok
+ATTACH 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/sample.duckdb' as db;
+
+query III
+SELECT database_name, schema_name, table_name FROM duckdb_tables() WHERE database_name = 'db';
+----
+db	main	users
