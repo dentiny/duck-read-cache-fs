@@ -2,6 +2,8 @@
 
 #include "cache_httpfs_extension.hpp"
 
+#include <csignal>
+
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -286,10 +288,19 @@ void LoadInternal(ExtensionLoader &loader) {
 	    "config [cache_httpfs_cache_block_size]. The setting limits the maximum request to issue for a single "
 	    "filesystem read request. 0 means no limit, by default we set no limit.",
 	    LogicalType::BIGINT, 0);
+
+	// Add configurations to ignore SIGPIPE.
+	auto ignore_sigpipe_callback = [](ClientContext &context, SetScope scope, Value &parameter) {
+		const bool ignore = parameter.GetValue<bool>();
+		if (ignore) {
+			// Ignore SIGPIPE, reference: https://blog.erratasec.com/2018/10/tcpip-sockets-and-sigpipe.html
+			std::signal(SIGPIPE, SIG_IGN);
+		}
+	};
 	config.AddExtensionOption(
 	    "cache_httpfs_ignore_sigpipe",
 	    "Whether to ignore SIGPIPE for the extension. By default not ignored. Once ignored, it cannot be reverted.",
-	    LogicalTypeId::BOOLEAN, DEFAULT_IGNORE_SIGPIPE);
+	    LogicalTypeId::BOOLEAN, DEFAULT_IGNORE_SIGPIPE, std::move(ignore_sigpipe_callback));
 
 	// On disk cache config.
 	// TODO(hjiang): Add a new configurable for on-disk cache staleness.
