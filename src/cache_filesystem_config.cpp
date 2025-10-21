@@ -1,7 +1,6 @@
 #include "cache_filesystem_config.hpp"
 
 #include <cstdint>
-#include <csignal>
 #include <utility>
 
 #include "duckdb/common/local_file_system.hpp"
@@ -72,15 +71,6 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 	// Check and update configuration for max subrequest count.
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_max_fanout_subrequest", val);
 	g_max_subrequest_count = val.GetValue<uint64_t>();
-
-	// Check and update configurations to ignore SIGPIPE if necessary.
-	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_ignore_sigpipe", val);
-	const bool ignore_sigpipe = val.GetValue<bool>();
-	if (!g_ignore_sigpipe && ignore_sigpipe) {
-		g_ignore_sigpipe = true;
-		// Ignore SIGPIPE, reference: https://blog.erratasec.com/2018/10/tcpip-sockets-and-sigpipe.html
-		std::signal(SIGPIPE, SIG_IGN);
-	}
 
 	//===--------------------------------------------------------------------===//
 	// On-disk cache configuration
@@ -204,8 +194,8 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 }
 
 void ResetGlobalConfig() {
-	// Intentionally not set [g_test_cache_type] and [g_ignore_sigpipe].
-
+	// Intentionally not set [g_test_cache_type].
+	//
 	// Global configuration.
 	g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
 	*g_cache_type = *DEFAULT_CACHE_TYPE;
