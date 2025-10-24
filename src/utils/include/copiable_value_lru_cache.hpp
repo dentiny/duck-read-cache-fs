@@ -13,13 +13,13 @@
 #include <functional>
 #include <list>
 #include <memory>
-#include <unordered_map>
-#include <string>
 #include <utility>
 #include <type_traits>
 #include <mutex>
 
 #include "duckdb/common/helper.hpp"
+#include "duckdb/common/string.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 #include "map_utils.hpp"
 #include "time_utils.hpp"

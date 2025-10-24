@@ -1,43 +1,42 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
+#include "duckdb/common/string.hpp"
 #include "no_destructor.hpp"
-
-#include <string>
 
 using namespace duckdb; // NOLINT
 
 TEST_CASE("NoDestructor test", "[no destructor test]") {
-	const std::string s = "helloworld";
+	const string s = "helloworld";
 
 	// Default constructor.
 	{
-		NoDestructor<std::string> content {};
+		NoDestructor<string> content {};
 		REQUIRE(*content == "");
 	}
 
 	// Construct by const reference.
 	{
-		NoDestructor<std::string> content {s};
+		NoDestructor<string> content {s};
 		REQUIRE(*content == s);
 	}
 
 	// Construct by rvalue reference.
 	{
-		std::string another_str = "helloworld";
-		NoDestructor<std::string> content {std::move(another_str)};
+		string another_str = "helloworld";
+		NoDestructor<string> content {std::move(another_str)};
 		REQUIRE(*content == s);
 	}
 
 	// Construct by ctor with multiple arguments.
 	{
-		NoDestructor<std::string> content {s.begin(), s.end()};
+		NoDestructor<string> content {s.begin(), s.end()};
 		REQUIRE(*content == "helloworld");
 	}
 
 	// Access internal object.
 	{
-		NoDestructor<std::string> content {s.begin(), s.end()};
+		NoDestructor<string> content {s.begin(), s.end()};
 		(*content)[0] = 'b';
 		(*content)[1] = 'c';
 		REQUIRE(*content == "bclloworld");
@@ -45,7 +44,7 @@ TEST_CASE("NoDestructor test", "[no destructor test]") {
 
 	// Reassign.
 	{
-		NoDestructor<std::string> content {s.begin(), s.end()};
+		NoDestructor<string> content {s.begin(), s.end()};
 		*content = "worldhello";
 		REQUIRE(*content == "worldhello");
 	}

@@ -9,7 +9,7 @@
 
 namespace duckdb {
 
-void SetThreadName(const std::string &thread_name) {
+void SetThreadName(const string &thread_name) {
 #if defined(__APPLE__)
 	pthread_setname_np(thread_name.c_str());
 #elif defined(__linux__)

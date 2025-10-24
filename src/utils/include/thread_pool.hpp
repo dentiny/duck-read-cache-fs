@@ -4,11 +4,12 @@
 #include <future>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <thread>
 #include <type_traits>
 #include <utility>
-#include <vector>
+
+#include "duckdb/common/queue.hpp"
+#include "duckdb/common/vector.hpp"
 
 namespace duckdb {
 
@@ -37,8 +38,8 @@ private:
 	std::mutex mutex_;
 	std::condition_variable new_job_cv_;
 	std::condition_variable job_completion_cv_;
-	std::queue<Job> jobs_;
-	std::vector<std::thread> workers_;
+	queue<Job> jobs_;
+	vector<std::thread> workers_;
 };
 
 template <typename Fn, typename... Args>

@@ -4,11 +4,11 @@
 #include <atomic>
 #include <chrono>
 #include <future>
-#include <string>
 #include <thread>
 #include <tuple>
 
 #include "copiable_value_lru_cache.hpp"
+#include "duckdb/common/string.hpp"
 
 using namespace duckdb; // NOLINT
 

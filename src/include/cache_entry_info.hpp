@@ -1,17 +1,18 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
+
+#include "duckdb/common/string.hpp"
 
 namespace duckdb {
 
 // Entry information for data cache, which applies to both in-memory cache and on-disk cache.
 struct DataCacheEntryInfo {
-	std::string cache_filepath;
-	std::string remote_filename;
+	string cache_filepath;
+	string remote_filename;
 	uint64_t start_offset = 0; // Inclusive.
 	uint64_t end_offset = 0;   // Exclusive.
-	std::string cache_type;    // Either in-memory or on-disk.
+	string cache_type;         // Either in-memory or on-disk.
 };
 
 bool operator<(const DataCacheEntryInfo &lhs, const DataCacheEntryInfo &rhs);
@@ -19,7 +20,7 @@ bool operator<(const DataCacheEntryInfo &lhs, const DataCacheEntryInfo &rhs);
 // Cache access information, which applies to metadata and file handle cache.
 struct CacheAccessInfo {
 	// Cache entity name.
-	std::string cache_type;
+	string cache_type;
 	// Number of cache hit.
 	uint64_t cache_hit_count = 0;
 	// Number of cache miss.

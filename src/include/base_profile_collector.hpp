@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
 #include <utility>
 
 #include "cache_entry_info.hpp"
 #include "cache_filesystem_config.hpp"
+#include "duckdb/common/string.hpp"
 #include "duckdb/common/vector.hpp"
 #include "io_operations.hpp"
 
@@ -51,18 +51,18 @@ public:
 	// Record cache access condition.
 	virtual void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) = 0;
 	// Get profiler type.
-	virtual std::string GetProfilerType() = 0;
+	virtual string GetProfilerType() = 0;
 	// Get cache access information.
 	// It's guaranteed that access info are returned in the order of and are size of [CacheEntity].
 	virtual vector<CacheAccessInfo> GetCacheAccessInfo() const = 0;
 	// Set cache reader type.
-	void SetCacheReaderType(std::string cache_reader_type_p) {
+	void SetCacheReaderType(string cache_reader_type_p) {
 		cache_reader_type = std::move(cache_reader_type_p);
 	}
 	// Reset profile stats.
 	virtual void Reset() = 0;
 	// Get human-readable aggregated profile collection, and its latest completed IO operation timestamp.
-	virtual std::pair<std::string /*stats*/, uint64_t /*timestamp*/> GetHumanReadableStats() = 0;
+	virtual std::pair<string /*stats*/, uint64_t /*timestamp*/> GetHumanReadableStats() = 0;
 
 	template <class TARGET>
 	TARGET &Cast() {
@@ -76,7 +76,7 @@ public:
 	}
 
 protected:
-	std::string cache_reader_type = "";
+	string cache_reader_type = "";
 };
 
 class NoopProfileCollector final : public BaseProfileCollector {
@@ -91,7 +91,7 @@ public:
 	}
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {
 	}
-	std::string GetProfilerType() override {
+	string GetProfilerType() override {
 		return *NOOP_PROFILE_TYPE;
 	}
 	vector<CacheAccessInfo> GetCacheAccessInfo() const override {
@@ -103,7 +103,7 @@ public:
 		return cache_access_info;
 	}
 	void Reset() override {};
-	std::pair<std::string, uint64_t> GetHumanReadableStats() override {
+	std::pair<string, uint64_t> GetHumanReadableStats() override {
 		return std::make_pair("(noop profile collector)", /*timestamp=*/0);
 	}
 };

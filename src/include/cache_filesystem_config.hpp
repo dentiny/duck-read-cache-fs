@@ -2,12 +2,11 @@
 
 #include <cstdint>
 #include <optional>
-#include <string>
-#include <unordered_set>
 
 #include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
+#include "duckdb/common/unordered_set.hpp"
 #include "duckdb/common/vector.hpp"
 #include "no_destructor.hpp"
 #include "size_literals.hpp"

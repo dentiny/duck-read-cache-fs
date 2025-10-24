@@ -1,11 +1,10 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
-#include <string>
-
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/string.hpp"
 #include "mock_filesystem.hpp"
 
 using namespace duckdb; // NOLINT

@@ -4,10 +4,10 @@
 #include <atomic>
 #include <chrono>
 #include <future>
-#include <string>
 #include <thread>
 #include <tuple>
 
+#include "duckdb/common/string.hpp"
 #include "exclusive_lru_cache.hpp"
 
 using namespace duckdb; // NOLINT
