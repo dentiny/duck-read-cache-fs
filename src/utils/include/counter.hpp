@@ -8,10 +8,10 @@
 #pragma once
 
 #include <mutex>
-#include <unordered_map>
 #include <utility>
 
 #include "duckdb/common/assert.hpp"
+#include "duckdb/common/unordered_map.hpp"
 
 namespace duckdb {
 

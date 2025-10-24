@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cstddef>
-#include <string>
-#include <vector>
+
+#include "duckdb/common/string.hpp"
+#include "duckdb/common/vector.hpp"
 
 namespace duckdb {
 
@@ -70,12 +71,12 @@ private:
 	// Accumulated sum.
 	double sum_ = 0.0;
 	// List of bucket counts.
-	std::vector<size_t> hist_;
+	vector<size_t> hist_;
 	// List of outliers.
-	std::vector<double> outliers_;
+	vector<double> outliers_;
 	// Item name and unit for stats distribution.
-	std::string distribution_name_;
-	std::string distribution_unit_;
+	string distribution_name_;
+	string distribution_unit_;
 };
 
 } // namespace duckdb

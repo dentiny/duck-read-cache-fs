@@ -5,15 +5,15 @@
 #include <cstdint>
 #include <functional>
 #include <mutex>
-#include <string>
 #include <tuple>
 
+#include "duckdb/common/string.hpp"
 #include "duckdb/common/string_util.hpp"
 
 namespace duckdb {
 
 struct InMemCacheBlock {
-	std::string fname;
+	string fname;
 	idx_t start_off = 0;
 	idx_t blk_size = 0;
 };
@@ -25,8 +25,7 @@ struct InMemCacheBlockEqual {
 };
 struct InMemCacheBlockHash {
 	std::size_t operator()(const InMemCacheBlock &key) const {
-		return std::hash<std::string> {}(key.fname) ^ std::hash<idx_t> {}(key.start_off) ^
-		       std::hash<idx_t> {}(key.blk_size);
+		return std::hash<string> {}(key.fname) ^ std::hash<idx_t> {}(key.start_off) ^ std::hash<idx_t> {}(key.blk_size);
 	}
 };
 

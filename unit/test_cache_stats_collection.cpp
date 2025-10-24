@@ -3,10 +3,9 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
-#include <string>
-
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
+#include "duckdb/common/string.hpp"
 #include "scope_guard.hpp"
 #include "test_utils.hpp"
 
@@ -14,8 +13,8 @@ using namespace duckdb; // NOLINT
 
 namespace {
 
-const std::string TEST_CONTENT = "helloworld";
-const std::string TEST_FILEPATH = "/tmp/testfile";
+const string TEST_CONTENT = "helloworld";
+const string TEST_FILEPATH = "/tmp/testfile";
 void CreateTestFile() {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_WRITE |

@@ -18,8 +18,8 @@
 
 #include <type_traits>
 #include <cstddef>
-#include <string>
 
+#include "duckdb/common/string.hpp"
 #include "type_traits.hpp"
 
 namespace duckdb {

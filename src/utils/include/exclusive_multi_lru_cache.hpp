@@ -13,17 +13,17 @@
 
 #include <condition_variable>
 #include <cstdint>
-#include <deque>
 #include <functional>
 #include <list>
 #include <memory>
 #include <mutex>
-#include <unordered_map>
-#include <string>
 #include <utility>
 #include <type_traits>
 
+#include "duckdb/common/deque.hpp"
 #include "duckdb/common/helper.hpp"
+#include "duckdb/common/string.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 #include "time_utils.hpp"
 
