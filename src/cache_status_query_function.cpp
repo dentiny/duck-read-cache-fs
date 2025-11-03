@@ -38,23 +38,23 @@ unique_ptr<FunctionData> DataCacheStatusQueryFuncBind(ClientContext &context, Ta
 	names.reserve(5);
 
 	// Cache filepath.
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("cache_filepath");
 
 	// Remote object name.
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("remote_filename");
 
 	// Start offset for cache file.
-	return_types.emplace_back(LogicalType::UBIGINT);
+	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 	names.emplace_back("start_offset");
 
 	// End offset for cache file.
-	return_types.emplace_back(LogicalType::UBIGINT);
+	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 	names.emplace_back("end_offset");
 
 	// Cache type.
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("cache_type");
 
 	return nullptr;
@@ -141,19 +141,19 @@ unique_ptr<FunctionData> CacheAccessInfoQueryFuncBind(ClientContext &context, Ta
 	names.reserve(4);
 
 	// Cache type.
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("cache_type");
 
 	// Cache hit count.
-	return_types.emplace_back(LogicalType::UBIGINT);
+	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 	names.emplace_back("cache_hit_count");
 
 	// Cache miss count.
-	return_types.emplace_back(LogicalType::UBIGINT);
+	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 	names.emplace_back("cache_miss_count");
 
 	// Cache miss by in-use count.
-	return_types.emplace_back(LogicalType::UBIGINT);
+	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 	names.emplace_back("cache_miss_by_in_use");
 
 	return nullptr;
@@ -241,7 +241,7 @@ unique_ptr<FunctionData> WrappedCacheFileSystemsFuncBind(ClientContext &context,
 	names.reserve(1);
 
 	// Wrapped cache filesystem name.
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("wrapped_filesystems");
 
 	return nullptr;

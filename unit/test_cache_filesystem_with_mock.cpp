@@ -116,9 +116,10 @@ TEST_CASE("Test file metadata cache for glob invocation", "[mock filesystem test
 	string size_str = "10";
 	string last_modification_time_str = "2024-11-09T11:38:08.000Z"; // Unix timestamp 1731152288.
 	auto extended_file_info = make_shared_ptr<ExtendedOpenFileInfo>();
-	extended_file_info->options.emplace("file_size", Value(size_str).DefaultCastAs(LogicalType::UBIGINT));
-	extended_file_info->options.emplace("last_modified",
-	                                    Value(last_modification_time_str).DefaultCastAs(LogicalType::TIMESTAMP));
+	extended_file_info->options.emplace("file_size",
+	                                    Value(size_str).DefaultCastAs(LogicalType {LogicalTypeId::UBIGINT}));
+	extended_file_info->options.emplace(
+	    "last_modified", Value(last_modification_time_str).DefaultCastAs(LogicalType {LogicalTypeId::TIMESTAMP}));
 	open_info.extended_info = std::move(extended_file_info);
 
 	vector<OpenFileInfo> glob_returns;

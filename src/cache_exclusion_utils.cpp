@@ -37,7 +37,7 @@ unique_ptr<FunctionData> ListCacheExclusionRegexQueryFuncBind(ClientContext &con
 	names.reserve(1);
 
 	// Excluded cache regex.
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("cache_exclusion_regex");
 
 	return nullptr;
