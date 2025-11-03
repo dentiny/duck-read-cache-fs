@@ -34,7 +34,7 @@ unique_ptr<FunctionData> ListFileSystemQueryFuncBind(ClientContext &context, Tab
 	names.reserve(1);
 
 	// Registered filesystems.
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("registered_filesystems");
 
 	return nullptr;

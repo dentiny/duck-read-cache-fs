@@ -30,7 +30,7 @@ Value GetDiskCacheDirectories() {
 	for (const auto &cur_dir : *g_on_disk_cache_directories) {
 		directories.emplace_back(Value {cur_dir});
 	}
-	return Value::LIST(LogicalType::VARCHAR, std::move(directories));
+	return Value::LIST(LogicalType {LogicalTypeId::VARCHAR}, std::move(directories));
 }
 
 // Get cache exclusion regexes in duckdb [`Value`].
@@ -41,29 +41,29 @@ Value GetCacheExclusionRegexes() {
 	for (auto &cur_regex : exclusion_regex_values) {
 		exclusion_regex_values.emplace_back(Value {std::move(cur_regex)});
 	}
-	return Value::LIST(LogicalType::VARCHAR, std::move(exclusion_regex_values));
+	return Value::LIST(LogicalType {LogicalTypeId::VARCHAR}, std::move(exclusion_regex_values));
 }
 
 void DataCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<string> &names) {
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("data cache type");
 	if (*g_cache_type == *ON_DISK_CACHE_TYPE) {
-		return_types.emplace_back(LogicalType::LIST(LogicalType::VARCHAR));
+		return_types.emplace_back(LogicalType::LIST(LogicalType {LogicalTypeId::VARCHAR}));
 		names.emplace_back("disk cache directories");
 
-		return_types.emplace_back(LogicalType::UBIGINT);
+		return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 		names.emplace_back("disk cache block size");
 
-		return_types.emplace_back(LogicalType::VARCHAR);
+		return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 		names.emplace_back("disk cache eviction policy");
 
-		return_types.emplace_back(LogicalType::VARCHAR);
+		return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 		names.emplace_back("disk cache memory cache");
 	} else if (*g_cache_type == *IN_MEM_CACHE_TYPE) {
-		return_types.emplace_back(LogicalType::UBIGINT);
+		return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 		names.emplace_back("in-memory cache block size");
 
-		return_types.emplace_back(LogicalType::VARCHAR);
+		return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 		names.emplace_back("in-memory cache eviction policy");
 	}
 }
@@ -82,10 +82,10 @@ void FillDataCacheConfig(DataChunk &output, idx_t &col) {
 }
 
 void MetadataCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<string> &names) {
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("metadata cache type");
 	if (g_enable_metadata_cache) {
-		return_types.emplace_back(LogicalType::UBIGINT);
+		return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 		names.emplace_back("metadata cache entry size");
 	}
 }
@@ -100,10 +100,10 @@ void FillMetadataCacheConfig(DataChunk &output, idx_t &col) {
 }
 
 void FileHandleCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<string> &names) {
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("file handle cache type");
 	if (g_enable_file_handle_cache) {
-		return_types.emplace_back(LogicalType::UBIGINT);
+		return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 		names.emplace_back("file handle cache entry size");
 	}
 }
@@ -118,10 +118,10 @@ void FillFileHandleCacheConfig(DataChunk &output, idx_t &col) {
 }
 
 void GlobCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<string> &names) {
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("glob cache type");
 	if (g_enable_glob_cache) {
-		return_types.emplace_back(LogicalType::UBIGINT);
+		return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 		names.emplace_back("glob cache entry size");
 	}
 }
@@ -276,16 +276,16 @@ unique_ptr<FunctionData> CacheTypeQueryFuncBind(ClientContext &context, TableFun
 	names.reserve(4);
 
 	// Intentionally use string instead of boolean to indicate cache enabled or not, for better display.
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("data cache");
 
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("metadata cache");
 
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("file handle cache");
 
-	return_types.emplace_back(LogicalType::VARCHAR);
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("glob cache");
 
 	return nullptr;
@@ -356,7 +356,7 @@ unique_ptr<FunctionData> CacheConfigQueryFuncBind(ClientContext &context, TableF
 	GlobCacheConfigQueryFuncBindImpl(return_types, names);
 
 	// Cache exclusion regex.
-	return_types.emplace_back(LogicalType::LIST(LogicalType::VARCHAR));
+	return_types.emplace_back(LogicalType::LIST(LogicalType {LogicalTypeId::VARCHAR}));
 	names.emplace_back("cache exclusion regexes");
 
 	return nullptr;
