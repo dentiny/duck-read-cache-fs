@@ -171,59 +171,41 @@ unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
 		return StringUtil::EndsWith(cur_fs_name, "HTTPFileSystem");
 	});
 	if (iter == filesystems.end()) {
-		// No existing HTTPFileSystem found, create a new one
 		return make_uniq<HTTPFileSystem>();
 	}
-
-	// HTTPFileSystem already registered - unregister it first to avoid conflicts
-	// Note: UnregisterSubSystem destroys the old filesystem, but that's OK since we're
-	// replacing it with a cached version. We cannot use ExtractSubSystem because that
-	// would move ownership and potentially leave dangling references in httpfs extension.
-	try {
-		vfs.UnregisterSubSystem(*iter);
-	} catch (...) {
-		// Ignore errors if unregistration fails
-	}
-
-	// Create a fresh HTTPFileSystem for cache_httpfs to wrap
-	return make_uniq<HTTPFileSystem>();
+	auto httpfs = vfs.ExtractSubSystem(*iter);
+	D_ASSERT(httpfs != nullptr);
+	return httpfs;
 }
 
 // Extract or get hugging filesystem.
 unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
 	auto filesystems = vfs.ListSubSystems();
 	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
+		// Wrapped filesystem made by extensions could ends with httpfs filesystem.
 		return StringUtil::EndsWith(cur_fs_name, "HuggingFaceFileSystem");
 	});
 	if (iter == filesystems.end()) {
 		return make_uniq<HuggingFaceFileSystem>();
 	}
-
-	// Unregister existing filesystem to avoid conflicts
-	try {
-		vfs.UnregisterSubSystem(*iter);
-	} catch (...) {
-	}
-
-	return make_uniq<HuggingFaceFileSystem>();
+	auto hf_fs = vfs.ExtractSubSystem(*iter);
+	D_ASSERT(hf_fs != nullptr);
+	return hf_fs;
 }
 
 // Extract or get s3 filesystem.
 unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &instance) {
 	auto filesystems = vfs.ListSubSystems();
-	auto iter = std::find_if(filesystems.begin(), filesystems.end(),
-	                         [](const auto &cur_fs_name) { return StringUtil::EndsWith(cur_fs_name, "S3FileSystem"); });
+	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
+		// Wrapped filesystem made by extensions could ends with s3 filesystem.
+		return StringUtil::EndsWith(cur_fs_name, "S3FileSystem");
+	});
 	if (iter == filesystems.end()) {
 		return make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
 	}
-
-	// Unregister existing filesystem to avoid conflicts
-	try {
-		vfs.UnregisterSubSystem(*iter);
-	} catch (...) {
-	}
-
-	return make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
+	auto s3_fs = vfs.ExtractSubSystem(*iter);
+	D_ASSERT(s3_fs != nullptr);
+	return s3_fs;
 }
 
 // Whether `httpfs` extension has already been loaded.
