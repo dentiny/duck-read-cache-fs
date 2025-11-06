@@ -2,6 +2,7 @@
 
 #include "cache_httpfs_extension.hpp"
 
+#include <algorithm>
 #include <csignal>
 
 #include "cache_exclusion_utils.hpp"
@@ -29,6 +30,9 @@
 namespace duckdb {
 
 namespace {
+
+// "httpfs" extension name.
+constexpr const char *HTTPFS_EXTENSION = "httpfs";
 
 // Get database instance from expression state.
 // Returned instance ownership lies in the given [`state`].
@@ -167,41 +171,66 @@ unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
 		return StringUtil::EndsWith(cur_fs_name, "HTTPFileSystem");
 	});
 	if (iter == filesystems.end()) {
+		// No existing HTTPFileSystem found, create a new one
 		return make_uniq<HTTPFileSystem>();
 	}
-	auto httpfs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(httpfs != nullptr);
-	return httpfs;
+
+	// HTTPFileSystem already registered - unregister it first to avoid conflicts
+	// Note: UnregisterSubSystem destroys the old filesystem, but that's OK since we're
+	// replacing it with a cached version. We cannot use ExtractSubSystem because that
+	// would move ownership and potentially leave dangling references in httpfs extension.
+	try {
+		vfs.UnregisterSubSystem(*iter);
+	} catch (...) {
+		// Ignore errors if unregistration fails
+	}
+
+	// Create a fresh HTTPFileSystem for cache_httpfs to wrap
+	return make_uniq<HTTPFileSystem>();
 }
 
 // Extract or get hugging filesystem.
 unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
 	auto filesystems = vfs.ListSubSystems();
 	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
-		// Wrapped filesystem made by extensions could ends with httpfs filesystem.
 		return StringUtil::EndsWith(cur_fs_name, "HuggingFaceFileSystem");
 	});
 	if (iter == filesystems.end()) {
 		return make_uniq<HuggingFaceFileSystem>();
 	}
-	auto hf_fs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(hf_fs != nullptr);
-	return hf_fs;
+
+	// Unregister existing filesystem to avoid conflicts
+	try {
+		vfs.UnregisterSubSystem(*iter);
+	} catch (...) {
+	}
+
+	return make_uniq<HuggingFaceFileSystem>();
 }
 
 // Extract or get s3 filesystem.
 unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &instance) {
 	auto filesystems = vfs.ListSubSystems();
-	auto iter = std::find_if(filesystems.begin(), filesystems.end(), [](const auto &cur_fs_name) {
-		// Wrapped filesystem made by extensions could ends with s3 filesystem.
-		return StringUtil::EndsWith(cur_fs_name, "S3FileSystem");
-	});
+	auto iter = std::find_if(filesystems.begin(), filesystems.end(),
+	                         [](const auto &cur_fs_name) { return StringUtil::EndsWith(cur_fs_name, "S3FileSystem"); });
 	if (iter == filesystems.end()) {
 		return make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
 	}
-	auto s3_fs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(s3_fs != nullptr);
-	return s3_fs;
+
+	// Unregister existing filesystem to avoid conflicts
+	try {
+		vfs.UnregisterSubSystem(*iter);
+	} catch (...) {
+	}
+
+	return make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
+}
+
+// Whether `httpfs` extension has already been loaded.
+bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
+	auto &extension_manager = db_instance.GetExtensionManager();
+	const auto loaded_extensions = extension_manager.GetExtensions();
+	return std::find(loaded_extensions.begin(), loaded_extensions.end(), HTTPFS_EXTENSION) != loaded_extensions.end();
 }
 
 // Cached httpfs cannot co-exist with non-cached version, because duckdb virtual filesystem doesn't provide a native fs
@@ -223,13 +252,21 @@ void LoadInternal(ExtensionLoader &loader) {
 	instance.config.options.enable_external_file_cache = false;
 	instance.GetExternalFileCache().SetEnabled(false);
 
-	// Register into extension manager to keep compatibility as httpfs.
-	auto &extension_manager = ExtensionManager::Get(instance);
-	auto extension_active_load = extension_manager.BeginLoad("httpfs");
-	// Manually fill in the extension install info for
-	ExtensionInstallInfo extension_install_info;
-	extension_install_info.mode = ExtensionInstallMode::UNKNOWN;
-	extension_active_load->FinishLoad(extension_install_info);
+	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,
+	// so we load it first if not already loaded.
+	const bool httpfs_extension_loaded = IsHttpfsExtensionLoaded(instance);
+	if (!httpfs_extension_loaded) {
+		auto httpfs_extension = make_uniq<HttpfsExtension>();
+		httpfs_extension->Load(loader);
+
+		// Register into extension manager to keep compatibility as httpfs.
+		auto &extension_manager = ExtensionManager::Get(instance);
+		auto extension_active_load = extension_manager.BeginLoad(HTTPFS_EXTENSION);
+		// Manually fill in the extension install info to finalize extension load.
+		ExtensionInstallInfo extension_install_info;
+		extension_install_info.mode = ExtensionInstallMode::UNKNOWN;
+		extension_active_load->FinishLoad(extension_install_info);
+	}
 
 	// Register filesystem instance to instance.
 	// Here we register both in-memory filesystem and on-disk filesystem, and leverage global configuration to decide
@@ -477,15 +514,6 @@ void LoadInternal(ExtensionLoader &loader) {
 } // namespace
 
 void CacheHttpfsExtension::Load(ExtensionLoader &loader) {
-	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,
-	// so we load it first.
-	httpfs_extension = make_uniq<HttpfsExtension>();
-	// It's possible httpfs is already loaded beforehand, simply capture exception and proceed.
-	try {
-		httpfs_extension->Load(loader);
-	} catch (...) {
-	}
-
 	LoadInternal(loader);
 }
 std::string CacheHttpfsExtension::Name() {

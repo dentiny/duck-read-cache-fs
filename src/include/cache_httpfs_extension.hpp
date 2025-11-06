@@ -10,10 +10,6 @@ public:
 	void Load(ExtensionLoader &loader) override;
 	string Name() override;
 	string Version() const override;
-
-private:
-	// Cache httpfs automatically loads httpfs.
-	unique_ptr<Extension> httpfs_extension;
 };
 
 } // namespace duckdb
