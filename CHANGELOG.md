@@ -1,3 +1,11 @@
+# 0.9.2
+
+## Fixed
+
+- Fix segfault when `httpfs` extension is already installed and loaded ([#301])
+
+[#301]: https://github.com/dentiny/duck-read-cache-fs/pull/301
+
 # 0.9.1
 
 ## Fixed
