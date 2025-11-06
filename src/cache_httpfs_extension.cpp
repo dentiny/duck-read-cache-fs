@@ -2,6 +2,7 @@
 
 #include "cache_httpfs_extension.hpp"
 
+#include <algorithm>
 #include <csignal>
 
 #include "cache_exclusion_utils.hpp"
@@ -29,6 +30,9 @@
 namespace duckdb {
 
 namespace {
+
+// "httpfs" extension name.
+constexpr const char *HTTPFS_EXTENSION = "httpfs";
 
 // Get database instance from expression state.
 // Returned instance ownership lies in the given [`state`].
@@ -204,6 +208,13 @@ unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &in
 	return s3_fs;
 }
 
+// Whether `httpfs` extension has already been loaded.
+bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
+	auto &extension_manager = db_instance.GetExtensionManager();
+	const auto loaded_extensions = extension_manager.GetExtensions();
+	return std::find(loaded_extensions.begin(), loaded_extensions.end(), HTTPFS_EXTENSION) != loaded_extensions.end();
+}
+
 // Cached httpfs cannot co-exist with non-cached version, because duckdb virtual filesystem doesn't provide a native fs
 // wrapper nor priority system, so co-existence doesn't guarantee cached version is actually used.
 //
@@ -223,13 +234,21 @@ void LoadInternal(ExtensionLoader &loader) {
 	instance.config.options.enable_external_file_cache = false;
 	instance.GetExternalFileCache().SetEnabled(false);
 
-	// Register into extension manager to keep compatibility as httpfs.
-	auto &extension_manager = ExtensionManager::Get(instance);
-	auto extension_active_load = extension_manager.BeginLoad("httpfs");
-	// Manually fill in the extension install info for
-	ExtensionInstallInfo extension_install_info;
-	extension_install_info.mode = ExtensionInstallMode::UNKNOWN;
-	extension_active_load->FinishLoad(extension_install_info);
+	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,
+	// so we load it first if not already loaded.
+	const bool httpfs_extension_loaded = IsHttpfsExtensionLoaded(instance);
+	if (!httpfs_extension_loaded) {
+		auto httpfs_extension = make_uniq<HttpfsExtension>();
+		httpfs_extension->Load(loader);
+
+		// Register into extension manager to keep compatibility as httpfs.
+		auto &extension_manager = ExtensionManager::Get(instance);
+		auto extension_active_load = extension_manager.BeginLoad(HTTPFS_EXTENSION);
+		// Manually fill in the extension install info to finalize extension load.
+		ExtensionInstallInfo extension_install_info;
+		extension_install_info.mode = ExtensionInstallMode::UNKNOWN;
+		extension_active_load->FinishLoad(extension_install_info);
+	}
 
 	// Register filesystem instance to instance.
 	// Here we register both in-memory filesystem and on-disk filesystem, and leverage global configuration to decide
@@ -477,15 +496,6 @@ void LoadInternal(ExtensionLoader &loader) {
 } // namespace
 
 void CacheHttpfsExtension::Load(ExtensionLoader &loader) {
-	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,
-	// so we load it first.
-	httpfs_extension = make_uniq<HttpfsExtension>();
-	// It's possible httpfs is already loaded beforehand, simply capture exception and proceed.
-	try {
-		httpfs_extension->Load(loader);
-	} catch (...) {
-	}
-
 	LoadInternal(loader);
 }
 std::string CacheHttpfsExtension::Name() {
