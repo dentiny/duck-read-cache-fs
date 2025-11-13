@@ -1,3 +1,11 @@
+# 0.9.3
+
+## Changed
+
+- Upgrade duckdb, httpfs and extension-ci-tools ([#304])
+
+[#304]: https://github.com/dentiny/duck-read-cache-fs/pull/304
+
 # 0.9.2
 
 ## Fixed
