@@ -27,13 +27,13 @@ SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/du
 ----
 251
 
-query IIII
+query IIIIII
 SELECT * FROM cache_httpfs_cache_access_info_query();
 ----
-metadata	2	1	0
-data	0	1	0
-file handle	0	1	0
-glob	0	0	0
+metadata	2	1	0	NULL	NULL
+data	0	1	NULL	1	0
+file handle	0	1	NULL	1	NULL
+glob	0	0	NULL	1	NULL
 
 # ==========================
 # Clear all cache
