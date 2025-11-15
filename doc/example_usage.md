@@ -85,6 +85,7 @@ D SET cache_httpfs_enable_glob_cache=false;
 D SET cache_httpfs_enable_file_handle_cache=false;
 
 -- Users are able to check cache access information.
+-- TODO(hjiang): Update metrics example.
 D SELECT * FROM cache_httpfs_cache_access_info_query();
 
 ┌─────────────┬─────────────────┬──────────────────┬──────────────────────┐

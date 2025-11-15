@@ -192,14 +192,7 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 			auto &cur_cache_access_info = cache_access_info[idx];
 			aggregated_cache_access_infos[idx].cache_hit_count += cur_cache_access_info.cache_hit_count;
 			aggregated_cache_access_infos[idx].cache_miss_count += cur_cache_access_info.cache_miss_count;
-
-			// For file handle cache, record cache miss count by in-use.
-			if (idx == static_cast<idx_t>(IoOperation::kOpen)) {
-				auto &cache_miss_in_use = aggregated_cache_access_infos[idx].cache_miss_by_in_use;
-				if (cache_miss_in_use.IsNull()) {
-					cache_miss_in_use = Value::UBIGINT(cur_cache_access_info.cache_miss_by_in_use.GetValue<uint64_t>());
-				}
-			}
+			aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur_cache_access_info.cache_miss_by_in_use;
 
 			// For data file cache, record number of bytes to read and to cache.
 			if (idx == static_cast<idx_t>(IoOperation::kRead)) {
@@ -250,8 +243,8 @@ void CacheAccessInfoQueryTableFunc(ClientContext &context, TableFunctionInput &d
 		// Cache miss count.
 		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.cache_miss_count)));
 
-		// Used for file handle cache, cache miss by in-use count.
-		output.SetValue(col++, count, std::move(entry.cache_miss_by_in_use));
+		// Cache miss by in-use count.
+		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.cache_miss_by_in_use)));
 
 		// Used for data cache, total number of bytes to read.
 		output.SetValue(col++, count, std::move(entry.total_bytes_to_read));
