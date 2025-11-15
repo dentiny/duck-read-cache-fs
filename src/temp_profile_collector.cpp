@@ -41,26 +41,32 @@ TempProfileCollector::TempProfileCollector() {
 
 LatencyGuard TempProfileCollector::RecordOperationStart(IoOperation io_oper) {
 	return LatencyGuard {*this, std::move(io_oper)};
-	std::lock_guard<std::mutex> lck(stats_mutex);
+	const std::lock_guard<std::mutex> lck(stats_mutex);
 }
 
 void TempProfileCollector::RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) {
 	const auto now = GetSteadyNowMilliSecSinceEpoch();
 
-	std::lock_guard<std::mutex> lck(stats_mutex);
+	const std::lock_guard<std::mutex> lck(stats_mutex);
 	auto &cur_histogram = histograms[static_cast<idx_t>(io_oper)];
 	cur_histogram->Add(latency_millisec);
 	latest_timestamp = now;
 }
 
 void TempProfileCollector::RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) {
-	std::lock_guard<std::mutex> lck(stats_mutex);
+	const std::lock_guard<std::mutex> lck(stats_mutex);
 	const size_t arr_idx = static_cast<size_t>(cache_entity) * kCacheAccessCount + static_cast<size_t>(cache_access);
 	++cache_access_count[arr_idx];
 }
 
+void TempProfileCollector::RecordActualCacheRead(idx_t cache_bytes, idx_t actual_bytes) {
+	const std::lock_guard<std::mutex> lck(stats_mutex);
+	total_bytes_to_read += actual_bytes;
+	total_bytes_to_cache += cache_bytes;
+}
+
 void TempProfileCollector::Reset() {
-	std::lock_guard<std::mutex> lck(stats_mutex);
+	const std::lock_guard<std::mutex> lck(stats_mutex);
 	for (auto &cur_histogram : histograms) {
 		cur_histogram->Reset();
 	}
@@ -69,7 +75,7 @@ void TempProfileCollector::Reset() {
 }
 
 vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
-	std::lock_guard<std::mutex> lck(stats_mutex);
+	const std::lock_guard<std::mutex> lck(stats_mutex);
 	vector<CacheAccessInfo> cache_access_info;
 	cache_access_info.reserve(kCacheEntityCount);
 	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
@@ -77,14 +83,25 @@ vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
 		    .cache_type = CACHE_ENTITY_NAMES[idx],
 		    .cache_hit_count = cache_access_count[idx * kCacheAccessCount],
 		    .cache_miss_count = cache_access_count[idx * kCacheAccessCount + 1],
-		    .cache_miss_by_in_use = cache_access_count[idx * kCacheAccessCount + 2],
 		});
+
+		// Record cache miss by in-use for file handle cahce.
+		if (idx == static_cast<idx_t>(IoOperation::kOpen)) {
+			cache_access_info[idx].cache_miss_by_in_use =
+			    Value::UBIGINT(cache_access_count[idx * kCacheAccessCount + 2]);
+		}
+
+		// Record "bytes to read" and "bytes to cache" for data cache.
+		if (idx == static_cast<idx_t>(IoOperation::kRead)) {
+			cache_access_info[idx].total_bytes_to_cache = Value::UBIGINT(total_bytes_to_cache);
+			cache_access_info[idx].total_bytes_to_read = Value::UBIGINT(total_bytes_to_read);
+		}
 	}
 	return cache_access_info;
 }
 
 std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
-	std::lock_guard<std::mutex> lck(stats_mutex);
+	const std::lock_guard<std::mutex> lck(stats_mutex);
 
 	string stats =
 	    StringUtil::Format("For temp profile collector and stats for %s (unit in milliseconds)\n", cache_reader_type);
@@ -94,11 +111,26 @@ std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 		stats = StringUtil::Format(
 		    "%s\n"
 		    "%s cache hit count = %d\n"
-		    "%s cache miss count = %d\n"
-		    "%s cache miss by in-use resource = %d\n",
+		    "%s cache miss count = %d\n",
 		    stats, CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * kCacheAccessCount],
-		    CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * kCacheAccessCount + 1],
-		    CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * kCacheAccessCount + 2]);
+		    CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * kCacheAccessCount + 1]);
+
+		// Record "bytes to read" and "bytes to cache" for data cache.
+		if (cur_entity_idx == static_cast<idx_t>(IoOperation::kOpen)) {
+			stats = StringUtil::Format("%s\n"
+			                           "for file handle cache, "
+			                           "cache miss by in-use resource = %d\n",
+			                           stats, cache_access_count[cur_entity_idx * kCacheAccessCount + 2]);
+		}
+
+		// Record "bytes to read" and "bytes to cache" for data cache.
+		if (cur_entity_idx == static_cast<idx_t>(IoOperation::kRead)) {
+			stats = StringUtil::Format("%s\n"
+			                           "for data cache, "
+			                           "number of bytes to read = %d\n"
+			                           "number of bytes to cache = %d\n",
+			                           stats, total_bytes_to_read, total_bytes_to_cache);
+		}
 	}
 
 	// Record IO operation latency.

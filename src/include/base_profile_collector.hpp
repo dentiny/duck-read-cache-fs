@@ -50,6 +50,8 @@ public:
 	virtual void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) = 0;
 	// Record cache access condition.
 	virtual void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) = 0;
+	// Record cache size and actual bytes access.
+	virtual void RecordActualCacheRead(idx_t cache_size, idx_t actual_bytes) = 0;
 	// Get profiler type.
 	virtual string GetProfilerType() = 0;
 	// Get cache access information.
@@ -90,6 +92,8 @@ public:
 	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override {
 	}
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {
+	}
+	void RecordActualCacheRead(idx_t cache_size, idx_t actual_bytes) override {
 	}
 	string GetProfilerType() override {
 		return *NOOP_PROFILE_TYPE;
