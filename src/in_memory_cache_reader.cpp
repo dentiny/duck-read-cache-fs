@@ -119,6 +119,10 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		});
 	}
 	io_threads.Wait();
+
+	// Record "bytes to read" and "bytes to cache".
+	profile_collector->RecordActualCacheRead(/*cache_size=*/subrequest_count * block_size,
+	                                         /*actual_bytes=*/requested_bytes_to_read);
 }
 
 vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
