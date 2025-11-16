@@ -246,6 +246,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in
 	// parallel.
+	idx_t total_bytes_to_cache = 0;
 	for (idx_t io_start_offset = aligned_start_offset; io_start_offset <= aligned_last_chunk_offset;
 	     io_start_offset += block_size) {
 		CacheReadChunk cache_read_chunk;
@@ -285,6 +286,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			cache_read_chunk.bytes_to_copy = block_size;
 			cache_read_chunk.chunk_size = block_size;
 		}
+		total_bytes_to_cache += cache_read_chunk.chunk_size;
 
 		// Update read offset for next chunk read.
 		requested_start_offset = io_start_offset + block_size;
@@ -385,7 +387,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	io_threads.Wait();
 
 	// Record "bytes to read" and "bytes to cache".
-	profile_collector->RecordActualCacheRead(/*cache_size=*/subrequest_count * block_size,
+	profile_collector->RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
 	                                         /*actual_bytes=*/requested_bytes_to_read);
 }
 

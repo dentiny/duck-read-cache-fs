@@ -71,6 +71,8 @@ void TempProfileCollector::Reset() {
 		cur_histogram->Reset();
 	}
 	cache_access_count.fill(0);
+	total_bytes_to_cache = 0;
+	total_bytes_to_read = 0;
 	latest_timestamp = 0;
 }
 
