@@ -3,7 +3,11 @@
 #include <algorithm>
 #include <ctime>
 
+#if defined(_WIN32)
+#include <windows.h>
+#else
 #include <sys/statvfs.h>
+#endif
 
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/file_system.hpp"
@@ -50,6 +54,14 @@ vector<std::string> GetSortedFilesUnder(const std::string &folder) {
 }
 
 idx_t GetOverallFileSystemDiskSpace(const std::string &path) {
+#if defined(_WIN32)
+	ULARGE_INTEGER total_bytes;
+	ULARGE_INTEGER free_bytes_unused;
+	ULARGE_INTEGER total_free_unused;
+	const BOOL ok = GetDiskFreeSpaceExA(path.c_str(), &free_bytes_unused, &total_bytes, &total_free_unused);
+	D_ASSERT(ok);
+	return static_cast<idx_t>(total_bytes.QuadPart);
+#else
 	struct statvfs vfs;
 
 	const auto ret = statvfs(path.c_str(), &vfs);
@@ -58,6 +70,7 @@ idx_t GetOverallFileSystemDiskSpace(const std::string &path) {
 	auto total_blocks = vfs.f_blocks;
 	auto block_size = vfs.f_frsize;
 	return static_cast<idx_t>(total_blocks) * static_cast<idx_t>(block_size);
+#endif
 }
 
 bool CanCacheOnDisk(const std::string &path) {
