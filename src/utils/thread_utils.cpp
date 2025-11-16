@@ -1,6 +1,8 @@
 #include "thread_utils.hpp"
 
+#if defined(__linux__) || defined(__APPLE__)
 #include <pthread.h>
+#endif
 #include <thread>
 
 #if defined(__linux__)
@@ -21,7 +23,7 @@ void SetThreadName(const std::string &thread_name) {
 int GetCpuCoreCount() {
 #if defined(__APPLE__)
 	return std::thread::hardware_concurrency();
-#else
+#elif defined(__linux__)
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
 	sched_getaffinity(0, sizeof(cpuset), &cpuset);
