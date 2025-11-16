@@ -137,8 +137,8 @@ unique_ptr<FunctionData> CacheAccessInfoQueryFuncBind(ClientContext &context, Ta
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
 
-	return_types.reserve(4);
-	names.reserve(4);
+	return_types.reserve(6);
+	names.reserve(6);
 
 	// Cache type.
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
@@ -152,9 +152,17 @@ unique_ptr<FunctionData> CacheAccessInfoQueryFuncBind(ClientContext &context, Ta
 	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 	names.emplace_back("cache_miss_count");
 
-	// Cache miss by in-use count.
+	// Used for file handle cache, cache miss by in-use count.
 	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
-	names.emplace_back("cache_miss_by_in_use");
+	names.emplace_back("cache_miss_by_in_use (file handle cache)");
+
+	// Used for data cache, total number of bytes to read.
+	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
+	names.emplace_back("number_bytes_to_read (data cache)");
+
+	// Used for data cache, total number of bytes to cache.
+	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
+	names.emplace_back("number_bytes_to_cache (data cache)");
 
 	return nullptr;
 }
@@ -185,6 +193,27 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 			aggregated_cache_access_infos[idx].cache_hit_count += cur_cache_access_info.cache_hit_count;
 			aggregated_cache_access_infos[idx].cache_miss_count += cur_cache_access_info.cache_miss_count;
 			aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur_cache_access_info.cache_miss_by_in_use;
+
+			// For data file cache, record number of bytes to read and to cache.
+			if (idx == static_cast<idx_t>(IoOperation::kRead)) {
+				// Handle number of bytes to read.
+				auto &total_bytes_to_read = aggregated_cache_access_infos[idx].total_bytes_to_read;
+				uint64_t read_value = 0;
+				if (!total_bytes_to_read.IsNull()) {
+					read_value = total_bytes_to_read.GetValue<uint64_t>();
+				}
+				total_bytes_to_read =
+				    Value::UBIGINT(read_value + cur_cache_access_info.total_bytes_to_read.GetValue<uint64_t>());
+
+				// Handle number of bytes to cache.
+				auto &total_bytes_to_cache = aggregated_cache_access_infos[idx].total_bytes_to_cache;
+				uint64_t cache_value = 0;
+				if (!total_bytes_to_cache.IsNull()) {
+					cache_value = total_bytes_to_cache.GetValue<uint64_t>();
+				}
+				total_bytes_to_cache =
+				    Value::UBIGINT(cache_value + cur_cache_access_info.total_bytes_to_cache.GetValue<uint64_t>());
+			}
 		}
 	}
 
@@ -216,6 +245,12 @@ void CacheAccessInfoQueryTableFunc(ClientContext &context, TableFunctionInput &d
 
 		// Cache miss by in-use count.
 		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.cache_miss_by_in_use)));
+
+		// Used for data cache, total number of bytes to read.
+		output.SetValue(col++, count, std::move(entry.total_bytes_to_read));
+
+		// Used for data cache, total number of bytes to cache.
+		output.SetValue(col++, count, std::move(entry.total_bytes_to_cache));
 
 		count++;
 	}

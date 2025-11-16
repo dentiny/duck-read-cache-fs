@@ -20,6 +20,7 @@ public:
 	LatencyGuard RecordOperationStart(IoOperation io_oper) override;
 	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override;
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override;
+	void RecordActualCacheRead(idx_t cache_bytes, idx_t actual_bytes) override;
 	std::string GetProfilerType() override {
 		return *TEMP_PROFILE_TYPE;
 	}
@@ -34,6 +35,10 @@ private:
 	std::array<uint64_t, kCacheEntityCount * kCacheAccessCount> cache_access_count {};
 	// Latest access timestamp in milliseconds since unix epoch.
 	uint64_t latest_timestamp = 0;
+	// Total number of bytes to read.
+	uint64_t total_bytes_to_read = 0;
+	// Total number of bytes to cache.
+	uint64_t total_bytes_to_cache = 0;
 
 	mutable std::mutex stats_mutex;
 };

@@ -87,15 +87,15 @@ D SET cache_httpfs_enable_file_handle_cache=false;
 -- Users are able to check cache access information.
 D SELECT * FROM cache_httpfs_cache_access_info_query();
 
-┌─────────────┬─────────────────┬──────────────────┬──────────────────────┐
-│ cache_type  │ cache_hit_count │ cache_miss_count │ cache_miss_by_in_use │
-│   varchar   │     uint64      │      uint64      │        uint64        │
-├─────────────┼─────────────────┼──────────────────┼──────────────────────┤
-│ metadata    │               0 │                0 │                    0 │
-│ data        │               0 │                0 │                    0 │
-│ file handle │               0 │                0 │                    0 │
-│ glob        │               0 │                0 │                    0 │
-└─────────────┴─────────────────┴──────────────────┴──────────────────────┘
+┌─────────────┬─────────────────┬──────────────────┬──────────────────────────────────────────┬───────────────────────────────────┬────────────────────────────────────┐
+│ cache_type  │ cache_hit_count │ cache_miss_count │ cache_miss_by_in_use (file handle cache) │ number_bytes_to_read (data cache) │ number_bytes_to_cache (data cache) │
+│   varchar   │     uint64      │      uint64      │                  uint64                  │              uint64               │               uint64               │
+├─────────────┼─────────────────┼──────────────────┼──────────────────────────────────────────┼───────────────────────────────────┼────────────────────────────────────┤
+│ metadata    │               0 │                0 │                                        0 │                              NULL │                               NULL │
+│ data        │               0 │                0 │                                        0 │                              NULL │                               NULL │
+│ file handle │               0 │                0 │                                        0 │                              NULL │                               NULL │
+│ glob        │               0 │                0 │                                        0 │                              NULL │                               NULL │
+└─────────────┴─────────────────┴──────────────────┴──────────────────────────────────────────┴───────────────────────────────────┴────────────────────────────────────┘
 ```
 
 - For certain files, applications or users might don't want to cache them. For example, configurations file are usually read and parsed only once. The extension is able to blacklist caching for certain files via exclusion regex.
