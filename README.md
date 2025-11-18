@@ -27,6 +27,9 @@ Key features:
   + temp, all access stats are stored in memory, which could be retrieved via `SELECT cache_httpfs_get_profile();`
   + duckdb (under work), stats are stored in duckdb so we could leverage its rich feature for analysis purpose (i.e. use histogram to understant latency distribution)
   + profiling is by default disabled
+- Cache status query functions provide visibility into cache state and access:
+  + `cache_httpfs_cache_status_query()` - Returns information about all cached entries including cache filepath, remote filename, byte ranges (start_offset, end_offset), and cache type (in-memory or on-disk)
+  + `cache_httpfs_cache_access_info_query()` - Returns cache access statistics including cache hit/miss counts, bytes read, and bytes cached for different cache entities (data, metadata, file handles, glob)
 - 100% Compatibility with duckdb `httpfs`
   + Extension is built upon `httpfs` extension and automatically load it beforehand, so it's fully compatible with it; we provide option `SET cache_httpfs_type='noop'; SET enable_external_file_cache=true;` to fallback to and behave exactly as httpfs.
 - Interaction with duckdb internal "external file cache". Duckdb by default enables external file cache, to avoid double caching cache_httpfs extension by default disable external file cache, which could be re-enabled by `SET enable_external_file_cache=true;`.
