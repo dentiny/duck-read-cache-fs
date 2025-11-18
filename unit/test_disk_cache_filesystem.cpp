@@ -381,6 +381,49 @@ TEST_CASE("Test on reading non-existent file", "[on-disk cache filesystem test]"
 	REQUIRE_THROWS(disk_cache_fs->OpenFile("non-existent-file", FileOpenFlags::FILE_FLAGS_READ));
 }
 
+TEST_CASE("Test on zero-byte cache file", "[on-disk cache filesystem test]") {
+	constexpr uint64_t test_block_size = 5;
+	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	g_cache_block_size = test_block_size;
+	SCOPE_EXIT {
+		ResetGlobalStateAndConfig();
+	};
+
+	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+
+	const auto zero_byte_filename = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	SCOPE_EXIT {
+		LocalFileSystem::CreateLocal()->RemoveFile(zero_byte_filename);
+	};
+	{
+		auto local_filesystem = LocalFileSystem::CreateLocal();
+		auto file_handle = local_filesystem->OpenFile(
+		    zero_byte_filename, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		file_handle->Sync();
+		file_handle->Close();
+	}
+
+	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	// Check the empty file and verify no cache files are created.
+	{
+		auto handle = disk_cache_fs->OpenFile(zero_byte_filename, FileOpenFlags::FILE_FLAGS_READ);
+		const uint64_t start_offset = 0;
+		const uint64_t bytes_to_read = 10;
+		string content(bytes_to_read, '\0');
+		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                    start_offset);
+		// Check all bytes remain null, since buffer should be unchanged for zero-byte file.
+		REQUIRE(content.size() == bytes_to_read);
+		for (size_t i = 0; i < content.size(); ++i) {
+			REQUIRE(content[i] == '\0');
+		}
+	}
+
+	// Verify no cache files were created for zero-byte file.
+	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 0);
+}
+
 TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
 	g_cache_block_size = 5;
 	SCOPE_EXIT {
