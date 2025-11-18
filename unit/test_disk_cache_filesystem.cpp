@@ -415,8 +415,8 @@ TEST_CASE("Test on zero-byte cache file", "[on-disk cache filesystem test]") {
 		                    start_offset);
 		// Check all bytes remain null, since buffer should be unchanged for zero-byte file.
 		REQUIRE(content.size() == bytes_to_read);
-		for (size_t i = 0; i < content.size(); ++i) {
-			REQUIRE(content[i] == '\0');
+		for (size_t idx = 0; idx < content.size(); ++idx) {
+			REQUIRE(content[idx] == '\0');
 		}
 	}
 
