@@ -1,3 +1,11 @@
+# 0.9.4
+
+## Added
+
+- Add metrics for bytes to read and bytes to cache ([#306])
+
+[#306]: https://github.com/dentiny/duck-read-cache-fs/pull/306
+
 # 0.9.3
 
 ## Changed
