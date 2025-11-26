@@ -2,6 +2,7 @@
 
 #include "base_cache_reader.hpp"
 #include "disk_cache_reader.hpp"
+#include "duckdb/main/database.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "noop_cache_reader.hpp"
 
@@ -18,7 +19,7 @@ void CacheReaderManager::InitializeDiskCacheReader() {
 	}
 }
 
-void CacheReaderManager::SetCacheReader() {
+void CacheReaderManager::SetCacheReader(optional_ptr<DatabaseInstance> duckdb_instance) {
 	if (*g_cache_type == *NOOP_CACHE_TYPE) {
 		if (noop_cache_reader == nullptr) {
 			noop_cache_reader = make_uniq<NoopCacheReader>();
@@ -29,7 +30,7 @@ void CacheReaderManager::SetCacheReader() {
 
 	if (*g_cache_type == *ON_DISK_CACHE_TYPE) {
 		if (on_disk_cache_reader == nullptr) {
-			on_disk_cache_reader = make_uniq<DiskCacheReader>();
+			on_disk_cache_reader = make_uniq<DiskCacheReader>(duckdb_instance);
 		}
 		internal_cache_reader = on_disk_cache_reader.get();
 		return;

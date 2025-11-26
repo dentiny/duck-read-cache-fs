@@ -1,6 +1,20 @@
+#pragma once
+
+#include "duckdb/common/file_system.hpp"
+#include "duckdb/common/string_util.hpp"
+#include "duckdb/logging/logger.hpp"
+#include "duckdb/logging/log_type.hpp"
 #include "duckdb/logging/file_system_logger.hpp"
 
 namespace duckdb {
+
+// A wrapper around [DUCKDB_LOG_DEBUG], which takes optional pointer for duckdb instance.
+#define DUCKDB_LOG_DEBUG_OPTIONAL(INSTANCE_PTR, ...)                                                                   \
+	{                                                                                                                  \
+		if (INSTANCE_PTR) {                                                                                            \
+			DUCKDB_LOG_DEBUG(*INSTANCE_PTR, __VA_ARGS__);                                                              \
+		}                                                                                                              \
+	}
 
 // Reference-version macros.
 #define DUCKDB_LOG_OPEN_CACHE_HIT(HANDLE)  DUCKDB_LOG_FILE_SYSTEM(HANDLE, "FILE OPEN CACHE HIT");

@@ -8,6 +8,7 @@
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_filesystem_logger.hpp"
 #include "cache_filesystem_ref_registry.hpp"
 #include "cache_reader_manager.hpp"
 #include "cache_status_query_function.hpp"
@@ -155,9 +156,10 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 		throw InvalidInputException("Filesystem %s hasn't been registered yet!", filesystem_name);
 	}
 
-	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(internal_filesystem));
+	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(internal_filesystem), duckdb_instance);
 	CacheFsRefRegistry::Get().Register(cache_filesystem.get());
 	vfs.RegisterSubSystem(std::move(cache_filesystem));
+	DUCKDB_LOG_DEBUG(duckdb_instance, StringUtil::Format("Wrap filesystem %s with cache filesystem.", filesystem_name));
 
 	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
@@ -268,18 +270,21 @@ void LoadInternal(ExtensionLoader &loader) {
 	auto cache_httpfs_filesystem = make_uniq<CacheFileSystem>(std::move(http_fs));
 	CacheFsRefRegistry::Get().Register(cache_httpfs_filesystem.get());
 	vfs.RegisterSubSystem(std::move(cache_httpfs_filesystem));
+	DUCKDB_LOG_DEBUG(instance, "Wrap HTTPFileSystem with cache filesystem.");
 
 	// Register hugging filesystem.
 	auto hf_fs = ExtractOrCreateHuggingfs(vfs);
 	auto cache_hf_filesystem = make_uniq<CacheFileSystem>(std::move(hf_fs));
 	CacheFsRefRegistry::Get().Register(cache_hf_filesystem.get());
 	vfs.RegisterSubSystem(std::move(cache_hf_filesystem));
+	DUCKDB_LOG_DEBUG(instance, "Wrap HuggingFaceFileSystem with cache filesystem.");
 
 	// Register s3 filesystem.
 	auto s3_fs = ExtractOrCreateS3fs(vfs, instance);
 	auto cache_s3_filesystem = make_uniq<CacheFileSystem>(std::move(s3_fs));
 	CacheFsRefRegistry::Get().Register(cache_s3_filesystem.get());
 	vfs.RegisterSubSystem(std::move(cache_s3_filesystem));
+	DUCKDB_LOG_DEBUG(instance, "Wrap S3FileSystem with cache filesystem.");
 
 	// Register extension configuration.
 	auto &config = DBConfig::GetConfig(instance);

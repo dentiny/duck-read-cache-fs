@@ -16,26 +16,31 @@
 
 namespace duckdb {
 
-void EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_directory) {
-	const timestamp_t now = Timestamp::GetCurrentTimestamp();
-	local_filesystem.ListFiles(
-	    cache_directory, [&local_filesystem, &cache_directory, now](const string &fname, bool /*unused*/) {
-		    // Multiple threads could attempt to access and delete stale files, tolerate non-existent file.
-		    const string full_name = StringUtil::Format("%s/%s", cache_directory, fname);
-		    auto file_handle = local_filesystem.OpenFile(full_name, FileOpenFlags::FILE_FLAGS_READ |
-		                                                                FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
-		    if (file_handle == nullptr) {
-			    return;
-		    }
+vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_directory) {
+	vector<string> evicted_cache_files;
 
-		    const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
-		    const int64_t diff_in_microsec = now.value - last_mod_time.value;
-		    if (diff_in_microsec >= CACHE_FILE_STALENESS_MICROSEC) {
-			    if (std::remove(full_name.data()) < -1 && errno != EEXIST) {
-				    throw IOException("Fails to delete stale cache file %s", full_name);
-			    }
-		    }
-	    });
+	const timestamp_t now = Timestamp::GetCurrentTimestamp();
+	local_filesystem.ListFiles(cache_directory, [&evicted_cache_files, &local_filesystem, &cache_directory,
+	                                             now](const string &fname, bool /*unused*/) {
+		// Multiple threads could attempt to access and delete stale files, tolerate non-existent file.
+		string full_name = StringUtil::Format("%s/%s", cache_directory, fname);
+		auto file_handle = local_filesystem.OpenFile(full_name, FileOpenFlags::FILE_FLAGS_READ |
+		                                                            FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+		if (file_handle == nullptr) {
+			return;
+		}
+
+		const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
+		const int64_t diff_in_microsec = now.value - last_mod_time.value;
+		if (diff_in_microsec >= CACHE_FILE_STALENESS_MICROSEC) {
+			if (std::remove(full_name.data()) < -1 && errno != EEXIST) {
+				throw IOException("Fails to delete stale cache file %s", full_name);
+			}
+			evicted_cache_files.emplace_back(std::move(full_name));
+		}
+	});
+
+	return evicted_cache_files;
 }
 
 int GetFileCountUnder(const std::string &folder) {

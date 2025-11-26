@@ -13,11 +13,12 @@ namespace duckdb {
 
 // Evict stale cache files.
 //
-// The function iterates all cache files under the directory, and performs a
-// stat call on each of them, could be a performance bottleneck. But as the
-// initial implementation, cache eviction only happens when insufficient disk
-// space detected, which happens rarely thus not a big concern.
-void EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_directory);
+// The function iterates all cache files under the directory, and performs a stat call on each of them, could be a
+// performance bottleneck. But as the initial implementation, cache eviction only happens when insufficient disk space
+// detected, which happens rarely thus not a big concern.
+//
+// Return the deleted cache files.
+vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_directory);
 
 // Get the number of files under the given local filesystem [folder].
 int GetFileCountUnder(const string &folder);
