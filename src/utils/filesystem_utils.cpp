@@ -7,6 +7,9 @@
 #include <windows.h>
 #else
 #include <sys/statvfs.h>
+#include <utime.h>
+#include <cerrno>
+#include <cstring>
 #endif
 
 #include "cache_filesystem_config.hpp"
@@ -133,6 +136,32 @@ map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string> &folders) {
 		});
 	}
 	return cache_files_map;
+}
+
+bool UpdateFileTimestamps(const string &filepath) {
+#if defined(_WIN32)
+	// [FILE_SHARE_DELETE] is specified to allow the file to be deleted concurrently by other threads.
+	HANDLE hFile =
+	    CreateFileA(filepath.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+	                /*lpSecurityAttributes=*/nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+	                /*hTemplateFile=*/nullptr);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		return false;
+	}
+
+	FILETIME ft;
+	SYSTEMTIME st;
+	GetSystemTime(&st);
+	SystemTimeToFileTime(&st, &ft);
+
+	BOOL success = SetFileTime(hFile, nullptr, &ft, &ft);
+	CloseHandle(hFile);
+
+	return success != 0;
+#else
+	const int ret_code = utime(filepath.c_str(), /*times=*/nullptr);
+	return ret_code == 0;
+#endif
 }
 
 } // namespace duckdb
