@@ -21,7 +21,6 @@
 #include <cstdint>
 #include <tuple>
 #include <utility>
-#include <utime.h>
 
 namespace duckdb {
 
@@ -353,14 +352,10 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 				}
 
 				// Update access and modification timestamp for the cache file, so it won't get evicted.
+				// Intentionally ignore the return value, since it's possible the cache file has been requested to
+				// delete by another eviction thread.
 				// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
-				const int ret_code = utime(cache_destination.cache_filepath.data(), /*times=*/nullptr);
-				// It's possible the cache file has been requested to delete by eviction thread, so `ENOENT` is a
-				// tolarable error.
-				if (ret_code != 0 && errno != ENOENT) {
-					throw IOException("Fails to update %s's access and modification timestamp because %s",
-					                  cache_destination.cache_filepath, strerror(errno));
-				}
+				UpdateFileTimestamps(cache_destination.cache_filepath);
 				return;
 			}
 

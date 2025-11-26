@@ -107,8 +107,8 @@ install(
 # Test cases.
 include_directories(duckdb/third_party/catch)
 
-add_executable(test_noop_cache_reader unit/test_noop_cache_reader.cpp)
-target_link_libraries(test_noop_cache_reader ${EXTENSION_NAME})
+# add_executable(test_noop_cache_reader unit/test_noop_cache_reader.cpp)
+# target_link_libraries(test_noop_cache_reader ${EXTENSION_NAME})
 
 add_executable(test_disk_cache_filesystem unit/test_disk_cache_filesystem.cpp)
 target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})

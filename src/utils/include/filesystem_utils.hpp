@@ -36,4 +36,8 @@ bool CanCacheOnDisk(const string &path);
 // Get all on-disk cache files and sorted them in their creation timestamp.
 map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string> &folders);
 
+// Update file access and modification timestamps to the current time.
+// Return whether the update operation succeeds.
+bool UpdateFileTimestamps(const string &filepath);
+
 } // namespace duckdb
