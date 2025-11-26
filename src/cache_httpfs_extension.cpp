@@ -267,21 +267,21 @@ void LoadInternal(ExtensionLoader &loader) {
 	//
 	// Register http filesystem.
 	auto http_fs = ExtractOrCreateHttpfs(vfs);
-	auto cache_httpfs_filesystem = make_uniq<CacheFileSystem>(std::move(http_fs));
+	auto cache_httpfs_filesystem = make_uniq<CacheFileSystem>(std::move(http_fs), &instance);
 	CacheFsRefRegistry::Get().Register(cache_httpfs_filesystem.get());
 	vfs.RegisterSubSystem(std::move(cache_httpfs_filesystem));
 	DUCKDB_LOG_DEBUG(instance, "Wrap HTTPFileSystem with cache filesystem.");
 
 	// Register hugging filesystem.
 	auto hf_fs = ExtractOrCreateHuggingfs(vfs);
-	auto cache_hf_filesystem = make_uniq<CacheFileSystem>(std::move(hf_fs));
+	auto cache_hf_filesystem = make_uniq<CacheFileSystem>(std::move(hf_fs), &instance);
 	CacheFsRefRegistry::Get().Register(cache_hf_filesystem.get());
 	vfs.RegisterSubSystem(std::move(cache_hf_filesystem));
 	DUCKDB_LOG_DEBUG(instance, "Wrap HuggingFaceFileSystem with cache filesystem.");
 
 	// Register s3 filesystem.
 	auto s3_fs = ExtractOrCreateS3fs(vfs, instance);
-	auto cache_s3_filesystem = make_uniq<CacheFileSystem>(std::move(s3_fs));
+	auto cache_s3_filesystem = make_uniq<CacheFileSystem>(std::move(s3_fs), &instance);
 	CacheFsRefRegistry::Get().Register(cache_s3_filesystem.get());
 	vfs.RegisterSubSystem(std::move(cache_s3_filesystem));
 	DUCKDB_LOG_DEBUG(instance, "Wrap S3FileSystem with cache filesystem.");
