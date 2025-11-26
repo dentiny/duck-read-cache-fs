@@ -140,8 +140,10 @@ map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string> &folders) {
 
 bool UpdateFileTimestamps(const string &filepath) {
 #if defined(_WIN32)
-	HANDLE hFile = CreateFileA(filepath.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
-	                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+	// [FILE_SHARE_DELETE] is specified to allow the file to be deleted concurrently by other threads.
+	HANDLE hFile =
+	    CreateFileA(filepath.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+	                nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (hFile == INVALID_HANDLE_VALUE) {
 		return false;
 	}
