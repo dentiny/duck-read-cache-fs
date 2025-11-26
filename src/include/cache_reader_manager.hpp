@@ -5,17 +5,21 @@
 #pragma once
 
 #include "base_cache_reader.hpp"
+#include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
 
 namespace duckdb {
+
+// Forward declaration.
+class DatabaseInstance;
 
 class CacheReaderManager {
 public:
 	static CacheReaderManager &Get();
 
 	// Set cache reader if uninitialized.
-	void SetCacheReader();
+	void SetCacheReader(optional_ptr<DatabaseInstance> duckdb_instance = nullptr);
 
 	// Get current cache reader.
 	BaseCacheReader *GetCacheReader() const;

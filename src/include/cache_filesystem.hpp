@@ -8,6 +8,7 @@
 #include "counter.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/open_file_info.hpp"
+#include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/main/client_context.hpp"
@@ -23,6 +24,7 @@ namespace duckdb {
 // Forward declaration.
 class CacheFileSystem;
 class Logger;
+class DatabaseInstance;
 
 // File handle used for cache filesystem.
 //
@@ -66,8 +68,10 @@ public:
 
 class CacheFileSystem : public FileSystem {
 public:
-	explicit CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p)
-	    : internal_filesystem(std::move(internal_filesystem_p)), cache_reader_manager(CacheReaderManager::Get()) {
+	explicit CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p,
+	                         optional_ptr<DatabaseInstance> duckdb_instance_p = nullptr)
+	    : internal_filesystem(std::move(internal_filesystem_p)), cache_reader_manager(CacheReaderManager::Get()),
+	      duckdb_instance(duckdb_instance_p) {
 	}
 	~CacheFileSystem() override {
 		ClearFileHandleCache();
@@ -321,6 +325,8 @@ private:
 	// Glob cache, which maps from path to filenames.
 	using GlobCache = ThreadSafeSharedLruConstCache<string, vector<OpenFileInfo>>;
 	unique_ptr<GlobCache> glob_cache;
+	// Database instance for logging purpose.
+	optional_ptr<DatabaseInstance> duckdb_instance;
 };
 
 } // namespace duckdb

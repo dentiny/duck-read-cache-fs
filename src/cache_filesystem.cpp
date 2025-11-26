@@ -306,7 +306,7 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
 	SetGlobalConfig(opener);
 	SetProfileCollector();
-	cache_reader_manager.SetCacheReader();
+	cache_reader_manager.SetCacheReader(duckdb_instance);
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();

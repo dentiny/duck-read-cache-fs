@@ -12,6 +12,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "duckdb/main/database.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/thread_pool.hpp"
@@ -115,13 +116,17 @@ string GetLocalCacheFilePrefix(const string &remote_file) {
 }
 
 // Attempt to evict cache files, if file size threshold reached.
-void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, const string &cache_directory) {
+void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, const string &cache_directory,
+                     optional_ptr<DatabaseInstance> duckdb_instance) {
 	// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
 	// because on unix platform files are only deleted physically when their last reference count goes away.
 	//
 	// For timestamp-based eviction, we simply return all the files which reaches certain threshold.
 	if (*g_on_disk_eviction_policy == *ON_DISK_CREATION_TIMESTAMP_EVICTION) {
-		EvictStaleCacheFiles(local_filesystem, cache_directory);
+		const auto evicted_files = EvictStaleCacheFiles(local_filesystem, cache_directory);
+		for (const auto &cur_file : evicted_files) {
+			DUCKDB_LOG_DEBUG_OPTIONAL(duckdb_instance, StringUtil::Format("Remove disk cache file %s", cur_file));
+		}
 		return;
 	}
 
@@ -130,46 +135,13 @@ void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, cons
 	const auto filepath_to_evict = reader.EvictCacheBlockLru();
 	// Intentionally ignore return value.
 	local_filesystem.TryRemoveFile(filepath_to_evict);
-}
-
-// Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
-void CacheLocal(DiskCacheReader &reader, const CacheReadChunk &chunk, FileSystem &local_filesystem,
-                const FileHandle &handle, const string &cache_directory, const string &local_cache_file,
-                const string &content) {
-	// Skip local cache if insufficient disk space.
-	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
-	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
-	// cache chunk size.
-	if (!CanCacheOnDisk(cache_directory)) {
-		EvictCacheFiles(reader, local_filesystem, cache_directory);
-		return;
-	}
-
-	// Dump to a temporary location at local filesystem.
-	const auto fname = StringUtil::GetFileName(handle.GetPath());
-	const auto local_temp_file = StringUtil::Format("%s%s.%s.httpfs_local_cache", cache_directory, fname,
-	                                                UUID::ToString(UUID::GenerateRandomUUID()));
-	{
-		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
-		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
-		if (g_enable_disk_reader_mem_cache) {
-			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
-		}
-		auto file_handle = local_filesystem.OpenFile(local_temp_file, std::move(file_open_flags));
-		local_filesystem.Write(*file_handle, const_cast<char *>(content.data()),
-		                       /*nr_bytes=*/chunk.chunk_size,
-		                       /*location=*/0);
-		file_handle->Sync();
-	}
-
-	// Then atomically move to the target postion to prevent data corruption due to concurrent write.
-	local_filesystem.MoveFile(/*source=*/local_temp_file,
-	                          /*target=*/local_cache_file);
+	DUCKDB_LOG_DEBUG_OPTIONAL(duckdb_instance, StringUtil::Format("Remove disk cache file %s", filepath_to_evict));
 }
 
 } // namespace
 
-DiskCacheReader::DiskCacheReader() : local_filesystem(LocalFileSystem::CreateLocal()) {
+DiskCacheReader::DiskCacheReader(optional_ptr<DatabaseInstance> duckdb_instance_p)
+    : local_filesystem(LocalFileSystem::CreateLocal()), duckdb_instance(duckdb_instance_p) {
 }
 
 string DiskCacheReader::EvictCacheBlockLru() {
@@ -184,6 +156,40 @@ string DiskCacheReader::EvictCacheBlockLru() {
 	auto filepath = std::move(cache_file_creation_timestamp_map.begin()->second);
 	cache_file_creation_timestamp_map.erase(cache_file_creation_timestamp_map.begin());
 	return filepath;
+}
+
+void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_directory,
+                                 const string &local_cache_file, const string &content) {
+	// Skip local cache if insufficient disk space.
+	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
+	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
+	// cache chunk size.
+	if (!CanCacheOnDisk(cache_directory)) {
+		EvictCacheFiles(*this, *local_filesystem, cache_directory, duckdb_instance);
+		return;
+	}
+
+	// Dump to a temporary location at local filesystem.
+	const auto fname = StringUtil::GetFileName(handle.GetPath());
+	const auto local_temp_file = StringUtil::Format("%s%s.%s.httpfs_local_cache", cache_directory, fname,
+	                                                UUID::ToString(UUID::GenerateRandomUUID()));
+	{
+		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
+		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
+		if (g_enable_disk_reader_mem_cache) {
+			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
+		}
+		auto file_handle = local_filesystem->OpenFile(local_temp_file, std::move(file_open_flags));
+		local_filesystem->Write(*file_handle, const_cast<char *>(content.data()),
+		                        /*nr_bytes=*/content.length(),
+		                        /*location=*/0);
+		file_handle->Sync();
+	}
+
+	// Then atomically move to the target postion to prevent data corruption due to concurrent write.
+	local_filesystem->MoveFile(/*source=*/local_temp_file, /*target=*/local_cache_file);
+	DUCKDB_LOG_DEBUG_OPTIONAL(duckdb_instance, StringUtil::Format("Disk cache file persisted to %s with size %zu",
+	                                                              local_cache_file, content.length()));
 }
 
 vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
@@ -375,8 +381,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 			// Attempt to cache file locally.
 			const auto &cache_directory = (*g_on_disk_cache_directories)[cache_destination.cache_directory_idx];
-			CacheLocal(*this, cache_read_chunk, *local_filesystem, handle, cache_directory,
-			           cache_destination.cache_filepath, content);
+			CacheLocal(handle, cache_directory, cache_destination.cache_filepath, content);
 
 			// Update in-memory cache if applicable.
 			if (in_mem_cache_blocks != nullptr) {

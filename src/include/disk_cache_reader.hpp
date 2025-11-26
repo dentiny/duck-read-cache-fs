@@ -9,6 +9,7 @@
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/map.hpp"
+#include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/unique_ptr.hpp"
@@ -19,9 +20,12 @@
 
 namespace duckdb {
 
+// Forward declaration.
+class DatabaseInstance;
+
 class DiskCacheReader final : public BaseCacheReader {
 public:
-	DiskCacheReader();
+	explicit DiskCacheReader(optional_ptr<DatabaseInstance> duckdb_instance_p = nullptr);
 	~DiskCacheReader() override = default;
 
 	std::string GetName() const override {
@@ -43,6 +47,11 @@ public:
 private:
 	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
 
+	// Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
+	// Otherwise, nothing happens.
+	void CacheLocal(const FileHandle &handle, const string &cache_directory, const string &local_cache_file,
+	                const string &content);
+
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
 	// Used for on-disk cache block LRU-based eviction.
@@ -55,6 +64,8 @@ private:
 	// Used to avoid local disk IO.
 	// NOTICE: cache key uses remote filepath, instead of local cache filepath.
 	unique_ptr<InMemCache> in_mem_cache_blocks;
+	// Duckdb instance, used for logging purpose.
+	optional_ptr<DatabaseInstance> duckdb_instance;
 };
 
 } // namespace duckdb
