@@ -13,7 +13,6 @@
 
 #include <cstdint>
 #include <utility>
-#include <utime.h>
 
 namespace duckdb {
 
