@@ -1,14 +1,11 @@
 #include "cache_filesystem.hpp"
 
-#include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "in_memory_cache_reader.hpp"
-#include "noop_cache_reader.hpp"
 #include "temp_profile_collector.hpp"
-#include "utils/include/time_utils.hpp"
 
 namespace duckdb {
 
@@ -17,6 +14,31 @@ namespace {
 constexpr const char *FILE_SIZE_INFO_KEY = "file_size";
 // For certain filesystems, file open info contains "last_modified" field in the extended stats map.
 constexpr const char *LAST_MOD_TIMESTAMP_KEY = "last_modified";
+
+// Helper to get cache reader manager from instance state
+InstanceCacheReaderManager *GetCacheReaderManager(CacheHttpfsInstanceState *state) {
+	if (!state) {
+		return nullptr;
+	}
+	return &state->cache_reader_manager;
+}
+
+// Helper to get instance config
+InstanceConfig *GetInstanceConfig(CacheHttpfsInstanceState *state) {
+	if (!state) {
+		return nullptr;
+	}
+	return &state->config;
+}
+
+// Helper to get exclusion manager from instance state
+CacheExclusionManager *GetExclusionManager(CacheHttpfsInstanceState *state) {
+	if (!state) {
+		return nullptr;
+	}
+	return &state->exclusion_manager;
+}
+
 } // namespace
 
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
@@ -32,9 +54,6 @@ FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
 }
 
 string CacheFileSystemHandle::GetVersionTag() {
-	if (!g_enable_cache_validation) {
-		return "";
-	}
 	auto *internal_filesystem = GetInternalFileSystem();
 	return internal_filesystem->GetVersionTag(*internal_file_handle);
 }
@@ -52,12 +71,18 @@ void CacheFileSystemHandle::Close() {
 }
 
 void CacheFileSystem::SetMetadataCache() {
-	if (!g_enable_metadata_cache) {
+	auto *config = GetInstanceConfig(instance_state.lock().get());
+	bool enable = config ? config->enable_metadata_cache : DEFAULT_ENABLE_METADATA_CACHE;
+	idx_t max_entry = config ? config->max_metadata_cache_entry : DEFAULT_MAX_METADATA_CACHE_ENTRY;
+	idx_t timeout =
+	    config ? config->metadata_cache_entry_timeout_millisec : DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
+
+	if (!enable) {
 		metadata_cache = nullptr;
 		return;
 	}
 	if (metadata_cache == nullptr) {
-		metadata_cache = make_uniq<MetadataCache>(g_max_metadata_cache_entry, g_metadata_cache_entry_timeout_millisec);
+		metadata_cache = make_uniq<MetadataCache>(max_entry, timeout);
 	}
 }
 
@@ -72,12 +97,17 @@ void CacheFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener
 }
 
 void CacheFileSystem::SetGlobCache() {
-	if (!g_enable_glob_cache) {
+	auto *config = GetInstanceConfig(instance_state.lock().get());
+	bool enable = config ? config->enable_glob_cache : DEFAULT_ENABLE_GLOB_CACHE;
+	idx_t max_entry = config ? config->max_glob_cache_entry : DEFAULT_MAX_GLOB_CACHE_ENTRY;
+	idx_t timeout = config ? config->glob_cache_entry_timeout_millisec : DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;
+
+	if (!enable) {
 		glob_cache = nullptr;
 		return;
 	}
 	if (glob_cache == nullptr) {
-		glob_cache = make_uniq<GlobCache>(g_max_glob_cache_entry, g_glob_cache_entry_timeout_millisec);
+		glob_cache = make_uniq<GlobCache>(max_entry, timeout);
 	}
 }
 
@@ -105,13 +135,18 @@ void CacheFileSystem::ClearFileHandleCache(const std::string &filepath) {
 }
 
 void CacheFileSystem::SetFileHandleCache() {
-	if (!g_enable_file_handle_cache) {
+	auto *config = GetInstanceConfig(instance_state.lock().get());
+	bool enable = config ? config->enable_file_handle_cache : DEFAULT_ENABLE_FILE_HANDLE_CACHE;
+	idx_t max_entry = config ? config->max_file_handle_cache_entry : DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY;
+	idx_t timeout =
+	    config ? config->file_handle_cache_entry_timeout_millisec : DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC;
+
+	if (!enable) {
 		ClearFileHandleCache();
 		return;
 	}
 	if (file_handle_cache == nullptr) {
-		file_handle_cache =
-		    make_shared_ptr<FileHandleCache>(g_max_file_handle_cache_entry, g_file_handle_cache_entry_timeout_millisec);
+		file_handle_cache = make_shared_ptr<FileHandleCache>(max_entry, timeout);
 	}
 	if (in_use_file_handle_counter == nullptr) {
 		in_use_file_handle_counter = make_shared_ptr<InUseFileHandleCounter>();
@@ -119,19 +154,25 @@ void CacheFileSystem::SetFileHandleCache() {
 }
 
 void CacheFileSystem::SetProfileCollector() {
-	if (*g_profile_type == *NOOP_PROFILE_TYPE) {
+	auto *config = GetInstanceConfig(instance_state.lock().get());
+	string profile_type = config ? config->profile_type : *DEFAULT_PROFILE_TYPE;
+
+	if (profile_type == *NOOP_PROFILE_TYPE) {
 		if (profile_collector == nullptr || profile_collector->GetProfilerType() != *NOOP_PROFILE_TYPE) {
 			profile_collector = make_uniq<NoopProfileCollector>();
 		}
 		return;
 	}
-	if (*g_profile_type == *TEMP_PROFILE_TYPE) {
+	if (profile_type == *TEMP_PROFILE_TYPE) {
 		if (profile_collector == nullptr || profile_collector->GetProfilerType() != *TEMP_PROFILE_TYPE) {
 			profile_collector = make_uniq<TempProfileCollector>();
 		}
 		return;
 	}
-	D_ASSERT(false); // Unreachable;
+	// Default to noop if unknown type
+	if (profile_collector == nullptr) {
+		profile_collector = make_uniq<NoopProfileCollector>();
+	}
 }
 
 void CacheFileSystem::ClearCache() {
@@ -142,7 +183,10 @@ void CacheFileSystem::ClearCache() {
 		glob_cache->Clear();
 	}
 	ClearFileHandleCache();
-	cache_reader_manager.ClearCache();
+	auto *mgr = GetCacheReaderManager(instance_state.lock().get());
+	if (mgr) {
+		mgr->ClearCache();
+	}
 }
 
 void CacheFileSystem::ClearCache(const std::string &filepath) {
@@ -153,7 +197,10 @@ void CacheFileSystem::ClearCache(const std::string &filepath) {
 		glob_cache->Clear([&filepath](const std::string &key) { return key == filepath; });
 	}
 	ClearFileHandleCache(filepath);
-	cache_reader_manager.ClearCache(filepath);
+	auto *mgr = GetCacheReaderManager(instance_state.lock().get());
+	if (mgr) {
+		mgr->ClearCache(filepath);
+	}
 }
 
 bool CacheFileSystem::CanHandleFile(const string &fpath) {
@@ -215,7 +262,7 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 		}
 
 		// Place internal file handle back to file handle cache after reset.
-		auto evicted_handle = file_handle_cache->Put(std::move(cache_key), std::move(file_handle.internal_file_handle));
+		auto evicted_handle = file_handle_cache->Put(cache_key, std::move(file_handle.internal_file_handle));
 		if (evicted_handle != nullptr) {
 			evicted_handle->Close();
 		}
@@ -235,7 +282,7 @@ shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &han
 	    .file_size = file_size,
 	    .last_modification_time = last_modification_time,
 	};
-	return make_shared_ptr<FileMetadata>(std::move(file_metadata));
+	return make_shared_ptr<FileMetadata>(file_metadata);
 }
 
 vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *opener) {
@@ -276,10 +323,10 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 		const timestamp_t last_modification_time = last_modification_time_value.GetValue<timestamp_t>();
 
 		FileMetadata file_metadata {
-		    .file_size = file_size_value.GetValue<int64_t>(),
+		    .file_size = file_size,
 		    .last_modification_time = last_modification_time,
 		};
-		metadata_cache->Put(filepath, make_shared_ptr<FileMetadata>(std::move(file_metadata)));
+		metadata_cache->Put(filepath, make_shared_ptr<FileMetadata>(file_metadata));
 	}
 	return open_file_info;
 }
@@ -312,14 +359,34 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	// For duckdb, read operation happens after successful file open, at which point we won't have new configs and read
 	// operation happening concurrently.
 	std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
-	SetGlobalConfig(opener);
+
+	auto state = instance_state.lock();
+
+	// Update instance config from opener
+	auto *config = GetInstanceConfig(state.get());
+	if (config) {
+		config->UpdateFromOpener(opener);
+	}
+
 	SetProfileCollector();
-	cache_reader_manager.SetCacheReader(duckdb_instance);
+
+	// Initialize cache reader via instance manager
+	auto *mgr = GetCacheReaderManager(state.get());
+	if (mgr && config) {
+		mgr->SetCacheReader(*config, instance_state);
+	}
+
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();
+
 	D_ASSERT(profile_collector != nullptr);
-	cache_reader_manager.GetCacheReader()->SetProfileCollector(profile_collector.get());
+	if (mgr) {
+		auto *reader = mgr->GetCacheReader();
+		if (reader) {
+			reader->SetProfileCollector(profile_collector.get());
+		}
+	}
 }
 
 unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const string &path, FileOpenFlags flags,
@@ -432,17 +499,33 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 		return 0;
 	}
 
+	auto state = instance_state.lock();
+
 	// If the source filepath matches exclusion regex, skip caching.
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
-	if (CacheExclusionManager::GetInstance().MatchAnyExclusion(handle.GetPath())) {
+	auto *exclusion_mgr = GetExclusionManager(state.get());
+	if (exclusion_mgr && exclusion_mgr->MatchAnyExclusion(handle.GetPath())) {
 		auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
 		internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, nr_bytes, location);
 		return bytes_to_read;
 	}
 
 	// Leverage cache read manager.
-	cache_reader_manager.GetCacheReader()->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read,
-	                                                    file_size);
+	auto *mgr = GetCacheReaderManager(state.get());
+	if (mgr) {
+		auto *reader = mgr->GetCacheReader();
+		if (reader) {
+			reader->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read, file_size);
+		} else {
+			// Fallback to direct read if no cache reader
+			auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
+			internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, nr_bytes, location);
+		}
+	} else {
+		// Fallback to direct read if no manager
+		auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
+		internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, nr_bytes, location);
+	}
 
 	return bytes_to_read;
 }

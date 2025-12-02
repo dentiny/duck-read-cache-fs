@@ -1,4 +1,4 @@
-// Similar to on-disk reader unit test, this unit test also checks disk cache reader; but we write large file so
+// Similar to on-disk reader unit test, this unit test also checks in-memory cache reader; but we write large file so
 // threading issues and memory issues are easier to detect.
 
 #define CATCH_CONFIG_RUNNER
@@ -36,16 +36,17 @@ const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::Ge
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 } // namespace
 
-TEST_CASE("Read all bytes in one read operation", "[on-disk cache filesystem test]") {
+TEST_CASE("Read all bytes in one read operation", "[in-memory cache filesystem test]") {
 	constexpr uint64_t test_block_size = 22; // Intentionally not a divisor of file size.
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "in_mem";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -71,9 +72,6 @@ TEST_CASE("Read all bytes in one read operation", "[on-disk cache filesystem tes
 }
 
 int main(int argc, char **argv) {
-	// Set global cache type for testing.
-	*g_test_cache_type = *IN_MEM_CACHE_TYPE;
-
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
 	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);

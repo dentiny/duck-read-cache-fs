@@ -4,14 +4,9 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
-#include "cache_filesystem_config.hpp"
-#include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
-#include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
-#include "filesystem_utils.hpp"
-#include "scope_guard.hpp"
 #include "test_utils.hpp"
 
 #include <utime.h>
@@ -38,14 +33,15 @@ const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 
 TEST_CASE("Read all bytes in one read operation", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 22; // Intentionally not a divisor of file size.
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -71,9 +67,6 @@ TEST_CASE("Read all bytes in one read operation", "[on-disk cache filesystem tes
 }
 
 int main(int argc, char **argv) {
-	// Set global cache type for testing.
-	*g_test_cache_type = *ON_DISK_CACHE_TYPE;
-
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
 	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);

@@ -41,12 +41,11 @@ void PerformIoOperation(CacheFileSystem *cache_filesystem) {
 } // namespace
 
 TEST_CASE("Test glob operation", "[cache filesystem test]") {
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
-	g_enable_glob_cache = true;
-
-	auto cache_filesystem = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.enable_glob_cache = true;
+	TestCacheFileSystemHelper helper(config);
+	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// Glob by filename.
 	{
@@ -63,34 +62,30 @@ TEST_CASE("Test glob operation", "[cache filesystem test]") {
 }
 
 TEST_CASE("Test clear cache", "[cache filesystem test]") {
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
-	g_enable_glob_cache = true;
-	g_enable_file_handle_cache = true;
-	g_enable_metadata_cache = true;
-
-	auto cache_filesystem = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.enable_glob_cache = true;
+	config.enable_file_handle_cache = true;
+	config.enable_metadata_cache = true;
+	TestCacheFileSystemHelper helper(config);
+	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// Perform a series of IO operations without cache.
-	PerformIoOperation(cache_filesystem.get());
+	PerformIoOperation(cache_filesystem);
 
 	// Clear all cache and perform the same operation again.
 	cache_filesystem->ClearCache();
-	PerformIoOperation(cache_filesystem.get());
+	PerformIoOperation(cache_filesystem);
 
 	// Clear cache via filepath and retry the same operations.
 	cache_filesystem->ClearCache(TEST_FILENAME);
-	PerformIoOperation(cache_filesystem.get());
+	PerformIoOperation(cache_filesystem);
 
 	// Retry the same IO operations again.
-	PerformIoOperation(cache_filesystem.get());
+	PerformIoOperation(cache_filesystem);
 }
 
 int main(int argc, char **argv) {
-	// Set global cache type for testing.
-	*g_test_cache_type = *ON_DISK_CACHE_TYPE;
-
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	local_filesystem->CreateDirectory(TEST_DIRECTORY);
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |

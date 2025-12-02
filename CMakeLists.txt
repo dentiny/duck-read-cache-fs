@@ -7,7 +7,7 @@ set(TARGET_NAME cache_httpfs)
 
 # Suppress warnings.
 set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-c++17-extensions")
+    "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-c++17-extensions -Wno-c++20-extensions")
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
@@ -26,12 +26,11 @@ set(EXTENSION_SOURCES
     src/cache_exclusion_manager.cpp
     src/cache_exclusion_utils.cpp
     src/cache_httpfs_extension.cpp
+    src/cache_httpfs_instance_state.cpp
     src/cache_filesystem.cpp
     src/cache_filesystem_config.cpp
-    src/cache_filesystem_ref_registry.cpp
     src/cache_status_query_function.cpp
     src/cache_read_chunk.cpp
-    src/cache_reader_manager.cpp
     src/disk_cache_reader.cpp
     src/extension_config_query_function.cpp
     src/in_memory_cache_reader.cpp

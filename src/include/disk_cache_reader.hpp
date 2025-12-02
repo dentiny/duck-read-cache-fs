@@ -5,27 +5,26 @@
 #include <mutex>
 
 #include "base_cache_reader.hpp"
+#include "cache_filesystem_config.hpp"
 #include "duckdb/common/file_system.hpp"
-#include "duckdb/common/helper.hpp"
-#include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/map.hpp"
-#include "duckdb/common/optional_ptr.hpp"
+#include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/unique_ptr.hpp"
-#include "cache_filesystem.hpp"
-#include "cache_filesystem_config.hpp"
 #include "in_mem_cache_block.hpp"
 #include "shared_lru_cache.hpp"
 
 namespace duckdb {
 
 // Forward declaration.
-class DatabaseInstance;
+struct CacheHttpfsInstanceState;
 
 class DiskCacheReader final : public BaseCacheReader {
 public:
-	explicit DiskCacheReader(optional_ptr<DatabaseInstance> duckdb_instance_p = nullptr);
+	// Constructor: cache_directories defines where cache files are stored.
+	explicit DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p,
+	                         vector<string> cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY});
 	~DiskCacheReader() override = default;
 
 	std::string GetName() const override {
@@ -43,6 +42,9 @@ public:
 	// Get file cache block to evict.
 	// Notice returned filepath will be removed from LRU list, but the actual file won't be deleted.
 	string EvictCacheBlockLru();
+
+	// Check if caching is allowed (sufficient disk space)
+	bool CanCacheOnDisk(const string &cache_directory) const;
 
 private:
 	struct InMemCacheEntry {
@@ -67,6 +69,8 @@ private:
 
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
+	// Cache directories (where cache files are stored).
+	vector<string> cache_directories;
 	// Used for on-disk cache block LRU-based eviction.
 	std::mutex cache_file_creation_timestamp_map_mutex;
 	// Maps from last access timestamp to filepath.
@@ -77,8 +81,8 @@ private:
 	// Used to avoid local disk IO.
 	// NOTICE: cache key uses remote filepath, instead of local cache filepath.
 	unique_ptr<InMemCache> in_mem_cache_blocks;
-	// Duckdb instance, used for logging purpose.
-	optional_ptr<DatabaseInstance> duckdb_instance;
+	// Instance state for config lookup.
+	weak_ptr<CacheHttpfsInstanceState> instance_state;
 };
 
 } // namespace duckdb

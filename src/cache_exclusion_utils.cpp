@@ -3,18 +3,31 @@
 #include <algorithm>
 
 #include "cache_exclusion_manager.hpp"
-#include "duckdb/common/opener_file_system.hpp"
+#include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
 #include "duckdb/function/function.hpp"
 #include "duckdb/main/client_context.hpp"
-#include "duckdb/main/database.hpp"
 
 namespace duckdb {
 
 namespace {
 constexpr bool SUCCESS = true;
+
+// Get database instance from expression state.
+CacheExclusionManager *GetExclusionManager(ExpressionState &state) {
+	auto *executor = state.root.executor;
+	auto &client_context = executor->GetContext();
+	auto &instance = *client_context.db.get();
+
+	auto *inst_state = GetInstanceState(instance);
+	if (inst_state == nullptr) {
+		return nullptr;
+	}
+
+	return &inst_state->exclusion_manager;
+}
 
 //===--------------------------------------------------------------------===//
 // List cache exclusion regex query function
@@ -46,7 +59,10 @@ unique_ptr<FunctionData> ListCacheExclusionRegexQueryFuncBind(ClientContext &con
 unique_ptr<GlobalTableFunctionState> ListCacheExclusionRegexQueryFuncInit(ClientContext &context,
                                                                           TableFunctionInitInput &input) {
 	auto result = make_uniq<ListCacheExclusionRegexData>();
-	result->exclusion_regex_string = CacheExclusionManager::GetInstance().GetExclusionRegex();
+	auto *state = GetInstanceState(*context.db);
+	if (state) {
+		result->exclusion_regex_string = state->exclusion_manager.GetExclusionRegex();
+	}
 
 	// Sort the results to ensure determinististism and testibility.
 	std::sort(result->exclusion_regex_string.begin(), result->exclusion_regex_string.end());
@@ -82,12 +98,18 @@ void AddCacheExclusionRegex(const DataChunk &args, ExpressionState &state, Vecto
 	D_ASSERT(args.ColumnCount() == 1);
 	string regex = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
-	CacheExclusionManager::GetInstance().AddExlusionRegex(std::move(regex));
+	auto *exclusion_manager = GetExclusionManager(state);
+	if (exclusion_manager) {
+		exclusion_manager->AddExclusionRegex(regex);
+	}
 	result.Reference(Value(SUCCESS));
 }
 
 void ResetCacheExclusionRegex(const DataChunk &args, ExpressionState &state, Vector &result) {
-	CacheExclusionManager::GetInstance().ResetExclusionRegex();
+	auto *exclusion_manager = GetExclusionManager(state);
+	if (exclusion_manager) {
+		exclusion_manager->ResetExclusionRegex();
+	}
 	result.Reference(Value(SUCCESS));
 }
 

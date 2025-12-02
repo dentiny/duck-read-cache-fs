@@ -117,71 +117,14 @@ inline bool DEFAULT_IGNORE_SIGPIPE = false;
 inline idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE = 0;
 
 //===--------------------------------------------------------------------===//
-// Global configuration
-//===--------------------------------------------------------------------===//
-
-// Global configuration.
-inline idx_t g_cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
-inline bool g_ignore_sigpipe = DEFAULT_IGNORE_SIGPIPE;
-inline NoDestructor<string> g_cache_type {*DEFAULT_CACHE_TYPE};
-inline NoDestructor<string> g_profile_type {*DEFAULT_PROFILE_TYPE};
-inline uint64_t g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
-
-// On-disk cache configuration.
-//
-// Sorted cache directories.
-inline NoDestructor<vector<string>> g_on_disk_cache_directories {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
-inline idx_t g_min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
-inline NoDestructor<string> g_on_disk_eviction_policy {*DEFAULT_ON_DISK_EVICTION_POLICY};
-
-// In-memory write-through / read-through cache for disk cache reader.
-inline bool g_enable_disk_reader_mem_cache = DEFAULT_ENABLE_DISK_READER_MEM_CACHE;
-inline idx_t g_disk_reader_max_mem_cache_block_count = DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT;
-inline idx_t g_disk_reader_max_mem_cache_timeout_millisec = DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC;
-
-// In-memory cache configuration.
-inline idx_t g_max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
-inline idx_t g_in_mem_cache_block_timeout_millisec = DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC;
-
-// Metadata cache configuration.
-inline bool g_enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;
-inline idx_t g_max_metadata_cache_entry = DEFAULT_MAX_METADATA_CACHE_ENTRY;
-inline idx_t g_metadata_cache_entry_timeout_millisec = DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
-
-// File handle cache configuration.
-inline bool g_enable_file_handle_cache = DEFAULT_ENABLE_FILE_HANDLE_CACHE;
-inline idx_t g_max_file_handle_cache_entry = DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY;
-inline idx_t g_file_handle_cache_entry_timeout_millisec = DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC;
-
-// File glob configuration.
-inline bool g_enable_glob_cache = DEFAULT_ENABLE_GLOB_CACHE;
-inline idx_t g_max_glob_cache_entry = DEFAULT_MAX_GLOB_CACHE_ENTRY;
-inline idx_t g_glob_cache_entry_timeout_millisec = DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;
-
-// Cache validation configuration.
-inline bool g_enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
-
-// Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
-// TODO(hjiang): A better is bake configuration into `FileOpener`.
-inline NoDestructor<string> g_test_cache_type {""};
-
-// Used for testing purpose, which disable on-disk cache if true.
-inline bool g_test_insufficient_disk_space = false;
-
-//===--------------------------------------------------------------------===//
 // Util function for filesystem configurations.
 //===--------------------------------------------------------------------===//
 
 // Get on-disk directories config.
 std::vector<string> GetCacheDirectoryConfig(optional_ptr<FileOpener> opener);
 
-// Set global cache filesystem configuration.
-void SetGlobalConfig(optional_ptr<FileOpener> opener);
-
-// Reset all global cache filesystem configuration.
-void ResetGlobalConfig();
-
 // Get concurrent IO sub-request count.
-uint64_t GetThreadCountForSubrequests(uint64_t io_request_count);
+// If max_subrequest_count is 0, uses a default cap of 1024.
+uint64_t GetThreadCountForSubrequests(uint64_t io_request_count, uint64_t max_subrequest_count = 0);
 
 } // namespace duckdb

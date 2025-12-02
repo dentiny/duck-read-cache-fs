@@ -1,12 +1,10 @@
 #include "cache_status_query_function.hpp"
 
 #include <algorithm>
-#include <array>
 
 #include "cache_entry_info.hpp"
 #include "cache_filesystem.hpp"
-#include "cache_filesystem_ref_registry.hpp"
-#include "cache_reader_manager.hpp"
+#include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/numeric_utils.hpp"
 #include "duckdb/common/unique_ptr.hpp"
@@ -65,18 +63,22 @@ unique_ptr<GlobalTableFunctionState> DataCacheStatusQueryFuncInit(ClientContext 
 	auto result = make_uniq<DataCacheStatusData>();
 	auto &entries_info = result->cache_entries_info;
 
-	// Initialize disk cache reader to access on-disk cache file, even if it's not initialized before.
-	auto &cache_reader_manager = CacheReaderManager::Get();
-	cache_reader_manager.InitializeDiskCacheReader();
+	// Get instance state
+	auto inst_state = GetInstanceStateShared(*context.db);
+	if (inst_state) {
+		// Initialize disk cache reader to access on-disk cache file, even if it's not initialized before.
+		inst_state->cache_reader_manager.InitializeDiskCacheReader(inst_state->config.on_disk_cache_directories,
+		                                                           inst_state);
 
-	// Get cache entries information from all cache filesystems and all initialized cache readers.
-	auto cache_readers = cache_reader_manager.GetCacheReaders();
-	for (auto *cur_cache_reader : cache_readers) {
-		auto cache_entries_info = cur_cache_reader->GetCacheEntriesInfo();
-		entries_info.reserve(entries_info.size() + cache_entries_info.size());
+		// Get cache entries information from all cache filesystems and all initialized cache readers.
+		auto cache_readers = inst_state->cache_reader_manager.GetCacheReaders();
+		for (auto *cur_cache_reader : cache_readers) {
+			auto cache_entries_info = cur_cache_reader->GetCacheEntriesInfo();
+			entries_info.reserve(entries_info.size() + cache_entries_info.size());
 
-		for (auto &cur_cache_info : cache_entries_info) {
-			entries_info.emplace_back(std::move(cur_cache_info));
+			for (auto &cur_cache_info : cache_entries_info) {
+				entries_info.emplace_back(std::move(cur_cache_info));
+			}
 		}
 	}
 
@@ -179,8 +181,11 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 	}
 
 	// Get cache access info from all initialized cache readers.
-	auto &cache_reader_manager = CacheReaderManager::Get();
-	const auto cache_readers = cache_reader_manager.GetCacheReaders();
+	auto *inst_state = GetInstanceState(*context.db);
+	if (!inst_state) {
+		return std::move(result);
+	}
+	const auto cache_readers = inst_state->cache_reader_manager.GetCacheReaders();
 	for (auto *cur_cache_reader : cache_readers) {
 		auto *profiler_collector = cur_cache_reader->GetProfileCollector();
 		if (profiler_collector == nullptr) {
@@ -247,10 +252,10 @@ void CacheAccessInfoQueryTableFunc(ClientContext &context, TableFunctionInput &d
 		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.cache_miss_by_in_use)));
 
 		// Used for data cache, total number of bytes to read.
-		output.SetValue(col++, count, std::move(entry.total_bytes_to_read));
+		output.SetValue(col++, count, entry.total_bytes_to_read);
 
 		// Used for data cache, total number of bytes to cache.
-		output.SetValue(col++, count, std::move(entry.total_bytes_to_cache));
+		output.SetValue(col++, count, entry.total_bytes_to_cache);
 
 		count++;
 	}
@@ -286,11 +291,16 @@ unique_ptr<GlobalTableFunctionState> WrappedCacheFileSystemsFuncInit(ClientConte
                                                                      TableFunctionInitInput &input) {
 	auto result = make_uniq<WrappedFilesystemsData>();
 	auto &wrapped_filesystems = result->wrapped_filesystems;
-	auto cache_filesystem_instances = CacheFsRefRegistry::Get().GetAllCacheFs();
-	wrapped_filesystems.reserve(cache_filesystem_instances.size());
 
-	for (auto *cur_cache_fs : cache_filesystem_instances) {
-		wrapped_filesystems.emplace_back(cur_cache_fs->GetInternalFileSystem()->GetName());
+	// Get cache filesystems from per-instance registry
+	auto *state = GetInstanceState(*context.db);
+	if (state) {
+		auto cache_filesystem_instances = state->registry.GetAllCacheFs();
+		wrapped_filesystems.reserve(cache_filesystem_instances.size());
+
+		for (auto *cur_cache_fs : cache_filesystem_instances) {
+			wrapped_filesystems.emplace_back(cur_cache_fs->GetInternalFileSystem()->GetName());
+		}
 	}
 
 	return std::move(result);

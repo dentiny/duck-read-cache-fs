@@ -2,13 +2,10 @@
 
 #pragma once
 
-#include <cstdint>
 #include <functional>
-#include <mutex>
 #include <tuple>
 
 #include "duckdb/common/string.hpp"
-#include "duckdb/common/string_util.hpp"
 
 namespace duckdb {
 
