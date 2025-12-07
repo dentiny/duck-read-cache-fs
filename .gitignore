@@ -246,3 +246,6 @@ bazel-*
 
 # Added by cargo
 /target
+
+# For agents.
+.agent
