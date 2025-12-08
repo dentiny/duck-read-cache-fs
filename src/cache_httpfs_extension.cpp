@@ -412,6 +412,13 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          "Cache entry timeout in milliseconds for glob cache.", LogicalTypeId::UBIGINT,
 	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC));
 
+	// Cache validation config.
+	config.AddExtensionOption("cache_httpfs_enable_cache_validation",
+	                          "Whether to enable cache validation using version tag and last modification timestamp. "
+	                          "When enabled, cache entries are validated against the current file version tag and "
+	                          "modification timestamp to ensure cache consistency. By default disabled.",
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_CACHE_VALIDATION);
+
 	// Cache exclusion regex list.
 	ScalarFunction add_cache_exclusion_regex("cache_httpfs_add_exclusion_regex",
 	                                         /*arguments=*/ {LogicalType {LogicalTypeId::VARCHAR}},
