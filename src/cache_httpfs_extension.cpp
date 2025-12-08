@@ -326,6 +326,13 @@ void LoadInternal(ExtensionLoader &loader) {
 	    "Whether to ignore SIGPIPE for the extension. By default not ignored. Once ignored, it cannot be reverted.",
 	    LogicalTypeId::BOOLEAN, DEFAULT_IGNORE_SIGPIPE, std::move(ignore_sigpipe_callback));
 
+	// Cache validation config.
+	config.AddExtensionOption("cache_httpfs_enable_cache_validation",
+	                          "Whether to enable cache validation using version tag and last modification timestamp. "
+	                          "When enabled, cache entries are validated against the current file version tag and "
+	                          "modification timestamp to ensure cache consistency. By default disabled.",
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_CACHE_VALIDATION);
+
 	// On disk cache config.
 	// TODO(hjiang): Add a new configurable for on-disk cache staleness.
 	config.AddExtensionOption("cache_httpfs_cache_directory", "The disk cache directory that stores cached data",
@@ -411,13 +418,6 @@ void LoadInternal(ExtensionLoader &loader) {
 	config.AddExtensionOption("cache_httpfs_glob_cache_entry_timeout_millisec",
 	                          "Cache entry timeout in milliseconds for glob cache.", LogicalTypeId::UBIGINT,
 	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC));
-
-	// Cache validation config.
-	config.AddExtensionOption("cache_httpfs_enable_cache_validation",
-	                          "Whether to enable cache validation using version tag and last modification timestamp. "
-	                          "When enabled, cache entries are validated against the current file version tag and "
-	                          "modification timestamp to ensure cache consistency. By default disabled.",
-	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_CACHE_VALIDATION);
 
 	// Cache exclusion regex list.
 	ScalarFunction add_cache_exclusion_regex("cache_httpfs_add_exclusion_regex",

@@ -99,7 +99,7 @@ TEST_CASE("Test cache validation disabled", "[in-memory cache filesystem test]")
 
 	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 
-	// First read - should cache.
+	// First read, should cache.
 	{
 		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 0;
@@ -110,7 +110,7 @@ TEST_CASE("Test cache validation disabled", "[in-memory cache filesystem test]")
 		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 	}
 
-	// Second read - should use cache even if file metadata changes (validation disabled).
+	// Second read, should use cache even if file metadata changes (validation disabled).
 	{
 		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 0;

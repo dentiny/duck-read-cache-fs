@@ -139,7 +139,6 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			// Copy to destination buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory(content);
 
-			// Store cache entry with metadata (reuse file-level metadata fetched before the loop).
 			InMemoryCacheReader::InMemCacheEntry new_cache_entry {
 			    .data = std::move(content),
 			    .version_tag = version_tag.get(),
