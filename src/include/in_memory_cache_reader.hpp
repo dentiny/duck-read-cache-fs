@@ -9,6 +9,7 @@
 #include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
 #include "shared_lru_cache.hpp"
@@ -31,7 +32,15 @@ public:
 	vector<DataCacheEntryInfo> GetCacheEntriesInfo() const override;
 
 private:
-	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
+	// Cache entry wrapper that stores data along with validation metadata.
+	struct InMemCacheEntry {
+		string data;
+		string version_tag;
+		timestamp_t last_modified;
+	};
+
+	using InMemCache =
+	    ThreadSafeSharedLruCache<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockHash, InMemCacheBlockEqual>;
 
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;

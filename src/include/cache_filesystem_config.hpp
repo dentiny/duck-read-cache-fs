@@ -106,6 +106,9 @@ inline bool DEFAULT_ENABLE_FILE_HANDLE_CACHE = true;
 // Default enable glob cache.
 inline bool DEFAULT_ENABLE_GLOB_CACHE = true;
 
+// Default enable cache validation via version tag and last modification timestamp.
+inline bool DEFAULT_ENABLE_CACHE_VALIDATION = false;
+
 // Default not ignore SIGPIPE in the extension.
 inline bool DEFAULT_IGNORE_SIGPIPE = false;
 
@@ -154,6 +157,9 @@ inline idx_t g_file_handle_cache_entry_timeout_millisec = DEFAULT_FILE_HANDLE_CA
 inline bool g_enable_glob_cache = DEFAULT_ENABLE_GLOB_CACHE;
 inline idx_t g_max_glob_cache_entry = DEFAULT_MAX_GLOB_CACHE_ENTRY;
 inline idx_t g_glob_cache_entry_timeout_millisec = DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;
+
+// Cache validation configuration.
+inline bool g_enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
 
 // Used for testing purpose, which has a higher priority over [g_cache_type], and won't be reset.
 // TODO(hjiang): A better is bake configuration into `FileOpener`.

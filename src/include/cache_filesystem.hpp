@@ -61,6 +61,9 @@ public:
 	// Get internal filesystem for cache filesystem.
 	FileSystem *GetInternalFileSystem() const;
 
+	// Get the CacheFileSystem that owns this handle.
+	CacheFileSystem &GetCacheFileSystem() const;
+
 	shared_ptr<Logger> logger;
 	unique_ptr<FileHandle> internal_file_handle;
 	std::function<void(CacheFileSystemHandle &)> dtor_callback;

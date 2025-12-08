@@ -2,6 +2,7 @@
 
 #include "cache_filesystem_logger.hpp"
 #include "cache_read_chunk.hpp"
+#include "cache_validation.hpp"
 #include "crypto.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
@@ -34,6 +35,15 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	idx_t already_read_bytes = 0;
 	// Threads to parallelly perform IO.
 	ThreadPool io_threads(GetThreadCountForSubrequests(subrequest_count));
+
+	// Get file-level metadata once before processing chunks (these are file-level, not chunk-level).
+	auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
+	const string file_version_tag = internal_filesystem->GetVersionTag(*in_mem_cache_handle.internal_file_handle);
+	// Use CacheFileSystem::GetLastModifiedTime to leverage metadata cache (which may have been populated by GetFileSize).
+	// This avoids duplicate calls to the underlying filesystem when metadata cache is enabled.
+	auto &cache_filesystem = in_mem_cache_handle.GetCacheFileSystem();
+	const timestamp_t file_last_modified = cache_filesystem.GetLastModifiedTime(handle);
 
 	// To improve IO performance, we split requested bytes (after alignment) into
 	// multiple chunks and fetch them in parallel.
@@ -83,7 +93,8 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
-		io_threads.Push([this, &handle, block_size, cache_read_chunk = std::move(cache_read_chunk)]() mutable {
+		io_threads.Push([this, &handle, block_size, file_version_tag, file_last_modified,
+		                 cache_read_chunk = std::move(cache_read_chunk)]() mutable {
 			SetThreadName("RdCachRdThd");
 
 			// Check local cache first, see if we could do a cached read.
@@ -91,12 +102,14 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			block_key.fname = handle.GetPath();
 			block_key.start_off = cache_read_chunk.aligned_start_offset;
 			block_key.blk_size = cache_read_chunk.chunk_size;
-			auto cache_block = cache->Get(block_key);
+			auto cache_entry = cache->Get(block_key);
+			// Use pre-fetched metadata to avoid duplicate calls.
+			cache_entry = ValidateCacheEntry(cache_entry, file_version_tag, file_last_modified, cache.get(), block_key);
 
-			if (cache_block != nullptr) {
+			if (cache_entry != nullptr) {
 				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 				DUCKDB_LOG_OPEN_CACHE_HIT((handle));
-				cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
+				cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
 				return;
 			}
 
@@ -116,7 +129,15 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 
 			// Copy to destination buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory(content);
-			cache->Put(std::move(block_key), make_shared_ptr<std::string>(std::move(content)));
+
+			// Store cache entry with metadata (reuse file-level metadata fetched before the loop).
+			InMemoryCacheReader::InMemCacheEntry new_cache_entry {
+			    .data = std::move(content),
+			    .version_tag = file_version_tag,
+			    .last_modified = file_last_modified,
+			};
+			cache->Put(std::move(block_key),
+			           make_shared_ptr<InMemoryCacheReader::InMemCacheEntry>(std::move(new_cache_entry)));
 		});
 	}
 	io_threads.Wait();

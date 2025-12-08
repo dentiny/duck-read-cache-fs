@@ -31,6 +31,10 @@ FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
 	return cache_filesystem.GetInternalFileSystem();
 }
 
+CacheFileSystem &CacheFileSystemHandle::GetCacheFileSystem() const {
+	return file_system.Cast<CacheFileSystem>();
+}
+
 CacheFileSystemHandle::~CacheFileSystemHandle() {
 	if (dtor_callback) {
 		dtor_callback(*this);
