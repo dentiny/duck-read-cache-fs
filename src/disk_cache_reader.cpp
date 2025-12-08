@@ -209,12 +209,12 @@ void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_d
 
 	// Then atomically move to the target postion to prevent data corruption due to concurrent write.
 	local_filesystem->MoveFile(/*source=*/local_temp_file, /*target=*/local_cache_file);
-	
+
 	// Store version tag in extended attributes for validation.
 	if (!version_tag.empty()) {
 		SetCacheVersion(local_cache_file, version_tag);
 	}
-	
+
 	DUCKDB_LOG_DEBUG_OPTIONAL(duckdb_instance, StringUtil::Format("Disk cache file persisted to %s with size %zu",
 	                                                              local_cache_file, content.length()));
 }
@@ -337,7 +337,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		//
 		// TODO(hjiang): Refactor the thread function.
 		io_threads.Push([this, &handle, block_size, version_tag = std::cref(version_tag),
-							cache_read_chunk = std::move(cache_read_chunk)]() mutable {
+		                 cache_read_chunk = std::move(cache_read_chunk)]() mutable {
 			SetThreadName("RdCachRdThd");
 
 			// Attempt in-memory cache block first, so potentially we don't need to access disk storage.
@@ -346,8 +346,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			block_key.start_off = cache_read_chunk.aligned_start_offset;
 			block_key.blk_size = cache_read_chunk.chunk_size;
 			auto cache_destination =
-					    GetLocalCacheFile(*g_on_disk_cache_directories, handle.GetPath(),
-					                      cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
+			    GetLocalCacheFile(*g_on_disk_cache_directories, handle.GetPath(), cache_read_chunk.aligned_start_offset,
+			                      cache_read_chunk.chunk_size);
 
 			if (in_mem_cache_blocks != nullptr) {
 				auto cache_entry = in_mem_cache_blocks->Get(block_key);
@@ -403,7 +403,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 					    .version_tag = version_tag.get(),
 					};
 					in_mem_cache_blocks->Put(std::move(block_key),
-					                        make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
+					                         make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
 				}
 
 				// Update access and modification timestamp for the cache file, so it won't get evicted.
@@ -440,7 +440,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 				    .version_tag = version_tag.get(),
 				};
 				in_mem_cache_blocks->Put(std::move(block_key),
-				                        make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
+				                         make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
 			}
 		});
 	}

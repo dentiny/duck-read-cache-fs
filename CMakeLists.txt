@@ -184,13 +184,13 @@ add_executable(test_cache_exclusion_manager
                unit/test_cache_exclusion_manager.cpp)
 target_link_libraries(test_cache_exclusion_manager ${EXTENSION_NAME})
 
-# # Benchmark
-# add_executable(read_s3_object benchmark/read_s3_object.cpp)
-# target_link_libraries(read_s3_object ${EXTENSION_NAME})
+# Benchmark
+add_executable(read_s3_object benchmark/read_s3_object.cpp)
+target_link_libraries(read_s3_object ${EXTENSION_NAME})
 
-# add_executable(sequential_read_benchmark
-#                benchmark/sequential_read_benchmark.cpp)
-# target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
+add_executable(sequential_read_benchmark
+               benchmark/sequential_read_benchmark.cpp)
+target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
 
-# add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
-# target_link_libraries(random_read_benchmark ${EXTENSION_NAME})
+add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
+target_link_libraries(random_read_benchmark ${EXTENSION_NAME})
