@@ -59,6 +59,41 @@ TEST_CASE("Stale file deletion", "[utils test]") {
 	REQUIRE(fresh_files == vector<string> {fname1});
 }
 
+TEST_CASE("Cache version roundtrip", "[utils test]") {
+	auto local_filesystem = LocalFileSystem::CreateLocal();
+	const string test_file = StringUtil::Format("%s/version_test_file", TEST_ON_DISK_CACHE_DIRECTORY);
+	const string test_version = "v1.2.3-test-version";
+
+	// Create a test file
+	{
+		auto file_handle = local_filesystem->OpenFile(test_file, FileOpenFlags::FILE_FLAGS_WRITE |
+		                                                             FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>("test content")), 12,
+		                        /*location=*/0);
+		file_handle->Sync();
+		file_handle->Close();
+	}
+
+	// Test roundtrip: set and get
+	REQUIRE(SetCacheVersion(test_file, test_version) == true);
+	const string retrieved_version = GetCacheVersion(test_file);
+	REQUIRE(retrieved_version == test_version);
+
+	// Test updating the version
+	const string updated_version = "v2.0.0-updated";
+	REQUIRE(SetCacheVersion(test_file, updated_version) == true);
+	const string retrieved_updated_version = GetCacheVersion(test_file);
+	REQUIRE(retrieved_updated_version == updated_version);
+
+	// Test getting version from non-existent file
+	const string non_existent_file = StringUtil::Format("%s/non_existent_file", TEST_ON_DISK_CACHE_DIRECTORY);
+	const string empty_version = GetCacheVersion(non_existent_file);
+	REQUIRE(empty_version.empty());
+
+	// Test cleanup.
+	local_filesystem->RemoveFile(test_file);
+}
+
 int main(int argc, char **argv) {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	local_filesystem->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);

@@ -237,7 +237,7 @@ void ResetGlobalConfig() {
 	// Glob cache configuration.
 	g_enable_glob_cache = DEFAULT_ENABLE_GLOB_CACHE;
 	g_max_glob_cache_entry = DEFAULT_MAX_GLOB_CACHE_ENTRY;
-	g_glob_cache_entry_timeout_millisec = DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;	
+	g_glob_cache_entry_timeout_millisec = DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 	// Reset testing options.
 	g_test_insufficient_disk_space = false;

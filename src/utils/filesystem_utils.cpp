@@ -2,10 +2,19 @@
 
 #include <algorithm>
 #include <ctime>
+#include <fstream>
+#include <filesystem>
+#include <iterator>
 
 #if defined(_WIN32)
 #include <windows.h>
-#else
+#elif defined(__APPLE__)
+#include <sys/xattr.h>
+#elif defined(__linux__)
+#include <sys/xattr.h>
+#endif
+
+#if !defined(_WIN32)
 #include <sys/statvfs.h>
 #include <utime.h>
 #include <cerrno>
@@ -18,6 +27,12 @@
 #include "duckdb/common/local_file_system.hpp"
 
 namespace duckdb {
+
+namespace {
+// Used to set file attribute for on-disk cache version.
+// Linux requires the "user." namespace.
+constexpr const char *CACHE_VERSION_ATTR_KEY = "user.cache_version";
+} // namespace
 
 vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_directory) {
 	vector<string> evicted_cache_files;
@@ -161,6 +176,67 @@ bool UpdateFileTimestamps(const string &filepath) {
 #else
 	const int ret_code = utime(filepath.c_str(), /*times=*/nullptr);
 	return ret_code == 0;
+#endif
+}
+
+bool SetCacheVersion(const string &filepath, const string &version) {
+#if defined(_WIN32)
+	// WINDOWS: Open the Alternate Data Stream "file.ext:streamname"
+	// MSVC's implementation of std::ofstream handles ADS paths correctly.
+	const string ads_path = StringUtil::Format("%s:%s", filepath, CACHE_VERSION_ATTR_KEY);
+	std::ofstream ads(ads_path, std::ios::binary);
+	if (!ads.is_open()) {
+		return false;
+	}
+	ads << version;
+	return ads.good();
+#elif defined(__APPLE__)
+	const int res = setxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY, version.c_str(), version.size(), /*position=*/0,
+	                         /*options=*/0);
+	return res == 0;
+#elif defined(__linux__)
+	const int res = setxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY, version.c_str(), version.size(), /*flags=*/0);
+	return res == 0;
+#else
+	return false;
+#endif
+}
+
+string GetCacheVersion(const string &filepath) {
+#if defined(_WIN32)
+	const string ads_path = StringUtil::Format("%s:%s", filepath, CACHE_VERSION_ATTR_KEY);
+	std::ifstream ads(ads_path, std::ios::binary);
+	if (!ads.is_open()) {
+		return "";
+	}
+	return string((std::istreambuf_iterator<char>(ads)), std::istreambuf_iterator<char>());
+#elif defined(__APPLE__)
+	ssize_t size =
+	    getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY, nullptr, /*size=*/0, /*position=*/0, /*options=*/0);
+	if (size <= 0) {
+		return "";
+	}
+	string buffer(size, '\0');
+	ssize_t res = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY,
+	                       const_cast<void *>(static_cast<const void *>(buffer.data())), /*position=*/0, /*options=*/0);
+	if (res > 0) {
+		return string(buffer.begin(), buffer.end());
+	}
+	return "";
+#elif defined(__linux__)
+	ssize_t size = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY, /*value=*/nullptr, /*size=*/0);
+	if (size <= 0) {
+		return "";
+	}
+	string buffer(size, '\0');
+	ssize_t res = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY,
+	                       const_cast<void *>(static_cast<const void *>(buffer.data())), size);
+	if (res > 0) {
+		return string(buffer.begin(), buffer.end());
+	}
+	return "";
+#else
+	return "";
 #endif
 }
 

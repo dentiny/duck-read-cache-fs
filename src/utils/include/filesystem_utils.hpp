@@ -40,4 +40,12 @@ map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string> &folders);
 // Return whether the update operation succeeds.
 bool UpdateFileTimestamps(const string &filepath);
 
+// Store the version string in the file's extended attributes
+// Returns whether the operation succeeds.
+bool SetCacheVersion(const string &filepath, const string &version);
+
+// Retrieve the version string from the file's extended attributes.
+// Returns empty string if missing or error.
+string GetCacheVersion(const string &filepath);
+
 } // namespace duckdb
