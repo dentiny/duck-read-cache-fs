@@ -2,7 +2,6 @@
 
 #include "cache_filesystem_logger.hpp"
 #include "cache_read_chunk.hpp"
-#include "cache_validation.hpp"
 #include "crypto.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
@@ -16,6 +15,15 @@
 #include <utility>
 
 namespace duckdb {
+
+
+bool InMemoryCacheReader::ValidateCacheEntry(InMemCacheEntry* cache_entry, const string& version_tag) {
+	// Empty version tags means cache validation is disabled.
+	if (version_tag.empty()) {
+		return true;
+	}
+	return cache_entry->version_tag == version_tag;
+}
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                        idx_t requested_bytes_to_read, idx_t file_size) {
@@ -36,17 +44,15 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	// Threads to parallelly perform IO.
 	ThreadPool io_threads(GetThreadCountForSubrequests(subrequest_count));
 
-	// Get file-level metadata once before processing chunks (these are file-level, not chunk-level).
-	auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
-	auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
-	const string file_version_tag = internal_filesystem->GetVersionTag(*in_mem_cache_handle.internal_file_handle);
-	// Use CacheFileSystem::GetLastModifiedTime to leverage metadata cache (which may have been populated by GetFileSize).
-	// This avoids duplicate calls to the underlying filesystem when metadata cache is enabled.
-	auto &cache_filesystem = in_mem_cache_handle.GetCacheFileSystem();
-	const timestamp_t file_last_modified = cache_filesystem.GetLastModifiedTime(handle);
-
-	// To improve IO performance, we split requested bytes (after alignment) into
-	// multiple chunks and fetch them in parallel.
+	// Get file-level metadata once before processing chunks.
+	string version_tag;
+	if (g_enable_cache_validation) {
+		auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
+		auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
+		version_tag = internal_filesystem->GetVersionTag(*in_mem_cache_handle.internal_file_handle);
+	}
+	
+	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in parallel.
 	idx_t total_bytes_to_cache = 0;
 	for (idx_t io_start_offset = aligned_start_offset; io_start_offset <= aligned_last_chunk_offset;
 	     io_start_offset += block_size) {
@@ -93,7 +99,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
-		io_threads.Push([this, &handle, block_size, file_version_tag, file_last_modified,
+		io_threads.Push([this, &handle, block_size, version_tag = std::cref(version_tag),
 		                 cache_read_chunk = std::move(cache_read_chunk)]() mutable {
 			SetThreadName("RdCachRdThd");
 
@@ -103,8 +109,12 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			block_key.start_off = cache_read_chunk.aligned_start_offset;
 			block_key.blk_size = cache_read_chunk.chunk_size;
 			auto cache_entry = cache->Get(block_key);
-			// Use pre-fetched metadata to avoid duplicate calls.
-			cache_entry = ValidateCacheEntry(cache_entry, file_version_tag, file_last_modified, cache.get(), block_key);
+
+			// Check cache entry validity and clear if necessary.
+			if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag.get())) {
+				cache->Clear(block_key);
+				cache_entry = nullptr;
+			}
 
 			if (cache_entry != nullptr) {
 				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
@@ -133,8 +143,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			// Store cache entry with metadata (reuse file-level metadata fetched before the loop).
 			InMemoryCacheReader::InMemCacheEntry new_cache_entry {
 			    .data = std::move(content),
-			    .version_tag = file_version_tag,
-			    .last_modified = file_last_modified,
+			    .version_tag = version_tag.get(),
 			};
 			cache->Put(std::move(block_key),
 			           make_shared_ptr<InMemoryCacheReader::InMemCacheEntry>(std::move(new_cache_entry)));

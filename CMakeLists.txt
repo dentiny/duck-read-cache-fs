@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(TARGET_NAME cache_httpfs)
 
 # Suppress warnings.
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-c++17-extensions")
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
@@ -31,7 +31,6 @@ set(EXTENSION_SOURCES
     src/cache_status_query_function.cpp
     src/cache_read_chunk.cpp
     src/cache_reader_manager.cpp
-    src/cache_validation.cpp
     src/disk_cache_reader.cpp
     src/extension_config_query_function.cpp
     src/in_memory_cache_reader.cpp
@@ -99,15 +98,6 @@ target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto
                       CURL::libcurl)
 target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto
                       CURL::libcurl)
-# Work around duplicate symbol errors with FileFlags when using mold linker
-if(EXTENSION_STATIC_BUILD)
-  if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    if(NOT APPLE)
-      set_target_properties(${LOADABLE_EXTENSION_NAME} PROPERTIES
-        LINK_FLAGS "-Wl,--allow-multiple-definition")
-    endif()
-  endif()
-endif()
 
 install(
   TARGETS ${EXTENSION_NAME}
