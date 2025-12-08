@@ -31,8 +31,12 @@ FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
 	return cache_filesystem.GetInternalFileSystem();
 }
 
-CacheFileSystem &CacheFileSystemHandle::GetCacheFileSystem() const {
-	return file_system.Cast<CacheFileSystem>();
+string CacheFileSystemHandle::GetVersionTag() {
+	if (!g_enable_cache_validation) {
+		return "";
+	}
+	auto *internal_filesystem = GetInternalFileSystem();
+	return internal_filesystem->GetVersionTag(*internal_file_handle);
 }
 
 CacheFileSystemHandle::~CacheFileSystemHandle() {

@@ -14,6 +14,9 @@
 #include <cstdint>
 #include <utility>
 
+
+#include <iostream>
+
 namespace duckdb {
 
 
@@ -43,19 +46,18 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	idx_t already_read_bytes = 0;
 	// Threads to parallelly perform IO.
 	ThreadPool io_threads(GetThreadCountForSubrequests(subrequest_count));
-
 	// Get file-level metadata once before processing chunks.
-	string version_tag;
-	if (g_enable_cache_validation) {
-		auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
-		auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
-		version_tag = internal_filesystem->GetVersionTag(*in_mem_cache_handle.internal_file_handle);
-	}
+	string version_tag = handle.Cast<CacheFileSystemHandle>().GetVersionTag();
 	
 	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in parallel.
 	idx_t total_bytes_to_cache = 0;
 	for (idx_t io_start_offset = aligned_start_offset; io_start_offset <= aligned_last_chunk_offset;
 	     io_start_offset += block_size) {
+		// No bytes to read for the last chunk.
+		if (io_start_offset == file_size) {
+			continue;
+		}
+
 		CacheReadChunk cache_read_chunk;
 		cache_read_chunk.requested_start_addr = addr_to_write;
 		cache_read_chunk.aligned_start_offset = io_start_offset;
@@ -110,11 +112,15 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			block_key.blk_size = cache_read_chunk.chunk_size;
 			auto cache_entry = cache->Get(block_key);
 
+			std::cerr << "start = " << block_key.start_off << ", sz = " << block_key.blk_size << std::endl;
+
 			// Check cache entry validity and clear if necessary.
 			if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag.get())) {
-				cache->Clear(block_key);
+				cache->Delete(block_key);
 				cache_entry = nullptr;
 			}
+
+			std::cerr << "block valid ? " << (cache_entry != nullptr) << std::endl;
 
 			if (cache_entry != nullptr) {
 				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
