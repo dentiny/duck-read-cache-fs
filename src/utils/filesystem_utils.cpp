@@ -8,23 +8,20 @@
 
 #if defined(_WIN32)
 #include <windows.h>
-#elif defined(__APPLE__)
-#include <sys/xattr.h>
-#elif defined(__linux__)
-#include <sys/xattr.h>
 #endif
 
 #if !defined(_WIN32)
-#include <sys/statvfs.h>
-#include <utime.h>
 #include <cerrno>
 #include <cstring>
+#include <utime.h>
+#include <sys/statvfs.h>
+#include <sys/xattr.h>
 #endif
 
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/file_system.hpp"
-#include "duckdb/common/string_util.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/string_util.hpp"
 
 namespace duckdb {
 

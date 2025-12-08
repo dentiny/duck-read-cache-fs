@@ -17,6 +17,7 @@
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
+#include "mock_filesystem.hpp"
 #include "scope_guard.hpp"
 #include "test_utils.hpp"
 
@@ -46,6 +47,20 @@ void CreateSourceTestFile() {
 	file_handle->Sync();
 	file_handle->Close();
 }
+
+// A filesystem wrapper that extends LocalFileSystem but allows setting version tags.
+class VersionTagFileSystem : public LocalFileSystem {
+public:
+	void SetVersionTag(const string &tag) {
+		version_tag = tag;
+	}
+	string GetVersionTag(FileHandle &handle) override {
+		return version_tag;
+	}
+
+private:
+	string version_tag;
+};
 
 } // namespace
 
