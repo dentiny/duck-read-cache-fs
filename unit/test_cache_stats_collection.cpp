@@ -36,7 +36,7 @@ CacheAccessInfo GetFileHandleCacheInfo(BaseProfileCollector *profiler) {
 		}
 	}
 	D_ASSERT(false); // Unreachable.
-	return CacheAccessInfo{};
+	return CacheAccessInfo {};
 }
 
 } // namespace

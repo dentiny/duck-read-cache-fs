@@ -41,7 +41,7 @@ private:
 	    ThreadSafeSharedLruCache<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockHash, InMemCacheBlockEqual>;
 
 	// Return whether the given cache entry is still valid and usable.
-	bool ValidateCacheEntry(InMemCacheEntry* cache_entry, const string& version_tag);
+	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
 
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;

@@ -14,13 +14,9 @@
 #include <cstdint>
 #include <utility>
 
-
-#include <iostream>
-
 namespace duckdb {
 
-
-bool InMemoryCacheReader::ValidateCacheEntry(InMemCacheEntry* cache_entry, const string& version_tag) {
+bool InMemoryCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag) {
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;
@@ -48,8 +44,9 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	ThreadPool io_threads(GetThreadCountForSubrequests(subrequest_count));
 	// Get file-level metadata once before processing chunks.
 	string version_tag = handle.Cast<CacheFileSystemHandle>().GetVersionTag();
-	
-	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in parallel.
+
+	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in
+	// parallel.
 	idx_t total_bytes_to_cache = 0;
 	for (idx_t io_start_offset = aligned_start_offset; io_start_offset <= aligned_last_chunk_offset;
 	     io_start_offset += block_size) {
@@ -112,15 +109,11 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			block_key.blk_size = cache_read_chunk.chunk_size;
 			auto cache_entry = cache->Get(block_key);
 
-			std::cerr << "start = " << block_key.start_off << ", sz = " << block_key.blk_size << std::endl;
-
 			// Check cache entry validity and clear if necessary.
 			if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag.get())) {
 				cache->Delete(block_key);
 				cache_entry = nullptr;
 			}
-
-			std::cerr << "block valid ? " << (cache_entry != nullptr) << std::endl;
 
 			if (cache_entry != nullptr) {
 				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);

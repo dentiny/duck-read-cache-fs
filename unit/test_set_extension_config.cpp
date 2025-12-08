@@ -97,11 +97,6 @@ TEST_CASE("Test on changing extension config change default cache dir path setti
 
 	// After executing the query, the cache directory should have one cache file.
 	auto result = con.Query(StringUtil::Format("SELECT * FROM '%s'", TEST_ON_DISK_CACHE_FILE));
-
-	if (result->HasError()) {
-		std::cerr << "err = " << result->GetError() << std::endl;
-	}
-
 	REQUIRE(!result->HasError());
 
 	const int files_after_query = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY);

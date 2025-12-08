@@ -167,8 +167,6 @@ TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem
 		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 2);
 	}
 
-	std::cerr << "==== after second read =====" << std::endl;
-
 	// Third read with different version tag, should invalidate cache and re-read.
 	{
 		mock_filesystem_ptr->SetVersionTag("v2");
@@ -183,11 +181,6 @@ TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem
 		// Should validate, invalidate cache, and re-read from mock filesystem.
 		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 3);
 		auto read_operations = mock_filesystem_ptr->GetSortedReadOperations();
-
-		for (auto op : read_operations) {
-			std::cerr << "off = " << op.start_offset << ", re = " << op.bytes_to_read << std::endl;
-		}
-
 		REQUIRE(read_operations.size() == 1);
 		REQUIRE(read_operations[0].start_offset == 0);
 		REQUIRE(read_operations[0].bytes_to_read == TEST_FILE_SIZE);
