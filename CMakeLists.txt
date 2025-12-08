@@ -114,19 +114,21 @@ include_directories(duckdb/third_party/catch)
 # add_executable(test_disk_cache_filesystem unit/test_disk_cache_filesystem.cpp)
 # target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
 
-# add_executable(test_large_file_disk_reader unit/test_large_file_disk_reader.cpp)
+# add_executable(test_large_file_disk_reader
+# unit/test_large_file_disk_reader.cpp)
 # target_link_libraries(test_large_file_disk_reader ${EXTENSION_NAME})
 
 # add_executable(test_disk_cache_with_multi_directories
-#                unit/test_disk_cache_with_multi_directories.cpp)
-# target_link_libraries(test_disk_cache_with_multi_directories ${EXTENSION_NAME})
+# unit/test_disk_cache_with_multi_directories.cpp)
+# target_link_libraries(test_disk_cache_with_multi_directories
+# ${EXTENSION_NAME})
 
 # add_executable(test_in_memory_cache_filesystem
-#                unit/test_in_memory_cache_filesystem.cpp)
+# unit/test_in_memory_cache_filesystem.cpp)
 # target_link_libraries(test_in_memory_cache_filesystem ${EXTENSION_NAME})
 
 # add_executable(test_large_file_inmem_reader
-#                unit/test_large_file_inmem_reader.cpp)
+# unit/test_large_file_inmem_reader.cpp)
 # target_link_libraries(test_large_file_inmem_reader ${EXTENSION_NAME})
 
 add_executable(test_filesystem_utils unit/test_filesystem_utils.cpp)
@@ -135,7 +137,8 @@ target_link_libraries(test_filesystem_utils ${EXTENSION_NAME})
 # add_executable(test_cache_filesystem unit/test_cache_filesystem.cpp)
 # target_link_libraries(test_cache_filesystem ${EXTENSION_NAME})
 
-# add_executable(test_cache_stats_collection unit/test_cache_stats_collection.cpp)
+# add_executable(test_cache_stats_collection
+# unit/test_cache_stats_collection.cpp)
 # target_link_libraries(test_cache_stats_collection ${EXTENSION_NAME})
 
 # add_executable(test_histogram unit/test_histogram.cpp)
@@ -154,11 +157,11 @@ target_link_libraries(test_filesystem_utils ${EXTENSION_NAME})
 # target_link_libraries(test_exclusive_lru_cache ${EXTENSION_NAME})
 
 # add_executable(test_exclusive_multi_lru_cache
-#                unit/test_exclusive_multi_lru_cache.cpp)
+# unit/test_exclusive_multi_lru_cache.cpp)
 # target_link_libraries(test_exclusive_multi_lru_cache ${EXTENSION_NAME})
 
 # add_executable(test_copiable_value_lru_cache
-#                unit/test_copiable_value_lru_cache.cpp)
+# unit/test_copiable_value_lru_cache.cpp)
 # target_link_libraries(test_copiable_value_lru_cache ${EXTENSION_NAME})
 
 # add_executable(test_size_literals unit/test_size_literals.cpp)
@@ -174,22 +177,21 @@ target_link_libraries(test_filesystem_utils ${EXTENSION_NAME})
 # target_link_libraries(test_base_cache_filesystem ${EXTENSION_NAME})
 
 # add_executable(test_cache_filesystem_with_mock
-#                unit/test_cache_filesystem_with_mock.cpp)
+# unit/test_cache_filesystem_with_mock.cpp)
 # target_link_libraries(test_cache_filesystem_with_mock ${EXTENSION_NAME})
 
 # add_executable(test_no_destructor unit/test_no_destructor.cpp)
 # target_link_libraries(test_no_destructor ${EXTENSION_NAME})
 
 # add_executable(test_cache_exclusion_manager
-#                unit/test_cache_exclusion_manager.cpp)
+# unit/test_cache_exclusion_manager.cpp)
 # target_link_libraries(test_cache_exclusion_manager ${EXTENSION_NAME})
 
-# # Benchmark
-# add_executable(read_s3_object benchmark/read_s3_object.cpp)
+# # Benchmark add_executable(read_s3_object benchmark/read_s3_object.cpp)
 # target_link_libraries(read_s3_object ${EXTENSION_NAME})
 
 # add_executable(sequential_read_benchmark
-#                benchmark/sequential_read_benchmark.cpp)
+# benchmark/sequential_read_benchmark.cpp)
 # target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
 
 # add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
