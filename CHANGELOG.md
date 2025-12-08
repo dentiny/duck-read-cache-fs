@@ -1,3 +1,18 @@
+# 0.10.0
+
+## Add
+
+- Add option to enable cache entry validation for both in-memory and on-disk cache entries ([#318], [#323])
+
+[#318]: https://github.com/dentiny/duck-read-cache-fs/pull/318
+[#323]: https://github.com/dentiny/duck-read-cache-fs/pull/323
+
+## Fixed
+
+- Fix extra empty IO request caused by incorrect chunking calculation ([#323])
+
+[#323]: https://github.com/dentiny/duck-read-cache-fs/pull/323
+
 # 0.9.4
 
 ## Added
