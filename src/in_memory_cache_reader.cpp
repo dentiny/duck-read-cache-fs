@@ -6,6 +6,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "utils/include/chunk_utils.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/thread_pool.hpp"
@@ -26,30 +27,35 @@ bool InMemoryCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                        idx_t requested_bytes_to_read, idx_t file_size) {
+	if (requested_bytes_to_read == 0) {
+		return;
+	}
 	std::call_once(cache_init_flag, [this]() {
 		cache = make_uniq<InMemCache>(g_max_in_mem_cache_block_count, g_in_mem_cache_block_timeout_millisec);
 	});
 
 	const idx_t block_size = g_cache_block_size;
-	const idx_t aligned_start_offset = requested_start_offset / block_size * block_size;
-	const idx_t aligned_last_chunk_offset =
-	    ((requested_start_offset + requested_bytes_to_read - 1) / block_size) * block_size;
-	const idx_t subrequest_count = (aligned_last_chunk_offset - aligned_start_offset) / block_size + 1;
+	const ReadRequestParams read_params {
+	    .requested_start_offset = requested_start_offset,
+	    .requested_bytes_to_read = requested_bytes_to_read,
+	    .block_size = block_size,
+	};
+	const ChunkAlignmentInfo alignment_info = CalculateChunkAlignment(read_params);
 
-	// Indicate the meory address to copy to for each IO operation
+	// Indicate the memory address to copy to for each IO operation
 	char *addr_to_write = buffer;
 	// Used to calculate bytes to copy for last chunk.
 	idx_t already_read_bytes = 0;
 	// Threads to parallelly perform IO.
-	ThreadPool io_threads(GetThreadCountForSubrequests(subrequest_count));
+	ThreadPool io_threads(GetThreadCountForSubrequests(alignment_info.subrequest_count));
 	// Get file-level metadata once before processing chunks.
 	string version_tag = handle.Cast<CacheFileSystemHandle>().GetVersionTag();
 
 	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in
 	// parallel.
 	idx_t total_bytes_to_cache = 0;
-	for (idx_t io_start_offset = aligned_start_offset; io_start_offset <= aligned_last_chunk_offset;
-	     io_start_offset += block_size) {
+	for (idx_t io_start_offset = alignment_info.aligned_start_offset;
+	     io_start_offset <= alignment_info.aligned_last_chunk_offset; io_start_offset += block_size) {
 		// No bytes to read for the last chunk.
 		if (io_start_offset == file_size) {
 			continue;
@@ -66,13 +72,14 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		// not need to copy the whole [block_size] of memory.
 		//
 		// Case-1: If there's only one chunk, which serves as both the first chunk and the last one.
-		if (io_start_offset == aligned_start_offset && io_start_offset == aligned_last_chunk_offset) {
+		if (io_start_offset == alignment_info.aligned_start_offset &&
+		    io_start_offset == alignment_info.aligned_last_chunk_offset) {
 			cache_read_chunk.chunk_size = MinValue<idx_t>(block_size, file_size - io_start_offset);
 			cache_read_chunk.bytes_to_copy = requested_bytes_to_read;
 		}
 		// Case-2: First chunk.
-		else if (io_start_offset == aligned_start_offset) {
-			const idx_t delta_offset = requested_start_offset - aligned_start_offset;
+		else if (io_start_offset == alignment_info.aligned_start_offset) {
+			const idx_t delta_offset = requested_start_offset - alignment_info.aligned_start_offset;
 			addr_to_write += block_size - delta_offset;
 			already_read_bytes += block_size - delta_offset;
 
@@ -80,7 +87,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			cache_read_chunk.bytes_to_copy = block_size - delta_offset;
 		}
 		// Case-3: Last chunk.
-		else if (io_start_offset == aligned_last_chunk_offset) {
+		else if (io_start_offset == alignment_info.aligned_last_chunk_offset) {
 			cache_read_chunk.chunk_size = MinValue<idx_t>(block_size, file_size - io_start_offset);
 			cache_read_chunk.bytes_to_copy = requested_bytes_to_read - already_read_bytes;
 		}

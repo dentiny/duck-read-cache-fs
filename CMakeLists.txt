@@ -39,6 +39,7 @@ set(EXTENSION_SOURCES
     src/filesystem_status_query_function.cpp
     src/noop_cache_reader.cpp
     src/temp_profile_collector.cpp
+    src/utils/chunk_utils.cpp
     src/utils/fake_filesystem.cpp
     src/utils/filesystem_utils.cpp
     src/utils/mock_filesystem.cpp
@@ -128,6 +129,9 @@ target_link_libraries(test_in_memory_cache_filesystem ${EXTENSION_NAME})
 add_executable(test_large_file_inmem_reader
                unit/test_large_file_inmem_reader.cpp)
 target_link_libraries(test_large_file_inmem_reader ${EXTENSION_NAME})
+
+add_executable(test_chunk_utils unit/test_chunk_utils.cpp)
+target_link_libraries(test_chunk_utils ${EXTENSION_NAME})
 
 add_executable(test_filesystem_utils unit/test_filesystem_utils.cpp)
 target_link_libraries(test_filesystem_utils ${EXTENSION_NAME})
