@@ -48,6 +48,7 @@ private:
 	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
 
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
+	// If cache validation is disabled, the given [version_tag] is empty. 
 	bool ValidateCacheFile(const string &cache_filepath, const string &version_tag);
 
 	// Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.

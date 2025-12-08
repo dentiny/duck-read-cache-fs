@@ -323,11 +323,11 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		// Update read offset for next chunk read.
 		requested_start_offset = io_start_offset + block_size;
 
-			// Perform read operation in parallel.
-			//
-			// TODO(hjiang): Refactor the thread function.
-			io_threads.Push([this, &handle, block_size, version_tag = std::cref(version_tag),
-			                 cache_read_chunk = std::move(cache_read_chunk)]() mutable {
+		// Perform read operation in parallel.
+		//
+		// TODO(hjiang): Refactor the thread function.
+		io_threads.Push([this, &handle, block_size, version_tag = std::cref(version_tag),
+							cache_read_chunk = std::move(cache_read_chunk)]() mutable {
 			SetThreadName("RdCachRdThd");
 
 			// Attempt in-memory cache block first, so potentially we don't need to access disk storage.
@@ -365,32 +365,34 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 				file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
 			}
 			auto file_handle = local_filesystem->OpenFile(cache_destination.cache_filepath, std::move(file_open_flags));
+
+			// Check cache validity and clear if necessary.
+			if (file_handle != nullptr && !ValidateCacheFile(cache_destination.cache_filepath, version_tag.get())) {
+
+				local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
+				file_handle = nullptr;
+			}
+
 			if (file_handle != nullptr) {
-				// Check cache entry validity before using it.
-				if (!ValidateCacheFile(cache_destination.cache_filepath, version_tag.get())) {
-					// Cache entry is invalid, delete it and fall through to remote read.
-					local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
-				} else {
-					profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
-					DUCKDB_LOG_READ_CACHE_HIT((handle));
-					{
-						const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kDiskCacheRead);
-						local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
-					}
-					cache_read_chunk.CopyBufferToRequestedMemory(content);
-
-					// Update in-memory cache if applicable.
-					if (in_mem_cache_blocks != nullptr) {
-						in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(std::move(content)));
-					}
-
-					// Update access and modification timestamp for the cache file, so it won't get evicted.
-					// Intentionally ignore the return value, since it's possible the cache file has been requested to
-					// delete by another eviction thread.
-					// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
-					UpdateFileTimestamps(cache_destination.cache_filepath);
-					return;
+				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+				DUCKDB_LOG_READ_CACHE_HIT((handle));
+				{
+					const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kDiskCacheRead);
+					local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
 				}
+				cache_read_chunk.CopyBufferToRequestedMemory(content);
+
+				// Update in-memory cache if applicable.
+				if (in_mem_cache_blocks != nullptr) {
+					in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(std::move(content)));
+				}
+
+				// Update access and modification timestamp for the cache file, so it won't get evicted.
+				// Intentionally ignore the return value, since it's possible the cache file has been requested to
+				// delete by another eviction thread.
+				// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
+				UpdateFileTimestamps(cache_destination.cache_filepath);
+				return;
 			}
 
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
