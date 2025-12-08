@@ -47,10 +47,13 @@ public:
 private:
 	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
 
+	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
+	bool ValidateCacheFile(const string &cache_filepath, const string &version_tag);
+
 	// Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
 	// Otherwise, nothing happens.
 	void CacheLocal(const FileHandle &handle, const string &cache_directory, const string &local_cache_file,
-	                const string &content);
+	                const string &content, const string &version_tag);
 
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;

@@ -157,8 +157,22 @@ string DiskCacheReader::EvictCacheBlockLru() {
 	return filepath;
 }
 
+bool DiskCacheReader::ValidateCacheFile(const string &cache_filepath, const string &version_tag) {
+	// Empty version tags means cache validation is disabled.
+	if (version_tag.empty()) {
+		return true;
+	}
+	const string cached_version_tag = GetCacheVersion(cache_filepath);
+	// If cached version tag is empty, the file might have been created before validation was enabled.
+	// In this case, we should treat it as invalid to be safe.
+	if (cached_version_tag.empty()) {
+		return false;
+	}
+	return cached_version_tag == version_tag;
+}
+
 void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_directory,
-                                 const string &local_cache_file, const string &content) {
+                                 const string &local_cache_file, const string &content, const string &version_tag) {
 	// Skip local cache if insufficient disk space.
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
 	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
@@ -187,6 +201,12 @@ void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_d
 
 	// Then atomically move to the target postion to prevent data corruption due to concurrent write.
 	local_filesystem->MoveFile(/*source=*/local_temp_file, /*target=*/local_cache_file);
+	
+	// Store version tag in extended attributes for validation.
+	if (!version_tag.empty()) {
+		SetCacheVersion(local_cache_file, version_tag);
+	}
+	
 	DUCKDB_LOG_DEBUG_OPTIONAL(duckdb_instance, StringUtil::Format("Disk cache file persisted to %s with size %zu",
 	                                                              local_cache_file, content.length()));
 }
@@ -248,12 +268,19 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	idx_t already_read_bytes = 0;
 	// Threads to parallelly perform IO.
 	ThreadPool io_threads(GetThreadCountForSubrequests(subrequest_count));
+	// Get file-level metadata once before processing chunks.
+	string version_tag = handle.Cast<CacheFileSystemHandle>().GetVersionTag();
 
 	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in
 	// parallel.
 	idx_t total_bytes_to_cache = 0;
 	for (idx_t io_start_offset = aligned_start_offset; io_start_offset <= aligned_last_chunk_offset;
 	     io_start_offset += block_size) {
+		// No bytes to read for the last chunk.
+		if (io_start_offset == file_size) {
+			continue;
+		}
+
 		CacheReadChunk cache_read_chunk;
 		cache_read_chunk.requested_start_addr = addr_to_write;
 		cache_read_chunk.aligned_start_offset = io_start_offset;
@@ -296,10 +323,11 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		// Update read offset for next chunk read.
 		requested_start_offset = io_start_offset + block_size;
 
-		// Perform read operation in parallel.
-		//
-		// TODO(hjiang): Refactor the thread function.
-		io_threads.Push([this, &handle, block_size, cache_read_chunk = std::move(cache_read_chunk)]() mutable {
+			// Perform read operation in parallel.
+			//
+			// TODO(hjiang): Refactor the thread function.
+			io_threads.Push([this, &handle, block_size, version_tag = std::cref(version_tag),
+			                 cache_read_chunk = std::move(cache_read_chunk)]() mutable {
 			SetThreadName("RdCachRdThd");
 
 			// Attempt in-memory cache block first, so potentially we don't need to access disk storage.
@@ -338,25 +366,31 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			}
 			auto file_handle = local_filesystem->OpenFile(cache_destination.cache_filepath, std::move(file_open_flags));
 			if (file_handle != nullptr) {
-				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
-				DUCKDB_LOG_READ_CACHE_HIT((handle));
-				{
-					const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kDiskCacheRead);
-					local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
-				}
-				cache_read_chunk.CopyBufferToRequestedMemory(content);
+				// Check cache entry validity before using it.
+				if (!ValidateCacheFile(cache_destination.cache_filepath, version_tag.get())) {
+					// Cache entry is invalid, delete it and fall through to remote read.
+					local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
+				} else {
+					profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+					DUCKDB_LOG_READ_CACHE_HIT((handle));
+					{
+						const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kDiskCacheRead);
+						local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
+					}
+					cache_read_chunk.CopyBufferToRequestedMemory(content);
 
-				// Update in-memory cache if applicable.
-				if (in_mem_cache_blocks != nullptr) {
-					in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(std::move(content)));
-				}
+					// Update in-memory cache if applicable.
+					if (in_mem_cache_blocks != nullptr) {
+						in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(std::move(content)));
+					}
 
-				// Update access and modification timestamp for the cache file, so it won't get evicted.
-				// Intentionally ignore the return value, since it's possible the cache file has been requested to
-				// delete by another eviction thread.
-				// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
-				UpdateFileTimestamps(cache_destination.cache_filepath);
-				return;
+					// Update access and modification timestamp for the cache file, so it won't get evicted.
+					// Intentionally ignore the return value, since it's possible the cache file has been requested to
+					// delete by another eviction thread.
+					// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
+					UpdateFileTimestamps(cache_destination.cache_filepath);
+					return;
+				}
 			}
 
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
@@ -376,7 +410,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 			// Attempt to cache file locally.
 			const auto &cache_directory = (*g_on_disk_cache_directories)[cache_destination.cache_directory_idx];
-			CacheLocal(handle, cache_directory, cache_destination.cache_filepath, content);
+			CacheLocal(handle, cache_directory, cache_destination.cache_filepath, content, version_tag.get());
 
 			// Update in-memory cache if applicable.
 			if (in_mem_cache_blocks != nullptr) {
