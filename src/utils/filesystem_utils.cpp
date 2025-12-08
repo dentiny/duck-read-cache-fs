@@ -218,8 +218,8 @@ string GetCacheVersion(const string &filepath) {
 	}
 	string buffer(size, '\0');
 	ssize_t res = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY,
-	                        const_cast<void *>(static_cast<const void *>(buffer.data())), size, /*position=*/0,
-	                        /*options=*/0);
+	                       const_cast<void *>(static_cast<const void *>(buffer.data())), size, /*position=*/0,
+	                       /*options=*/0);
 	if (res > 0) {
 		buffer.resize(res);
 		return buffer;
@@ -232,7 +232,7 @@ string GetCacheVersion(const string &filepath) {
 	}
 	string buffer(size, '\0');
 	ssize_t res = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY,
-	                        const_cast<void *>(static_cast<const void *>(buffer.data())), size);
+	                       const_cast<void *>(static_cast<const void *>(buffer.data())), size);
 	if (res > 0) {
 		buffer.resize(res);
 		return buffer;
