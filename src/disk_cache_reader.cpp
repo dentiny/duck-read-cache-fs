@@ -266,8 +266,10 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 	const idx_t block_size = g_cache_block_size;
 	const idx_t aligned_start_offset = requested_start_offset / block_size * block_size;
+	// Calculate the start offset of the last chunk that contains any of the requested data.
+	// Subtract 1 from the end offset to get the last byte, then align down to block boundary.
 	const idx_t aligned_last_chunk_offset =
-	    (requested_start_offset + requested_bytes_to_read) / block_size * block_size;
+	    ((requested_start_offset + requested_bytes_to_read - 1) / block_size) * block_size;
 	const idx_t subrequest_count = (aligned_last_chunk_offset - aligned_start_offset) / block_size + 1;
 
 	// Indicate the meory address to copy to for each IO operation
@@ -343,12 +345,17 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			block_key.fname = handle.GetPath();
 			block_key.start_off = cache_read_chunk.aligned_start_offset;
 			block_key.blk_size = cache_read_chunk.chunk_size;
+			auto cache_destination =
+					    GetLocalCacheFile(*g_on_disk_cache_directories, handle.GetPath(),
+					                      cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
+
 			if (in_mem_cache_blocks != nullptr) {
 				auto cache_entry = in_mem_cache_blocks->Get(block_key);
 				// Check cache entry validity and clear if necessary.
 				if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag.get())) {
 					in_mem_cache_blocks->Delete(block_key);
 					cache_entry = nullptr;
+					local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
 				}
 				if (cache_entry != nullptr) {
 					profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
@@ -357,11 +364,6 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 					return;
 				}
 			}
-
-			// Check local cache first, see if we could do a cached read.
-			auto cache_destination =
-			    GetLocalCacheFile(*g_on_disk_cache_directories, handle.GetPath(), cache_read_chunk.aligned_start_offset,
-			                      cache_read_chunk.chunk_size);
 
 			// Create cache content.
 			auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);

@@ -48,6 +48,20 @@ void CreateSourceTestFile() {
 	file_handle->Close();
 }
 
+// A filesystem wrapper that extends LocalFileSystem but allows setting version tags.
+class VersionTagFileSystem : public LocalFileSystem {
+public:
+	void SetVersionTag(const string &tag) {
+		version_tag = tag;
+	}
+	string GetVersionTag(FileHandle &handle) override {
+		return version_tag;
+	}
+
+private:
+	string version_tag;
+};
+
 } // namespace
 
 // Test default directory works for uncached read.
@@ -611,22 +625,6 @@ TEST_CASE("Test on lru eviction", "[on-disk cache filesystem test]") {
 	REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_2));
 }
 
-namespace {
-// A filesystem wrapper that extends LocalFileSystem but allows setting version tags
-class VersionTagFileSystem : public LocalFileSystem {
-public:
-	void SetVersionTag(const string &tag) {
-		version_tag = tag;
-	}
-	string GetVersionTag(FileHandle &handle) override {
-		return version_tag;
-	}
-
-private:
-	string version_tag;
-};
-} // namespace
-
 // Testing scenario: cache validation with matching version tags should use cached file.
 TEST_CASE("Test disk cache validation with matching version tags", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 10;
@@ -643,7 +641,6 @@ TEST_CASE("Test disk cache validation with matching version tags", "[on-disk cac
 	auto version_tag_fs = make_uniq<VersionTagFileSystem>();
 	const string test_version_tag = "version-1.0";
 	version_tag_fs->SetVersionTag(test_version_tag);
-
 	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(version_tag_fs));
 
 	// First read: should cache the file with version tag

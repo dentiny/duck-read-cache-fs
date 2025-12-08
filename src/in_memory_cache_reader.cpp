@@ -33,7 +33,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	const idx_t block_size = g_cache_block_size;
 	const idx_t aligned_start_offset = requested_start_offset / block_size * block_size;
 	const idx_t aligned_last_chunk_offset =
-	    (requested_start_offset + requested_bytes_to_read) / block_size * block_size;
+	    ((requested_start_offset + requested_bytes_to_read - 1) / block_size) * block_size;
 	const idx_t subrequest_count = (aligned_last_chunk_offset - aligned_start_offset) / block_size + 1;
 
 	// Indicate the meory address to copy to for each IO operation
