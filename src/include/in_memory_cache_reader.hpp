@@ -31,7 +31,17 @@ public:
 	vector<DataCacheEntryInfo> GetCacheEntriesInfo() const override;
 
 private:
-	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
+	// Cache entry wrapper that stores data along with validation metadata.
+	struct InMemCacheEntry {
+		string data;
+		string version_tag;
+	};
+
+	using InMemCache =
+	    ThreadSafeSharedLruCache<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockHash, InMemCacheBlockEqual>;
+
+	// Return whether the given cache entry is still valid and usable.
+	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
 
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;

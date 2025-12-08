@@ -16,6 +16,14 @@
 
 namespace duckdb {
 
+bool InMemoryCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag) {
+	// Empty version tags means cache validation is disabled.
+	if (version_tag.empty()) {
+		return true;
+	}
+	return cache_entry->version_tag == version_tag;
+}
+
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                        idx_t requested_bytes_to_read, idx_t file_size) {
 	std::call_once(cache_init_flag, [this]() {
@@ -34,12 +42,19 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	idx_t already_read_bytes = 0;
 	// Threads to parallelly perform IO.
 	ThreadPool io_threads(GetThreadCountForSubrequests(subrequest_count));
+	// Get file-level metadata once before processing chunks.
+	string version_tag = handle.Cast<CacheFileSystemHandle>().GetVersionTag();
 
-	// To improve IO performance, we split requested bytes (after alignment) into
-	// multiple chunks and fetch them in parallel.
+	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in
+	// parallel.
 	idx_t total_bytes_to_cache = 0;
 	for (idx_t io_start_offset = aligned_start_offset; io_start_offset <= aligned_last_chunk_offset;
 	     io_start_offset += block_size) {
+		// No bytes to read for the last chunk.
+		if (io_start_offset == file_size) {
+			continue;
+		}
+
 		CacheReadChunk cache_read_chunk;
 		cache_read_chunk.requested_start_addr = addr_to_write;
 		cache_read_chunk.aligned_start_offset = io_start_offset;
@@ -83,7 +98,8 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
-		io_threads.Push([this, &handle, block_size, cache_read_chunk = std::move(cache_read_chunk)]() mutable {
+		io_threads.Push([this, &handle, block_size, version_tag = std::cref(version_tag),
+		                 cache_read_chunk = std::move(cache_read_chunk)]() mutable {
 			SetThreadName("RdCachRdThd");
 
 			// Check local cache first, see if we could do a cached read.
@@ -91,12 +107,18 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 			block_key.fname = handle.GetPath();
 			block_key.start_off = cache_read_chunk.aligned_start_offset;
 			block_key.blk_size = cache_read_chunk.chunk_size;
-			auto cache_block = cache->Get(block_key);
+			auto cache_entry = cache->Get(block_key);
 
-			if (cache_block != nullptr) {
+			// Check cache entry validity and clear if necessary.
+			if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag.get())) {
+				cache->Delete(block_key);
+				cache_entry = nullptr;
+			}
+
+			if (cache_entry != nullptr) {
 				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 				DUCKDB_LOG_OPEN_CACHE_HIT((handle));
-				cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
+				cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
 				return;
 			}
 
@@ -116,7 +138,13 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 
 			// Copy to destination buffer.
 			cache_read_chunk.CopyBufferToRequestedMemory(content);
-			cache->Put(std::move(block_key), make_shared_ptr<std::string>(std::move(content)));
+
+			InMemoryCacheReader::InMemCacheEntry new_cache_entry {
+			    .data = std::move(content),
+			    .version_tag = version_tag.get(),
+			};
+			cache->Put(std::move(block_key),
+			           make_shared_ptr<InMemoryCacheReader::InMemCacheEntry>(std::move(new_cache_entry)));
 		});
 	}
 	io_threads.Wait();

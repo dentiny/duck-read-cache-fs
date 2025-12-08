@@ -31,6 +31,14 @@ FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
 	return cache_filesystem.GetInternalFileSystem();
 }
 
+string CacheFileSystemHandle::GetVersionTag() {
+	if (!g_enable_cache_validation) {
+		return "";
+	}
+	auto *internal_filesystem = GetInternalFileSystem();
+	return internal_filesystem->GetVersionTag(*internal_file_handle);
+}
+
 CacheFileSystemHandle::~CacheFileSystemHandle() {
 	if (dtor_callback) {
 		dtor_callback(*this);

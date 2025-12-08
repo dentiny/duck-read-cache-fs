@@ -191,6 +191,14 @@ void SetGlobalConfig(optional_ptr<FileOpener> opener) {
 		FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_glob_cache_entry_timeout_millisec", val);
 		g_glob_cache_entry_timeout_millisec = val.GetValue<uint64_t>();
 	}
+
+	//===--------------------------------------------------------------------===//
+	// Cache validation configuration
+	//===--------------------------------------------------------------------===//
+
+	// Check and update cache validation enablement.
+	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_enable_cache_validation", val);
+	g_enable_cache_validation = val.GetValue<bool>();
 }
 
 void ResetGlobalConfig() {
@@ -201,6 +209,7 @@ void ResetGlobalConfig() {
 	*g_cache_type = *DEFAULT_CACHE_TYPE;
 	*g_profile_type = *DEFAULT_PROFILE_TYPE;
 	g_max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
+	g_enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
 
 	// On-disk cache configuration.
 	*g_on_disk_cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
@@ -228,7 +237,7 @@ void ResetGlobalConfig() {
 	// Glob cache configuration.
 	g_enable_glob_cache = DEFAULT_ENABLE_GLOB_CACHE;
 	g_max_glob_cache_entry = DEFAULT_MAX_GLOB_CACHE_ENTRY;
-	g_glob_cache_entry_timeout_millisec = DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;
+	g_glob_cache_entry_timeout_millisec = DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;	
 
 	// Reset testing options.
 	g_test_insufficient_disk_space = false;

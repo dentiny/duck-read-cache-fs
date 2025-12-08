@@ -68,6 +68,10 @@ public:
 		++get_last_mod_time_invocation;
 		return last_modification_time;
 	}
+	string GetVersionTag(FileHandle &handle) override {
+		++get_version_tag_invocation;
+		return version_tag;
+	}
 	void Seek(FileHandle &handle, idx_t location) override {
 	}
 	std::string GetName() const override {
@@ -85,6 +89,9 @@ public:
 	void SetLastModificationTime(timestamp_t last_modification_time_p) {
 		last_modification_time = last_modification_time_p;
 	}
+	void SetVersionTag(string version_tag_p) {
+		version_tag = std::move(version_tag_p);
+	}
 	vector<ReadOper> GetSortedReadOperations();
 	uint64_t GetFileOpenInvocation() const {
 		return file_open_invocation;
@@ -98,6 +105,9 @@ public:
 	uint64_t GetLastModTimeInvocation() const {
 		return get_last_mod_time_invocation;
 	}
+	uint64_t GetVersionTagInvocation() const {
+		return get_version_tag_invocation;
+	}
 	void ClearReadOperations() {
 		read_operations.clear();
 	}
@@ -105,6 +115,7 @@ public:
 private:
 	int64_t file_size = 0;
 	timestamp_t last_modification_time = timestamp_t::infinity();
+	string version_tag;
 	// Glob returns value for each invocation.
 	std::deque<OpenFileInfo> glob_returns;
 	std::function<void()> close_callback;
@@ -114,6 +125,7 @@ private:
 	uint64_t glob_invocation = 0;              // Number of `Glob` gets called.
 	uint64_t get_file_size_invocation = 0;     // Number of `GetFileSize` get called.
 	uint64_t get_last_mod_time_invocation = 0; // Number of `GetLastModificationTime` called.
+	uint64_t get_version_tag_invocation = 0;   // Number of `GetVersionTag` called.
 	vector<ReadOper> read_operations;
 	std::mutex mtx;
 };

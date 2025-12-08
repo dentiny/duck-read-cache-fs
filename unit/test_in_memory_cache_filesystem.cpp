@@ -7,8 +7,10 @@
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "in_memory_cache_reader.hpp"
+#include "mock_filesystem.hpp"
 #include "scope_guard.hpp"
 #include "test_utils.hpp"
 
@@ -85,6 +87,103 @@ TEST_CASE("Test on concurrent access", "[in-memory cache filesystem test]") {
 	for (auto &cur_thd : reader_threads) {
 		D_ASSERT(cur_thd.joinable());
 		cur_thd.join();
+	}
+}
+
+TEST_CASE("Test cache validation disabled", "[in-memory cache filesystem test]") {
+	g_cache_block_size = TEST_FILE_SIZE;
+	g_enable_cache_validation = false;
+	SCOPE_EXIT {
+		ResetGlobalStateAndConfig();
+	};
+
+	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	// First read, should cache.
+	{
+		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		const uint64_t start_offset = 0;
+		const uint64_t bytes_to_read = TEST_FILE_SIZE;
+		string content(bytes_to_read, '\0');
+		in_mem_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                      start_offset);
+		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+	}
+
+	// Second read, should use cache even if file metadata changes (validation disabled).
+	{
+		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		const uint64_t start_offset = 0;
+		const uint64_t bytes_to_read = TEST_FILE_SIZE;
+		string content(bytes_to_read, '\0');
+		in_mem_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                      start_offset);
+		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+	}
+}
+
+TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem test]") {
+	g_cache_block_size = TEST_FILE_SIZE;
+	g_enable_cache_validation = true;
+	SCOPE_EXIT {
+		ResetGlobalStateAndConfig();
+	};
+
+	auto close_callback = []() {
+	};
+	auto dtor_callback = []() {
+	};
+	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_callback), std::move(dtor_callback));
+	mock_filesystem->SetFileSize(TEST_FILE_SIZE);
+	mock_filesystem->SetVersionTag("v1");
+	mock_filesystem->SetLastModificationTime(timestamp_t {1000000});
+
+	auto *mock_filesystem_ptr = mock_filesystem.get();
+	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(std::move(mock_filesystem));
+
+	// First read, should cache with version tag "v1".
+	{
+		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		const uint64_t start_offset = 0;
+		const uint64_t bytes_to_read = TEST_FILE_SIZE;
+		string content(bytes_to_read, '\0');
+		in_mem_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                      start_offset);
+		REQUIRE(content == std::string(TEST_FILE_SIZE, 'a'));
+		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 1);
+	}
+
+	// Second read with same version tag, should use cache.
+	{
+		mock_filesystem_ptr->SetVersionTag("v1");
+		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		const uint64_t start_offset = 0;
+		const uint64_t bytes_to_read = TEST_FILE_SIZE;
+		string content(bytes_to_read, '\0');
+		in_mem_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                      start_offset);
+		REQUIRE(content == std::string(TEST_FILE_SIZE, 'a'));
+		// Should validate but use cache.
+		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 2);
+	}
+
+	// Third read with different version tag, should invalidate cache and re-read.
+	{
+		mock_filesystem_ptr->SetVersionTag("v2");
+		mock_filesystem_ptr->ClearReadOperations();
+		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		const uint64_t start_offset = 0;
+		const uint64_t bytes_to_read = TEST_FILE_SIZE;
+		string content(bytes_to_read, '\0');
+		in_mem_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                      start_offset);
+		REQUIRE(content == std::string(TEST_FILE_SIZE, 'a'));
+		// Should validate, invalidate cache, and re-read from mock filesystem.
+		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 3);
+		auto read_operations = mock_filesystem_ptr->GetSortedReadOperations();
+		REQUIRE(read_operations.size() == 1);
+		REQUIRE(read_operations[0].start_offset == 0);
+		REQUIRE(read_operations[0].bytes_to_read == TEST_FILE_SIZE);
 	}
 }
 

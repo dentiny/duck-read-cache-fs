@@ -61,6 +61,9 @@ public:
 	// Get internal filesystem for cache filesystem.
 	FileSystem *GetInternalFileSystem() const;
 
+	// Get version tag, return empty string if validation disabled.
+	string GetVersionTag();
+
 	shared_ptr<Logger> logger;
 	unique_ptr<FileHandle> internal_file_handle;
 	std::function<void(CacheFileSystemHandle &)> dtor_callback;
