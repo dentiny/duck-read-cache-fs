@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(TARGET_NAME cache_httpfs)
 
 # Suppress warnings.
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-c++17-extensions")
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
