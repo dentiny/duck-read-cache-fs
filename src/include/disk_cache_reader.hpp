@@ -45,11 +45,20 @@ public:
 	string EvictCacheBlockLru();
 
 private:
-	using InMemCache = ThreadSafeSharedLruCache<InMemCacheBlock, string, InMemCacheBlockHash, InMemCacheBlockEqual>;
+	struct InMemCacheEntry {
+		string data;
+		string version_tag;
+	};
+
+	using InMemCache =
+	    ThreadSafeSharedLruCache<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockHash, InMemCacheBlockEqual>;
 
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
-	// If cache validation is disabled, the given [version_tag] is empty. 
+	// If cache validation is disabled, the given [version_tag] is empty.
 	bool ValidateCacheFile(const string &cache_filepath, const string &version_tag);
+
+	// Return whether the given cache entry is still valid and usable.
+	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
 
 	// Attempt to cache [chunk] to local filesystem, if there's sufficient disk space available.
 	// Otherwise, nothing happens.

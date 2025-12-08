@@ -171,6 +171,14 @@ bool DiskCacheReader::ValidateCacheFile(const string &cache_filepath, const stri
 	return cached_version_tag == version_tag;
 }
 
+bool DiskCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag) {
+	// Empty version tags means cache validation is disabled.
+	if (version_tag.empty()) {
+		return true;
+	}
+	return cache_entry->version_tag == version_tag;
+}
+
 void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_directory,
                                  const string &local_cache_file, const string &content, const string &version_tag) {
 	// Skip local cache if insufficient disk space.
@@ -336,11 +344,16 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			block_key.start_off = cache_read_chunk.aligned_start_offset;
 			block_key.blk_size = cache_read_chunk.chunk_size;
 			if (in_mem_cache_blocks != nullptr) {
-				auto cache_block = in_mem_cache_blocks->Get(block_key);
-				if (cache_block != nullptr) {
+				auto cache_entry = in_mem_cache_blocks->Get(block_key);
+				// Check cache entry validity and clear if necessary.
+				if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag.get())) {
+					in_mem_cache_blocks->Delete(block_key);
+					cache_entry = nullptr;
+				}
+				if (cache_entry != nullptr) {
 					profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 					DUCKDB_LOG_READ_CACHE_HIT((handle));
-					cache_read_chunk.CopyBufferToRequestedMemory(*cache_block);
+					cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
 					return;
 				}
 			}
@@ -368,7 +381,6 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 			// Check cache validity and clear if necessary.
 			if (file_handle != nullptr && !ValidateCacheFile(cache_destination.cache_filepath, version_tag.get())) {
-
 				local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
 				file_handle = nullptr;
 			}
@@ -384,7 +396,12 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 				// Update in-memory cache if applicable.
 				if (in_mem_cache_blocks != nullptr) {
-					in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(std::move(content)));
+					InMemCacheEntry new_cache_entry {
+					    .data = std::move(content),
+					    .version_tag = version_tag.get(),
+					};
+					in_mem_cache_blocks->Put(std::move(block_key),
+					                        make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
 				}
 
 				// Update access and modification timestamp for the cache file, so it won't get evicted.
@@ -416,7 +433,12 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 			// Update in-memory cache if applicable.
 			if (in_mem_cache_blocks != nullptr) {
-				in_mem_cache_blocks->Put(std::move(block_key), make_shared_ptr<string>(std::move(content)));
+				InMemCacheEntry new_cache_entry {
+				    .data = std::move(content),
+				    .version_tag = version_tag.get(),
+				};
+				in_mem_cache_blocks->Put(std::move(block_key),
+				                        make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
 			}
 		});
 	}
