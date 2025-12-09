@@ -1,3 +1,9 @@
+# 0.10.1
+
+## Changed
+
+- Upgrade duckdb, httpfs and extension-ci-tools
+
 # 0.10.0
 
 ## Add
