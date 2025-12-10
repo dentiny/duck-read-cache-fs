@@ -207,35 +207,6 @@ bool DiskCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const str
 	return cache_entry->version_tag == version_tag;
 }
 
-bool DiskCacheReader::CanCacheOnDisk(const string &cache_directory) const {
-	const auto config = GetConfig(instance_state.lock().get());
-
-	// Check available disk space
-	auto avai_fs_bytes = FileSystem::GetAvailableDiskSpace(cache_directory);
-	if (!avai_fs_bytes.IsValid()) {
-		return false;
-	}
-
-	// Not enough space for even one block
-	if (avai_fs_bytes.GetIndex() <= config.cache_block_size) {
-		return false;
-	}
-
-	// Use min_disk_bytes_for_cache if configured
-	if (config.min_disk_bytes_for_cache != DEFAULT_MIN_DISK_BYTES_FOR_CACHE) {
-		return config.min_disk_bytes_for_cache <= avai_fs_bytes.GetIndex();
-	}
-
-	// Default: reserve 5% of disk space
-	auto total_fs_bytes = GetTotalDiskSpace(cache_directory);
-	if (!total_fs_bytes.IsValid()) {
-		return false;
-	}
-
-	return static_cast<double>(avai_fs_bytes.GetIndex()) / total_fs_bytes.GetIndex() >
-	       MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE;
-}
-
 void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_directory,
                                  const string &local_cache_file, const string &content, const string &version_tag) {
 	const auto config = GetConfig(instance_state.lock().get());
@@ -244,7 +215,7 @@ void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_d
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
 	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
 	// cache chunk size.
-	if (!CanCacheOnDisk(cache_directory)) {
+	if (!CanCacheOnDisk(cache_directory, config.cache_block_size, config.min_disk_bytes_for_cache)) {
 		EvictCacheFiles(*this, *local_filesystem, cache_directory, config.eviction_policy);
 		return;
 	}
@@ -273,9 +244,6 @@ void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_d
 	if (!version_tag.empty()) {
 		SetCacheVersion(local_cache_file, version_tag);
 	}
-
-	// DUCKDB_LOG_DEBUG_OPTIONAL(duckdb_instance, StringUtil::Format("Disk cache file persisted to %s with size %zu",
-	//                                                               local_cache_file, content.length()));
 }
 
 vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {

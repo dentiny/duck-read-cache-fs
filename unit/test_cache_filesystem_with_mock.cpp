@@ -1,4 +1,3 @@
-#include "cache_httpfs_instance_state.hpp"
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
@@ -6,6 +5,7 @@
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string.hpp"
+#include "cache_httpfs_instance_state.hpp"
 #include "mock_filesystem.hpp"
 #include "test_utils.hpp"
 

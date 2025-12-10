@@ -43,9 +43,6 @@ public:
 	// Notice returned filepath will be removed from LRU list, but the actual file won't be deleted.
 	string EvictCacheBlockLru();
 
-	// Check if caching is allowed (sufficient disk space)
-	bool CanCacheOnDisk(const string &cache_directory) const;
-
 private:
 	struct InMemCacheEntry {
 		string data;

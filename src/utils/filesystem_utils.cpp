@@ -93,10 +93,6 @@ idx_t GetOverallFileSystemDiskSpace(const std::string &path) {
 #endif
 }
 
-optional_idx GetAvailableDiskSpace(const std::string &path) {
-	return FileSystem::GetAvailableDiskSpace(path);
-}
-
 optional_idx GetTotalDiskSpace(const std::string &path) {
 #if defined(_WIN32)
 	ULARGE_INTEGER total_bytes;
@@ -233,6 +229,33 @@ string GetCacheVersion(const string &filepath) {
 #else
 	return "";
 #endif
+}
+
+bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t min_disk_bytes_for_cache) {
+	// Check available disk space
+	auto avai_fs_bytes = FileSystem::GetAvailableDiskSpace(cache_directory);
+	if (!avai_fs_bytes.IsValid()) {
+		return false;
+	}
+
+	// Not enough space for even one block
+	if (avai_fs_bytes.GetIndex() <= cache_block_size) {
+		return false;
+	}
+
+	// Use min_disk_bytes_for_cache if configured
+	if (min_disk_bytes_for_cache != DEFAULT_MIN_DISK_BYTES_FOR_CACHE) {
+		return min_disk_bytes_for_cache <= avai_fs_bytes.GetIndex();
+	}
+
+	// Default: reserve 5% of disk space
+	auto total_fs_bytes = GetTotalDiskSpace(cache_directory);
+	if (!total_fs_bytes.IsValid()) {
+		return false;
+	}
+
+	return static_cast<double>(avai_fs_bytes.GetIndex()) / total_fs_bytes.GetIndex() >
+	       MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE;
 }
 
 } // namespace duckdb

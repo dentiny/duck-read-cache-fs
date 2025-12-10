@@ -15,7 +15,7 @@ namespace duckdb {
 namespace {
 constexpr bool SUCCESS = true;
 
-// Get database instance from expression state.
+// Get exclusion manager from expression state.
 CacheExclusionManager *GetExclusionManager(ExpressionState &state) {
 	auto *executor = state.root.executor;
 	auto &client_context = executor->GetContext();

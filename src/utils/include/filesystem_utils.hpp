@@ -30,9 +30,6 @@ vector<string> GetSortedFilesUnder(const string &folder);
 // Get all disk space in bytes for the filesystem indicated by the given [path].
 idx_t GetOverallFileSystemDiskSpace(const string &path);
 
-// Get available disk space in bytes for the filesystem at the given [path].
-optional_idx GetAvailableDiskSpace(const string &path);
-
 // Get total disk space in bytes for the filesystem at the given [path].
 optional_idx GetTotalDiskSpace(const string &path);
 
@@ -50,5 +47,8 @@ bool SetCacheVersion(const string &filepath, const string &version);
 // Retrieve the version string from the file's extended attributes.
 // Returns empty string if missing or error.
 string GetCacheVersion(const string &filepath);
+
+// Check if caching is allowed (sufficient disk space)
+bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t min_disk_bytes_for_cache);
 
 } // namespace duckdb

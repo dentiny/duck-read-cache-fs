@@ -31,8 +31,8 @@ void SetConfig(case_insensitive_map_t<Value> &setting, char *env_key, char *secr
 	setting[secret_key] = Value(env_val);
 }
 
-void SetOpenerConfig(const shared_ptr<ClientContext> &ctx, const BenchmarkSetup &benchmark_setup) {
-	auto &set_vars = ctx->config.set_variables;
+void SetOpenerConfig(ClientContext &ctx, const BenchmarkSetup &benchmark_setup) {
+	auto &set_vars = ctx.config.set_variables;
 	SetConfig(set_vars, "AWS_DEFAULT_REGION", "s3_region");
 	SetConfig(set_vars, "AWS_ACCESS_KEY_ID", "s3_access_key_id");
 	SetConfig(set_vars, "AWS_SECRET_ACCESS_KEY", "s3_secret_access_key");
@@ -50,7 +50,7 @@ void TestSequentialRead(const BenchmarkSetup &benchmark_setup) {
 	auto cache_fs = make_uniq<CacheFileSystem>(std::move(s3fs), std::move(instance_state));
 	auto client_context = make_shared_ptr<ClientContext>(db.instance);
 
-	SetOpenerConfig(client_context, benchmark_setup);
+	SetOpenerConfig(*client_context, benchmark_setup);
 	ClientContextFileOpener file_opener {*client_context};
 	client_context->transaction.BeginTransaction();
 
