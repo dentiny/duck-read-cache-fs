@@ -4,8 +4,10 @@
 #pragma once
 
 #include <mutex>
+#include <unordered_map>
 
 #include "base_cache_reader.hpp"
+#include "base_profile_collector.hpp"
 #include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/optional_ptr.hpp"
@@ -40,11 +42,31 @@ private:
 };
 
 //===--------------------------------------------------------------------===//
-// Per-instance cache reader manager
+// Per-connection profile collector manager
 //===--------------------------------------------------------------------===//
 
 // Forward declaration
 struct InstanceConfig;
+
+// Manages per-connection profile collectors.
+// Each connection has its own profiler so stats can be tracked independently.
+class InstanceProfileCollectorManager {
+public:
+	// Initialize or update the profile collector for a specific connection
+	void SetProfileCollector(connection_t connection_id, const string &profile_type);
+	// Get the profile collector for a specific connection (may be null if not initialized)
+	BaseProfileCollector *GetProfileCollector(connection_t connection_id) const;
+	// Reset the profile collector for a specific connection
+	void ResetProfileCollector(connection_t connection_id);
+
+private:
+	mutable std::mutex mutex;
+	std::unordered_map<connection_t, unique_ptr<BaseProfileCollector>> profile_collectors;
+};
+
+//===--------------------------------------------------------------------===//
+// Per-instance cache reader manager
+//===--------------------------------------------------------------------===//
 
 class InstanceCacheReaderManager {
 public:
@@ -126,6 +148,7 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 
 	InstanceCacheFsRegistry registry;
 	InstanceCacheReaderManager cache_reader_manager;
+	InstanceProfileCollectorManager profile_collector_manager;
 	InstanceConfig config;
 	CacheExclusionManager exclusion_manager;
 

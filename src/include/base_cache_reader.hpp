@@ -22,9 +22,10 @@ public:
 	BaseCacheReader &operator=(const BaseCacheReader &) = delete;
 
 	// Read from [handle] for an block-size aligned chunk into [start_addr]; cache to local filesystem and return to
-	// user.
+	// user. The profile_collector is used to record cache access stats (can be null to skip profiling).
 	virtual void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
-	                          idx_t requested_bytes_to_read, idx_t file_size) = 0;
+	                          idx_t requested_bytes_to_read, idx_t file_size,
+	                          BaseProfileCollector *profile_collector = nullptr) = 0;
 
 	// Get status information for all cache entries for the current cache reader. Entries are returned in a random
 	// order.
@@ -41,15 +42,6 @@ public:
 		throw NotImplementedException("Base cache reader doesn't implement GetName.");
 	}
 
-	void SetProfileCollector(BaseProfileCollector *profile_collector_p) {
-		profile_collector = profile_collector_p;
-		profile_collector->SetCacheReaderType(GetName());
-	}
-
-	BaseProfileCollector *GetProfileCollector() const {
-		return profile_collector;
-	}
-
 	template <class TARGET>
 	TARGET &Cast() {
 		DynamicCastCheck<TARGET>(this);
@@ -60,10 +52,6 @@ public:
 		DynamicCastCheck<TARGET>(this);
 		return reinterpret_cast<const TARGET &>(*this);
 	}
-
-protected:
-	// Ownership lies in cache filesystem.
-	BaseProfileCollector *profile_collector = nullptr;
 };
 
 } // namespace duckdb

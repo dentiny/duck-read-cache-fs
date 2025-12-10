@@ -180,42 +180,46 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 		aggregated_cache_access_infos[idx].cache_type = CACHE_ENTITY_NAMES[idx];
 	}
 
-	// Get cache access info from all initialized cache readers.
+	// Get cache access info from the profile collector for this connection.
 	auto *inst_state = GetInstanceState(*context.db);
 	if (!inst_state) {
 		return std::move(result);
 	}
-	const auto cache_readers = inst_state->cache_reader_manager.GetCacheReaders();
-	for (auto *cur_cache_reader : cache_readers) {
-		auto *profiler_collector = cur_cache_reader->GetProfileCollector();
-		if (profiler_collector == nullptr) {
-			continue;
-		}
-		auto cache_access_info = profiler_collector->GetCacheAccessInfo();
-		D_ASSERT(cache_access_info.size() == kCacheEntityCount);
-		for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
-			auto &cur_cache_access_info = cache_access_info[idx];
-			aggregated_cache_access_infos[idx].cache_hit_count += cur_cache_access_info.cache_hit_count;
-			aggregated_cache_access_infos[idx].cache_miss_count += cur_cache_access_info.cache_miss_count;
-			aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur_cache_access_info.cache_miss_by_in_use;
 
-			// For data file cache, record number of bytes to read and to cache.
-			if (idx == static_cast<idx_t>(IoOperation::kRead)) {
-				// Handle number of bytes to read.
-				auto &total_bytes_to_read = aggregated_cache_access_infos[idx].total_bytes_to_read;
-				uint64_t read_value = 0;
-				if (!total_bytes_to_read.IsNull()) {
-					read_value = total_bytes_to_read.GetValue<uint64_t>();
-				}
+	auto conn_id = context.GetConnectionId();
+	auto *profile_collector = inst_state->profile_collector_manager.GetProfileCollector(conn_id);
+	if (profile_collector == nullptr) {
+		return std::move(result);
+	}
+
+	auto cache_access_info = profile_collector->GetCacheAccessInfo();
+	D_ASSERT(cache_access_info.size() == kCacheEntityCount);
+	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
+		auto &cur_cache_access_info = cache_access_info[idx];
+		aggregated_cache_access_infos[idx].cache_hit_count += cur_cache_access_info.cache_hit_count;
+		aggregated_cache_access_infos[idx].cache_miss_count += cur_cache_access_info.cache_miss_count;
+		aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur_cache_access_info.cache_miss_by_in_use;
+
+		// For data file cache, record number of bytes to read and to cache.
+		if (idx == static_cast<idx_t>(IoOperation::kRead)) {
+			// Handle number of bytes to read.
+			auto &total_bytes_to_read = aggregated_cache_access_infos[idx].total_bytes_to_read;
+			uint64_t read_value = 0;
+			if (!total_bytes_to_read.IsNull()) {
+				read_value = total_bytes_to_read.GetValue<uint64_t>();
+			}
+			if (!cur_cache_access_info.total_bytes_to_read.IsNull()) {
 				total_bytes_to_read =
 				    Value::UBIGINT(read_value + cur_cache_access_info.total_bytes_to_read.GetValue<uint64_t>());
+			}
 
-				// Handle number of bytes to cache.
-				auto &total_bytes_to_cache = aggregated_cache_access_infos[idx].total_bytes_to_cache;
-				uint64_t cache_value = 0;
-				if (!total_bytes_to_cache.IsNull()) {
-					cache_value = total_bytes_to_cache.GetValue<uint64_t>();
-				}
+			// Handle number of bytes to cache.
+			auto &total_bytes_to_cache = aggregated_cache_access_infos[idx].total_bytes_to_cache;
+			uint64_t cache_value = 0;
+			if (!total_bytes_to_cache.IsNull()) {
+				cache_value = total_bytes_to_cache.GetValue<uint64_t>();
+			}
+			if (!cur_cache_access_info.total_bytes_to_cache.IsNull()) {
 				total_bytes_to_cache =
 				    Value::UBIGINT(cache_value + cur_cache_access_info.total_bytes_to_cache.GetValue<uint64_t>());
 			}

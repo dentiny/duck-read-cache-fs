@@ -56,6 +56,9 @@ public:
 	// Get the config for inspection/modification
 	InstanceConfig &GetConfig();
 
+	// Get the profile collector for a specific connection (defaults to connection 0 for tests)
+	BaseProfileCollector *GetProfileCollector(connection_t connection_id = 0);
+
 private:
 	DuckDB db;
 	shared_ptr<CacheHttpfsInstanceState> instance_state;

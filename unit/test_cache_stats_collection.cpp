@@ -49,7 +49,7 @@ TEST_CASE("Test cache stats collection disabled", "[profile collector]") {
 
 	// First access, there're no cache entries inside of cache filesystem.
 	[[maybe_unused]] auto file_handle_1 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	auto *profiler = cache_filesystem->GetProfileCollector();
+	auto *profiler = helper.GetProfileCollector();
 	auto file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 0);
@@ -57,7 +57,7 @@ TEST_CASE("Test cache stats collection disabled", "[profile collector]") {
 
 	// Second access, still cache miss, but indicate we should have bigger cache size.
 	[[maybe_unused]] auto file_handle_2 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	profiler = cache_filesystem->GetProfileCollector();
+	profiler = helper.GetProfileCollector();
 	file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 0);
@@ -74,7 +74,7 @@ TEST_CASE("Test cache stats collection", "[profile collector]") {
 
 	// First access, there're no cache entries inside of cache filesystem.
 	[[maybe_unused]] auto file_handle_1 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	auto *profiler = cache_filesystem->GetProfileCollector();
+	auto *profiler = helper.GetProfileCollector();
 	auto file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 1);
@@ -82,7 +82,7 @@ TEST_CASE("Test cache stats collection", "[profile collector]") {
 
 	// Second access, still cache miss, but indicate we should have bigger cache size.
 	[[maybe_unused]] auto file_handle_2 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	profiler = cache_filesystem->GetProfileCollector();
+	profiler = helper.GetProfileCollector();
 	file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 2);
@@ -92,7 +92,7 @@ TEST_CASE("Test cache stats collection", "[profile collector]") {
 	file_handle_1.reset();
 	file_handle_2.reset();
 	[[maybe_unused]] auto file_handle_3 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	profiler = cache_filesystem->GetProfileCollector();
+	profiler = helper.GetProfileCollector();
 	file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 1);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 2);

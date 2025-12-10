@@ -47,7 +47,7 @@ class CacheFileSystemHandle : public FileHandle {
 public:
 	// @param dtor_callback: callback function to invoke at destructor.
 	CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
-	                      std::function<void(CacheFileSystemHandle &)> dtor_callback_p);
+	                      std::function<void(CacheFileSystemHandle &)> dtor_callback_p, connection_t connection_id);
 
 	// On cache file handle destruction (for read handles), we place internal file handle to file handle cache to later
 	// reuse.
@@ -63,9 +63,15 @@ public:
 	// Get version tag.
 	string GetVersionTag();
 
+	// Get the connection ID this handle was opened with
+	connection_t GetConnectionId() const {
+		return connection_id;
+	}
+
 	shared_ptr<Logger> logger;
 	unique_ptr<FileHandle> internal_file_handle;
 	std::function<void(CacheFileSystemHandle &)> dtor_callback;
+	connection_t connection_id;
 };
 
 class CacheFileSystem : public FileSystem {
@@ -95,9 +101,6 @@ public:
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags,
 	                                optional_ptr<FileOpener> opener = nullptr) override;
 	std::string GetName() const override;
-	BaseProfileCollector *GetProfileCollector() const {
-		return profile_collector.get();
-	}
 	// Get file size, which attempts to get metadata cache if possible.
 	int64_t GetFileSize(FileHandle &handle) override;
 	// Get last modification timestamp, which attempts to get metadata cache if possible.
@@ -123,8 +126,17 @@ public:
 	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle,
 	                                          bool write) override {
 		auto file_handle = internal_filesystem->OpenCompressedFile(context, std::move(handle), write);
-		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
-		                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
+		// Get connection_id from QueryContext
+		connection_t conn_id = 0;
+		if (context.Valid()) {
+			auto client_context = context.GetClientContext();
+			if (client_context) {
+				conn_id = client_context->GetConnectionId();
+			}
+		}
+		return make_uniq<CacheFileSystemHandle>(
+		    std::move(file_handle), *this,
+		    /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {}, conn_id);
 	}
 	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
@@ -265,7 +277,8 @@ private:
 	void InitializeGlobalConfig(optional_ptr<FileOpener> opener);
 
 	// Create cache file handle.
-	unique_ptr<FileHandle> CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle);
+	unique_ptr<FileHandle> CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle,
+	                                                    connection_t conn_id);
 
 	// Stat the current file handle, and get all well-known file attributes.
 	//
@@ -287,9 +300,6 @@ private:
 
 	// Initialize cache reader data member, and set to [internal_cache_reader].
 	void SetAndGetCacheReader();
-
-	// Initialize profile collector data member.
-	void SetProfileCollector();
 
 	// Initialize metadata cache.
 	void SetMetadataCache();
@@ -315,8 +325,6 @@ private:
 	std::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
-	// Used to profile operations.
-	unique_ptr<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.
 	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;
 	unique_ptr<MetadataCache> metadata_cache;

@@ -9,6 +9,7 @@
 #include "duckdb/main/database.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "noop_cache_reader.hpp"
+#include "temp_profile_collector.hpp"
 
 namespace duckdb {
 
@@ -37,6 +38,53 @@ vector<CacheFileSystem *> InstanceCacheFsRegistry::GetAllCacheFs() const {
 void InstanceCacheFsRegistry::Reset() {
 	std::lock_guard<std::mutex> lock(mutex);
 	cache_filesystems.clear();
+}
+
+//===--------------------------------------------------------------------===//
+// InstanceProfileCollectorManager implementation
+//===--------------------------------------------------------------------===//
+
+void InstanceProfileCollectorManager::SetProfileCollector(connection_t connection_id, const string &profile_type) {
+	std::lock_guard<std::mutex> lock(mutex);
+
+	auto it = profile_collectors.find(connection_id);
+
+	// Check if we already have the right type for this connection
+	if (it != profile_collectors.end() && it->second != nullptr && it->second->GetProfilerType() == profile_type) {
+		return; // Already have the right type
+	}
+
+	if (profile_type == *NOOP_PROFILE_TYPE) {
+		profile_collectors[connection_id] = make_uniq<NoopProfileCollector>();
+		return;
+	}
+
+	if (profile_type == *TEMP_PROFILE_TYPE) {
+		profile_collectors[connection_id] = make_uniq<TempProfileCollector>();
+		return;
+	}
+
+	// Default to noop if unknown type and no collector exists for this connection
+	if (it == profile_collectors.end() || it->second == nullptr) {
+		profile_collectors[connection_id] = make_uniq<NoopProfileCollector>();
+	}
+}
+
+BaseProfileCollector *InstanceProfileCollectorManager::GetProfileCollector(connection_t connection_id) const {
+	std::lock_guard<std::mutex> lock(mutex);
+	auto it = profile_collectors.find(connection_id);
+	if (it != profile_collectors.end()) {
+		return it->second.get();
+	}
+	return nullptr;
+}
+
+void InstanceProfileCollectorManager::ResetProfileCollector(connection_t connection_id) {
+	std::lock_guard<std::mutex> lock(mutex);
+	auto it = profile_collectors.find(connection_id);
+	if (it != profile_collectors.end() && it->second != nullptr) {
+		it->second->Reset();
+	}
 }
 
 //===--------------------------------------------------------------------===//
@@ -156,10 +204,11 @@ void InstanceConfig::UpdateFromOpener(optional_ptr<FileOpener> opener) {
 	// Global cache configuration
 	//===--------------------------------------------------------------------===//
 
-	// Cache type
+	// Cache type - only update if explicitly set to non-default
+	// This prevents one connection with default settings from overwriting another's explicit config
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_type", val);
 	auto cache_type_str = val.ToString();
-	if (ALL_CACHE_TYPES.find(cache_type_str) != ALL_CACHE_TYPES.end()) {
+	if (ALL_CACHE_TYPES.find(cache_type_str) != ALL_CACHE_TYPES.end() && cache_type_str != *DEFAULT_CACHE_TYPE) {
 		cache_type = std::move(cache_type_str);
 	}
 
@@ -168,17 +217,19 @@ void InstanceConfig::UpdateFromOpener(optional_ptr<FileOpener> opener) {
 		cache_type = test_cache_type;
 	}
 
-	// Block size
+	// Block size - only update if explicitly set to non-default
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_cache_block_size", val);
 	const auto cache_block_size = val.GetValue<uint64_t>();
-	if (cache_block_size > 0) {
+	if (cache_block_size > 0 && cache_block_size != DEFAULT_CACHE_BLOCK_SIZE) {
 		this->cache_block_size = cache_block_size;
 	}
 
-	// Profile type
+	// Profile type - only update if explicitly set to non-default
+	// This prevents one connection with default settings from overwriting another's explicit config
 	FileOpener::TryGetCurrentSetting(opener, "cache_httpfs_profile_type", val);
 	auto profile_type_str = val.ToString();
-	if (ALL_PROFILE_TYPES->find(profile_type_str) != ALL_PROFILE_TYPES->end()) {
+	if (ALL_PROFILE_TYPES->find(profile_type_str) != ALL_PROFILE_TYPES->end() &&
+	    profile_type_str != *DEFAULT_PROFILE_TYPE) {
 		profile_type = std::move(profile_type_str);
 	}
 
