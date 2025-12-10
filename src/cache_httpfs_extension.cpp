@@ -33,12 +33,23 @@ namespace {
 // "httpfs" extension name.
 constexpr const char *HTTPFS_EXTENSION = "httpfs";
 
+// Get client context from expression state.
+ClientContext &GetClientContext(ExpressionState &state) {
+	auto *executor = state.root.executor;
+	return executor->GetContext();
+}
+
 // Get database instance from expression state.
 // Returned instance ownership lies in the given [`state`].
 DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
-	auto *executor = state.root.executor;
-	auto &client_context = executor->GetContext();
+	auto &client_context = GetClientContext(state);
 	return *client_context.db.get();
+}
+
+// Get connection ID from expression state.
+connection_t GetConnectionId(ExpressionState &state) {
+	auto &client_context = GetClientContext(state);
+	return client_context.GetConnectionId();
 }
 
 // Clear both in-memory and on-disk data block cache.
@@ -108,46 +119,28 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
 
-	string latest_stat;
-	uint64_t latest_timestamp = 0;
-	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
-	for (auto *cur_filesystem : cache_file_systems) {
-		auto *profile_collector = cur_filesystem->GetProfileCollector();
-		// Profile collector is only initialized after cache filesystem access.
-		if (profile_collector == nullptr) {
-			continue;
-		}
-
-		auto [cur_profile_stat, cur_timestamp] = profile_collector->GetHumanReadableStats();
-		if (cur_timestamp > latest_timestamp) {
-			latest_timestamp = cur_timestamp;
-			latest_stat = std::move(cur_profile_stat);
-			continue;
-		}
-		if (cur_timestamp == latest_timestamp) {
-			latest_stat = MaxValue<string>(latest_stat, cur_profile_stat);
-		}
+	// Get profile collector for the current connection
+	auto conn_id = GetConnectionId(state);
+	auto *profile_collector = inst_state.profile_collector_manager.GetProfileCollector(conn_id);
+	if (profile_collector == nullptr) {
+		result.Reference(Value("No valid access to cache filesystem"));
+		return;
 	}
 
-	if (latest_stat.empty()) {
-		latest_stat = "No valid access to cache filesystem";
+	auto [profile_stat, timestamp] = profile_collector->GetHumanReadableStats();
+	if (profile_stat.empty()) {
+		profile_stat = "No valid access to cache filesystem";
 	}
-	result.Reference(Value(std::move(latest_stat)));
+	result.Reference(Value(std::move(profile_stat)));
 }
 
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
 
-	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
-	for (auto *cur_filesystem : cache_file_systems) {
-		auto *profile_collector = cur_filesystem->GetProfileCollector();
-		// Profile collector is only initialized after cache filesystem access.
-		if (profile_collector == nullptr) {
-			continue;
-		}
-		profile_collector->Reset();
-	}
+	// Reset profile collector for the current connection
+	auto conn_id = GetConnectionId(state);
+	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
 
 	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));

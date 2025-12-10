@@ -254,7 +254,8 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 }
 
 void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
-                                   idx_t requested_bytes_to_read, idx_t file_size) {
+                                   idx_t requested_bytes_to_read, idx_t file_size,
+                                   BaseProfileCollector *profile_collector) {
 	if (requested_bytes_to_read == 0) {
 		return;
 	}
@@ -342,7 +343,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		//
 		// TODO(hjiang): Refactor the thread function.
 		io_threads.Push([this, &handle, &config, version_tag = std::cref(version_tag),
-		                 cache_read_chunk = cache_read_chunk]() mutable {
+		                 cache_read_chunk = cache_read_chunk, profile_collector]() mutable {
 			SetThreadName("RdCachRdThd");
 
 			// Attempt in-memory cache block first, so potentially we don't need to access disk storage.
@@ -363,7 +364,10 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 					local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
 				}
 				if (cache_entry != nullptr) {
-					profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+					if (profile_collector) {
+						profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit,
+						                                     cache_read_chunk.bytes_to_copy);
+					}
 					DUCKDB_LOG_READ_CACHE_HIT((handle));
 					cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
 					return;
@@ -394,10 +398,15 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			}
 
 			if (file_handle != nullptr) {
-				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+				if (profile_collector) {
+					profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit,
+					                                     cache_read_chunk.bytes_to_copy);
+				}
 				DUCKDB_LOG_READ_CACHE_HIT((handle));
-				{
+				if (profile_collector) {
 					const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kDiskCacheRead);
+					local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
+				} else {
 					local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
 				}
 				cache_read_chunk.CopyBufferToRequestedMemory(content);
@@ -421,13 +430,19 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			}
 
 			// We suffer a cache loss, fallback to remote access then local filesystem write.
-			profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
+			if (profile_collector) {
+				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss,
+				                                     cache_read_chunk.bytes_to_copy);
+			}
 			DUCKDB_LOG_READ_CACHE_MISS((handle));
 			auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 			auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
 
-			{
+			if (profile_collector) {
 				const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
+				internal_filesystem->Read(*disk_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
+				                          cache_read_chunk.aligned_start_offset);
+			} else {
 				internal_filesystem->Read(*disk_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
 				                          cache_read_chunk.aligned_start_offset);
 			}
@@ -453,8 +468,10 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	io_threads.Wait();
 
 	// Record "bytes to read" and "bytes to cache".
-	profile_collector->RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
-	                                         /*actual_bytes=*/requested_bytes_to_read);
+	if (profile_collector) {
+		profile_collector->RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
+		                                         /*actual_bytes=*/requested_bytes_to_read);
+	}
 }
 
 void DiskCacheReader::ClearCache() {

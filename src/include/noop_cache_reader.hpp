@@ -20,7 +20,7 @@ public:
 	void ClearCache(const string &fname) override {
 	}
 	void ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset, idx_t requested_bytes_to_read,
-	                  idx_t file_size) override;
+	                  idx_t file_size, BaseProfileCollector *profile_collector = nullptr) override;
 
 	vector<DataCacheEntryInfo> GetCacheEntriesInfo() const override {
 		return {};

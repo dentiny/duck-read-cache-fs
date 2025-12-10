@@ -139,8 +139,8 @@ unique_ptr<FunctionData> CacheAccessInfoQueryFuncBind(ClientContext &context, Ta
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
 
-	return_types.reserve(6);
-	names.reserve(6);
+	return_types.reserve(8);
+	names.reserve(8);
 
 	// Cache type.
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
@@ -166,6 +166,14 @@ unique_ptr<FunctionData> CacheAccessInfoQueryFuncBind(ClientContext &context, Ta
 	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 	names.emplace_back("number_bytes_to_cache (data cache)");
 
+	// Used for data cache, bytes read from cache (hits).
+	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
+	names.emplace_back("bytes_read_from_hits (data cache)");
+
+	// Used for data cache, bytes read from remote (misses).
+	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
+	names.emplace_back("bytes_read_from_misses (data cache)");
+
 	return nullptr;
 }
 
@@ -180,41 +188,66 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 		aggregated_cache_access_infos[idx].cache_type = CACHE_ENTITY_NAMES[idx];
 	}
 
-	// Get cache access info from all initialized cache readers.
+	// Get cache access info from the profile collector for this connection.
 	auto &inst_state = GetInstanceStateOrThrow(*context.db);
-	const auto cache_readers = inst_state.cache_reader_manager.GetCacheReaders();
-	for (auto *cur_cache_reader : cache_readers) {
-		auto *profiler_collector = cur_cache_reader->GetProfileCollector();
-		if (profiler_collector == nullptr) {
-			continue;
-		}
-		auto cache_access_info = profiler_collector->GetCacheAccessInfo();
-		D_ASSERT(cache_access_info.size() == kCacheEntityCount);
-		for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
-			auto &cur_cache_access_info = cache_access_info[idx];
-			aggregated_cache_access_infos[idx].cache_hit_count += cur_cache_access_info.cache_hit_count;
-			aggregated_cache_access_infos[idx].cache_miss_count += cur_cache_access_info.cache_miss_count;
-			aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur_cache_access_info.cache_miss_by_in_use;
+	auto conn_id = context.GetConnectionId();
+	auto *profile_collector = inst_state.profile_collector_manager.GetProfileCollector(conn_id);
+	if (profile_collector == nullptr) {
+		return std::move(result);
+	}
 
-			// For data file cache, record number of bytes to read and to cache.
-			if (idx == static_cast<idx_t>(IoOperation::kRead)) {
-				// Handle number of bytes to read.
-				auto &total_bytes_to_read = aggregated_cache_access_infos[idx].total_bytes_to_read;
-				uint64_t read_value = 0;
-				if (!total_bytes_to_read.IsNull()) {
-					read_value = total_bytes_to_read.GetValue<uint64_t>();
-				}
+	auto cache_access_info = profile_collector->GetCacheAccessInfo();
+	D_ASSERT(cache_access_info.size() == kCacheEntityCount);
+	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
+		auto &cur_cache_access_info = cache_access_info[idx];
+		aggregated_cache_access_infos[idx].cache_hit_count += cur_cache_access_info.cache_hit_count;
+		aggregated_cache_access_infos[idx].cache_miss_count += cur_cache_access_info.cache_miss_count;
+		aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur_cache_access_info.cache_miss_by_in_use;
+
+		// For data file cache, record number of bytes to read and to cache.
+		if (idx == static_cast<idx_t>(IoOperation::kRead)) {
+			// Handle number of bytes to read.
+			auto &total_bytes_to_read = aggregated_cache_access_infos[idx].total_bytes_to_read;
+			uint64_t read_value = 0;
+			if (!total_bytes_to_read.IsNull()) {
+				read_value = total_bytes_to_read.GetValue<uint64_t>();
+			}
+			if (!cur_cache_access_info.total_bytes_to_read.IsNull()) {
 				total_bytes_to_read =
 				    Value::UBIGINT(read_value + cur_cache_access_info.total_bytes_to_read.GetValue<uint64_t>());
+			}
 
-				// Handle number of bytes to cache.
-				auto &total_bytes_to_cache = aggregated_cache_access_infos[idx].total_bytes_to_cache;
-				uint64_t cache_value = 0;
-				if (!total_bytes_to_cache.IsNull()) {
-					cache_value = total_bytes_to_cache.GetValue<uint64_t>();
-				}
+			// Handle number of bytes to cache.
+			auto &total_bytes_to_cache = aggregated_cache_access_infos[idx].total_bytes_to_cache;
+			uint64_t cache_value = 0;
+			if (!total_bytes_to_cache.IsNull()) {
+				cache_value = total_bytes_to_cache.GetValue<uint64_t>();
+			}
+			if (!cur_cache_access_info.total_bytes_to_cache.IsNull()) {
 				total_bytes_to_cache =
 				    Value::UBIGINT(cache_value + cur_cache_access_info.total_bytes_to_cache.GetValue<uint64_t>());
+			}
+
+			// Handle bytes read from cache.
+			auto &bytes_read_from_hits = aggregated_cache_access_infos[idx].bytes_read_from_hits;
+			uint64_t cache_hit_bytes = 0;
+			if (!bytes_read_from_hits.IsNull()) {
+				cache_hit_bytes = bytes_read_from_hits.GetValue<uint64_t>();
+			}
+			if (!cur_cache_access_info.bytes_read_from_hits.IsNull()) {
+				bytes_read_from_hits =
+				    Value::UBIGINT(cache_hit_bytes + cur_cache_access_info.bytes_read_from_hits.GetValue<uint64_t>());
+			}
+
+			// Handle bytes read from remote.
+			auto &bytes_read_from_misses = aggregated_cache_access_infos[idx].bytes_read_from_misses;
+			uint64_t cache_miss_bytes = 0;
+			if (!bytes_read_from_misses.IsNull()) {
+				cache_miss_bytes = bytes_read_from_misses.GetValue<uint64_t>();
+			}
+			if (!cur_cache_access_info.bytes_read_from_misses.IsNull()) {
+				bytes_read_from_misses = Value::UBIGINT(
+				    cache_miss_bytes + cur_cache_access_info.bytes_read_from_misses.GetValue<uint64_t>());
 			}
 		}
 	}
@@ -253,6 +286,12 @@ void CacheAccessInfoQueryTableFunc(ClientContext &context, TableFunctionInput &d
 
 		// Used for data cache, total number of bytes to cache.
 		output.SetValue(col++, count, entry.total_bytes_to_cache);
+
+		// Used for data cache, bytes read from cache (hits).
+		output.SetValue(col++, count, entry.bytes_read_from_hits);
+
+		// Used for data cache, bytes read from remote (misses).
+		output.SetValue(col++, count, entry.bytes_read_from_misses);
 
 		count++;
 	}

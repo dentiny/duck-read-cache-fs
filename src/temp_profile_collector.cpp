@@ -53,10 +53,19 @@ void TempProfileCollector::RecordOperationEnd(IoOperation io_oper, int64_t laten
 	latest_timestamp = now;
 }
 
-void TempProfileCollector::RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) {
+void TempProfileCollector::RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access, idx_t byte_count) {
 	const std::lock_guard<std::mutex> lck(stats_mutex);
 	const size_t arr_idx = static_cast<size_t>(cache_entity) * kCacheAccessCount + static_cast<size_t>(cache_access);
 	++cache_access_count[arr_idx];
+
+	// Track byte-level statistics for data cache
+	if (cache_entity == CacheEntity::kData) {
+		if (cache_access == CacheAccess::kCacheHit) {
+			bytes_read_from_hits += byte_count;
+		} else if (cache_access == CacheAccess::kCacheMiss) {
+			bytes_read_from_misses += byte_count;
+		}
+	}
 }
 
 void TempProfileCollector::RecordActualCacheRead(idx_t cache_bytes, idx_t actual_bytes) {
@@ -73,6 +82,8 @@ void TempProfileCollector::Reset() {
 	cache_access_count.fill(0);
 	total_bytes_to_cache = 0;
 	total_bytes_to_read = 0;
+	bytes_read_from_hits = 0;
+	bytes_read_from_misses = 0;
 	latest_timestamp = 0;
 }
 
@@ -92,6 +103,8 @@ vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
 		if (idx == static_cast<idx_t>(IoOperation::kRead)) {
 			cache_access_info[idx].total_bytes_to_cache = Value::UBIGINT(total_bytes_to_cache);
 			cache_access_info[idx].total_bytes_to_read = Value::UBIGINT(total_bytes_to_read);
+			cache_access_info[idx].bytes_read_from_hits = Value::UBIGINT(bytes_read_from_hits);
+			cache_access_info[idx].bytes_read_from_misses = Value::UBIGINT(bytes_read_from_misses);
 		}
 	}
 	return cache_access_info;
@@ -119,8 +132,11 @@ std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 			stats = StringUtil::Format("%s\n"
 			                           "for data cache, "
 			                           "number of bytes to read = %d\n"
-			                           "number of bytes to cache = %d\n",
-			                           stats, total_bytes_to_read, total_bytes_to_cache);
+			                           "number of bytes to cache = %d\n"
+			                           "bytes read from hits = %d\n"
+			                           "bytes read from misses = %d\n",
+			                           stats, total_bytes_to_read, total_bytes_to_cache, bytes_read_from_hits,
+			                           bytes_read_from_misses);
 		}
 	}
 
