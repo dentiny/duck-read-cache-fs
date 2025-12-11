@@ -14,6 +14,7 @@
 #include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
+#include "duckdb/common/set.hpp"
 #include "duckdb/storage/object_cache.hpp"
 
 namespace duckdb {
@@ -29,14 +30,18 @@ struct CacheHttpfsInstanceState;
 //===--------------------------------------------------------------------===//
 class InstanceCacheFsRegistry {
 public:
+	// Register `fs` in the registry. Registering the same CacheFileSystem
+	// multiple time is harmless but useless.
 	void Register(CacheFileSystem *fs);
+	// Unregister `fs` from the registry. Unregistering a CacheFileSystem
+	// that is not registered doesn't have any effect.
 	void Unregister(CacheFileSystem *fs);
-	vector<CacheFileSystem *> GetAllCacheFs() const;
+	set<CacheFileSystem *> GetAllCacheFs() const;
 	void Reset();
 
 private:
 	mutable std::mutex mutex;
-	vector<CacheFileSystem *> cache_filesystems;
+	set<CacheFileSystem *> cache_filesystems;
 };
 
 //===--------------------------------------------------------------------===//

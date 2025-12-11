@@ -1,7 +1,5 @@
 #include "cache_httpfs_instance_state.hpp"
 
-#include <algorithm>
-
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
@@ -18,18 +16,15 @@ namespace duckdb {
 
 void InstanceCacheFsRegistry::Register(CacheFileSystem *fs) {
 	std::lock_guard<std::mutex> lock(mutex);
-	cache_filesystems.emplace_back(fs);
+	cache_filesystems.insert(fs);
 }
 
 void InstanceCacheFsRegistry::Unregister(CacheFileSystem *fs) {
 	std::lock_guard<std::mutex> lock(mutex);
-	auto it = std::find(cache_filesystems.begin(), cache_filesystems.end(), fs);
-	if (it != cache_filesystems.end()) {
-		cache_filesystems.erase(it);
-	}
+	cache_filesystems.erase(fs);
 }
 
-vector<CacheFileSystem *> InstanceCacheFsRegistry::GetAllCacheFs() const {
+set<CacheFileSystem *> InstanceCacheFsRegistry::GetAllCacheFs() const {
 	std::lock_guard<std::mutex> lock(mutex);
 	return cache_filesystems;
 }

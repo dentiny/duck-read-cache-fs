@@ -248,7 +248,7 @@ bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t
 		return min_disk_bytes_for_cache <= avai_fs_bytes.GetIndex();
 	}
 
-	// Default: reserve 5% of disk space
+	// Default: reserve a portion of disk space
 	auto total_fs_bytes = GetTotalDiskSpace(cache_directory);
 	if (!total_fs_bytes.IsValid()) {
 		return false;
