@@ -514,13 +514,13 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	auto *mgr = GetCacheReaderManager(state.get());
 	if (mgr) {
 		auto *reader = mgr->GetCacheReader();
-		if (reader) {
-			reader->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read, file_size);
-		} else {
-			// Fallback to direct read if no cache reader
-			auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
-			internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, nr_bytes, location);
+		if (!reader) {
+			auto *config = GetInstanceConfig(instance_state.lock().get());
+			mgr->SetCacheReader(*config, instance_state);
+			reader = mgr->GetCacheReader();
 		}
+
+		reader->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read, file_size);
 	} else {
 		// Fallback to direct read if no manager
 		auto &cache_handle = handle.Cast<CacheFileSystemHandle>();

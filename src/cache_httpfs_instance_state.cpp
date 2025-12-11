@@ -47,14 +47,6 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
                                                 weak_ptr<CacheHttpfsInstanceState> instance_state_p) {
 	std::lock_guard<std::mutex> lock(mutex);
 
-	if (config.cache_type == *NOOP_CACHE_TYPE) {
-		if (noop_cache_reader == nullptr) {
-			noop_cache_reader = make_uniq<NoopCacheReader>();
-		}
-		internal_cache_reader = noop_cache_reader.get();
-		return;
-	}
-
 	if (config.cache_type == *ON_DISK_CACHE_TYPE) {
 		if (on_disk_cache_reader == nullptr) {
 			on_disk_cache_reader =
@@ -71,6 +63,13 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 		internal_cache_reader = in_mem_cache_reader.get();
 		return;
 	}
+
+	// Fallback to NoopCacheReader.
+	if (noop_cache_reader == nullptr) {
+		noop_cache_reader = make_uniq<NoopCacheReader>();
+	}
+
+	internal_cache_reader = noop_cache_reader.get();
 }
 
 BaseCacheReader *InstanceCacheReaderManager::GetCacheReader() const {
