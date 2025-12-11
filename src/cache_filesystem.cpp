@@ -282,7 +282,7 @@ shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &han
 	    .file_size = file_size,
 	    .last_modification_time = last_modification_time,
 	};
-	return make_shared_ptr<FileMetadata>(file_metadata);
+	return make_shared_ptr<FileMetadata>(std::move(file_metadata));
 }
 
 vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *opener) {
@@ -326,7 +326,7 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 		    .file_size = file_size,
 		    .last_modification_time = last_modification_time,
 		};
-		metadata_cache->Put(filepath, make_shared_ptr<FileMetadata>(file_metadata));
+		metadata_cache->Put(filepath, make_shared_ptr<FileMetadata>(std::move(file_metadata)));
 	}
 	return open_file_info;
 }
