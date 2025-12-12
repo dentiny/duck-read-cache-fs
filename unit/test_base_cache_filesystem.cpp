@@ -1,8 +1,8 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
-#include "disk_cache_reader.hpp"
-#include "duckdb/common/string.hpp"
+#include "cache_filesystem.hpp"
+#include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/virtual_file_system.hpp"
 #include "hffs.hpp"
 
@@ -29,9 +29,10 @@ void DeleteTestFile() {
 // A more ideal unit test would be, we could check hugging face filesystem will
 // be used for certains files.
 TEST_CASE("Test cached filesystem CanHandle", "[base cache filesystem]") {
+	auto instance_state = make_shared_ptr<CacheHttpfsInstanceState>();
 	unique_ptr<FileSystem> vfs = make_uniq<VirtualFileSystem>();
-	vfs->RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<HuggingFaceFileSystem>()));
-	vfs->RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<LocalFileSystem>()));
+	vfs->RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<HuggingFaceFileSystem>(), instance_state));
+	vfs->RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<LocalFileSystem>(), std::move(instance_state)));
 
 	// VFS can handle local files with cached local filesystem.
 	auto file_handle = vfs->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);

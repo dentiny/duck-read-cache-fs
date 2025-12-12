@@ -3,21 +3,22 @@
 #pragma once
 
 #include "base_cache_reader.hpp"
-#include "cache_filesystem.hpp"
-#include "cache_filesystem_config.hpp"
-#include "copiable_value_lru_cache.hpp"
-#include "duckdb/common/file_opener.hpp"
-#include "duckdb/common/file_system.hpp"
-#include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
 #include "shared_lru_cache.hpp"
 
 namespace duckdb {
 
+// Forward declaration.
+struct CacheHttpfsInstanceState;
+
 class InMemoryCacheReader final : public BaseCacheReader {
 public:
-	InMemoryCacheReader() = default;
+	// Constructor: config values are read from instance state at runtime (with defaults as fallback).
+	explicit InMemoryCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+	    : instance_state(std::move(instance_state_p)) {
+	}
 	~InMemoryCacheReader() override = default;
 
 	std::string GetName() const override {
@@ -42,6 +43,9 @@ private:
 
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
+
+	// Instance state for config lookup.
+	weak_ptr<CacheHttpfsInstanceState> instance_state;
 
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;

@@ -1,10 +1,11 @@
 #include "extension_config_query_function.hpp"
 
-#include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/extra_type_info.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/vector.hpp"
+#include "duckdb/main/client_context.hpp"
 
 namespace duckdb {
 
@@ -16,38 +17,39 @@ struct CacheConfigData : public GlobalTableFunctionState {
 };
 
 // Get in-memory cache type for disk cache reader in duckdb [`Value`].
-Value GetDiskCacheReaderMemoryCacheType() {
-	if (g_enable_disk_reader_mem_cache) {
+Value GetDiskCacheReaderMemoryCacheType(const InstanceConfig &config) {
+	if (config.enable_disk_reader_mem_cache) {
 		return Value {"on-disk-memory-cache"};
 	}
 	return Value {"page-cache"};
 }
 
 // Get disk cache directories in duckdb [`Value`].
-Value GetDiskCacheDirectories() {
+Value GetDiskCacheDirectories(const InstanceConfig &config) {
 	vector<Value> directories;
-	directories.reserve(g_on_disk_cache_directories->size());
-	for (const auto &cur_dir : *g_on_disk_cache_directories) {
+	directories.reserve(config.on_disk_cache_directories.size());
+	for (const auto &cur_dir : config.on_disk_cache_directories) {
 		directories.emplace_back(Value {cur_dir});
 	}
 	return Value::LIST(LogicalType {LogicalTypeId::VARCHAR}, std::move(directories));
 }
 
 // Get cache exclusion regexes in duckdb [`Value`].
-Value GetCacheExclusionRegexes() {
-	auto exclusion_regexes = CacheExclusionManager::GetInstance().GetExclusionRegex();
+Value GetCacheExclusionRegexes(CacheHttpfsInstanceState &state) {
+	auto exclusion_regexes = state.exclusion_manager.GetExclusionRegex();
 	vector<Value> exclusion_regex_values;
 	exclusion_regex_values.reserve(exclusion_regexes.size());
-	for (auto &cur_regex : exclusion_regex_values) {
+	for (auto &cur_regex : exclusion_regexes) {
 		exclusion_regex_values.emplace_back(Value {std::move(cur_regex)});
 	}
 	return Value::LIST(LogicalType {LogicalTypeId::VARCHAR}, std::move(exclusion_regex_values));
 }
 
-void DataCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<string> &names) {
+void DataCacheConfigQueryFuncBindImpl(const InstanceConfig &config, vector<LogicalType> &return_types,
+                                      vector<string> &names) {
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("data cache type");
-	if (*g_cache_type == *ON_DISK_CACHE_TYPE) {
+	if (config.cache_type == *ON_DISK_CACHE_TYPE) {
 		return_types.emplace_back(LogicalType::LIST(LogicalType {LogicalTypeId::VARCHAR}));
 		names.emplace_back("disk cache directories");
 
@@ -59,7 +61,7 @@ void DataCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<
 
 		return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 		names.emplace_back("disk cache memory cache");
-	} else if (*g_cache_type == *IN_MEM_CACHE_TYPE) {
+	} else if (config.cache_type == *IN_MEM_CACHE_TYPE) {
 		return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 		names.emplace_back("in-memory cache block size");
 
@@ -68,71 +70,80 @@ void DataCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<
 	}
 }
 
-void FillDataCacheConfig(DataChunk &output, idx_t &col) {
-	output.SetValue(col++, /*index=*/0, *g_cache_type);
-	if (*g_cache_type == *ON_DISK_CACHE_TYPE) {
-		output.SetValue(col++, /*index=*/0, GetDiskCacheDirectories());
-		output.SetValue(col++, /*index=*/0, Value::UBIGINT(g_cache_block_size));
-		output.SetValue(col++, /*index=*/0, *g_on_disk_eviction_policy);
-		output.SetValue(col++, /*index=*/0, GetDiskCacheReaderMemoryCacheType());
-	} else if (*g_cache_type == *IN_MEM_CACHE_TYPE) {
-		output.SetValue(col++, /*index=*/0, Value::UBIGINT(g_cache_block_size));
+void FillDataCacheConfig(const InstanceConfig &config, DataChunk &output, idx_t &col) {
+	output.SetValue(col++, /*index=*/0, config.cache_type);
+	if (config.cache_type == *ON_DISK_CACHE_TYPE) {
+		output.SetValue(col++, /*index=*/0, GetDiskCacheDirectories(config));
+		output.SetValue(col++, /*index=*/0, Value::UBIGINT(config.cache_block_size));
+		output.SetValue(col++, /*index=*/0, config.on_disk_eviction_policy);
+		output.SetValue(col++, /*index=*/0, GetDiskCacheReaderMemoryCacheType(config));
+	} else if (config.cache_type == *IN_MEM_CACHE_TYPE) {
+		output.SetValue(col++, /*index=*/0, Value::UBIGINT(config.cache_block_size));
 		output.SetValue(col++, /*index=*/0, "lru"); // currently only LRU supported
 	}
 }
 
-void MetadataCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<string> &names) {
+void MetadataCacheConfigQueryFuncBindImpl(const InstanceConfig &config, vector<LogicalType> &return_types,
+                                          vector<string> &names) {
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("metadata cache type");
-	if (g_enable_metadata_cache) {
+	if (config.enable_metadata_cache) {
 		return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 		names.emplace_back("metadata cache entry size");
 	}
 }
 
-void FillMetadataCacheConfig(DataChunk &output, idx_t &col) {
-	if (g_enable_metadata_cache) {
+void FillMetadataCacheConfig(const InstanceConfig &config, DataChunk &output, idx_t &col) {
+	if (config.enable_metadata_cache) {
 		output.SetValue(col++, /*index=*/0, "enabled");
-		output.SetValue(col++, /*index=*/0, Value::UBIGINT(g_max_metadata_cache_entry));
+		output.SetValue(col++, /*index=*/0, Value::UBIGINT(config.max_metadata_cache_entry));
 	} else {
 		output.SetValue(col++, /*index=*/0, "disabled");
 	}
 }
 
-void FileHandleCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<string> &names) {
+void FileHandleCacheConfigQueryFuncBindImpl(const InstanceConfig &config, vector<LogicalType> &return_types,
+                                            vector<string> &names) {
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("file handle cache type");
-	if (g_enable_file_handle_cache) {
+	if (config.enable_file_handle_cache) {
 		return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 		names.emplace_back("file handle cache entry size");
 	}
 }
 
-void FillFileHandleCacheConfig(DataChunk &output, idx_t &col) {
-	if (g_enable_file_handle_cache) {
+void FillFileHandleCacheConfig(const InstanceConfig &config, DataChunk &output, idx_t &col) {
+	if (config.enable_file_handle_cache) {
 		output.SetValue(col++, /*index=*/0, "enabled");
-		output.SetValue(col++, /*index=*/0, Value::UBIGINT(g_max_file_handle_cache_entry));
+		output.SetValue(col++, /*index=*/0, Value::UBIGINT(config.max_file_handle_cache_entry));
 	} else {
 		output.SetValue(col++, /*index=*/0, "disabled");
 	}
 }
 
-void GlobCacheConfigQueryFuncBindImpl(vector<LogicalType> &return_types, vector<string> &names) {
+void GlobCacheConfigQueryFuncBindImpl(const InstanceConfig &config, vector<LogicalType> &return_types,
+                                      vector<string> &names) {
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("glob cache type");
-	if (g_enable_glob_cache) {
+	if (config.enable_glob_cache) {
 		return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
 		names.emplace_back("glob cache entry size");
 	}
 }
 
-void FillGlobCacheConfig(DataChunk &output, idx_t &col) {
-	if (g_enable_glob_cache) {
+void FillGlobCacheConfig(const InstanceConfig &config, DataChunk &output, idx_t &col) {
+	if (config.enable_glob_cache) {
 		output.SetValue(col++, /*index=*/0, "enabled");
-		output.SetValue(col++, /*index=*/0, Value::UBIGINT(g_max_glob_cache_entry));
+		output.SetValue(col++, /*index=*/0, Value::UBIGINT(config.max_glob_cache_entry));
 	} else {
 		output.SetValue(col++, /*index=*/0, "disabled");
 	}
+}
+
+// Helper to get config from context.
+InstanceConfig GetConfigFromContext(ClientContext &context) {
+	auto &state = GetInstanceStateOrThrow(*context.db);
+	return state.config;
 }
 
 //===--------------------------------------------------------------------===//
@@ -143,7 +154,8 @@ unique_ptr<FunctionData> DataCacheConfigQueryFuncBind(ClientContext &context, Ta
                                                       vector<LogicalType> &return_types, vector<string> &names) {
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
-	DataCacheConfigQueryFuncBindImpl(return_types, names);
+	auto config = GetConfigFromContext(context);
+	DataCacheConfigQueryFuncBindImpl(config, return_types, names);
 	return nullptr;
 }
 
@@ -162,9 +174,10 @@ void DataCacheConfigQueryTableFunc(ClientContext &context, TableFunctionInput &d
 	}
 	data.emitted = true;
 
+	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
-	FillDataCacheConfig(output, col);
-	output.SetCardinality(/*count=*/1);
+	FillDataCacheConfig(config, output, col);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -175,7 +188,8 @@ unique_ptr<FunctionData> MetadataCacheConfigQueryFuncBind(ClientContext &context
                                                           vector<LogicalType> &return_types, vector<string> &names) {
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
-	MetadataCacheConfigQueryFuncBindImpl(return_types, names);
+	auto config = GetConfigFromContext(context);
+	MetadataCacheConfigQueryFuncBindImpl(config, return_types, names);
 	return nullptr;
 }
 
@@ -194,9 +208,10 @@ void MetadataCacheConfigQueryTableFunc(ClientContext &context, TableFunctionInpu
 	}
 	data.emitted = true;
 
+	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
-	FillMetadataCacheConfig(output, col);
-	output.SetCardinality(/*count=*/1);
+	FillMetadataCacheConfig(config, output, col);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -207,7 +222,8 @@ unique_ptr<FunctionData> FileHandleCacheConfigQueryFuncBind(ClientContext &conte
                                                             vector<LogicalType> &return_types, vector<string> &names) {
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
-	FileHandleCacheConfigQueryFuncBindImpl(return_types, names);
+	auto config = GetConfigFromContext(context);
+	FileHandleCacheConfigQueryFuncBindImpl(config, return_types, names);
 	return nullptr;
 }
 
@@ -226,9 +242,10 @@ void FileHandleCacheConfigQueryTableFunc(ClientContext &context, TableFunctionIn
 	}
 	data.emitted = true;
 
+	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
-	FillFileHandleCacheConfig(output, col);
-	output.SetCardinality(/*count=*/1);
+	FillFileHandleCacheConfig(config, output, col);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -239,7 +256,8 @@ unique_ptr<FunctionData> GlobCacheConfigQueryFuncBind(ClientContext &context, Ta
                                                       vector<LogicalType> &return_types, vector<string> &names) {
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
-	GlobCacheConfigQueryFuncBindImpl(return_types, names);
+	auto config = GetConfigFromContext(context);
+	GlobCacheConfigQueryFuncBindImpl(config, return_types, names);
 	return nullptr;
 }
 
@@ -258,9 +276,10 @@ void GlobCacheConfigQueryTableFunc(ClientContext &context, TableFunctionInput &d
 	}
 	data.emitted = true;
 
+	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
-	FillGlobCacheConfig(output, col);
-	output.SetCardinality(/*count=*/1);
+	FillGlobCacheConfig(config, output, col);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -305,33 +324,34 @@ void CacheTypeQueryTableFunc(ClientContext &context, TableFunctionInput &data_p,
 	}
 	data.emitted = true;
 
+	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
 
 	// Data cache.
-	output.SetValue(col++, /*index=*/0, *g_cache_type);
+	output.SetValue(col++, /*index=*/0, config.cache_type);
 
 	// Metadata cache.
-	if (g_enable_metadata_cache) {
+	if (config.enable_metadata_cache) {
 		output.SetValue(col++, /*index=*/0, "enabled");
 	} else {
 		output.SetValue(col++, /*index=*/0, "disabled");
 	}
 
 	// File handle cache.
-	if (g_enable_file_handle_cache) {
+	if (config.enable_file_handle_cache) {
 		output.SetValue(col++, /*index=*/0, "enabled");
 	} else {
 		output.SetValue(col++, /*index=*/0, "disabled");
 	}
 
 	// Glob cache.
-	if (g_enable_glob_cache) {
+	if (config.enable_glob_cache) {
 		output.SetValue(col++, /*index=*/0, "enabled");
 	} else {
 		output.SetValue(col++, /*index=*/0, "disabled");
 	}
 
-	output.SetCardinality(/*count=*/1);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -343,17 +363,19 @@ unique_ptr<FunctionData> CacheConfigQueryFuncBind(ClientContext &context, TableF
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
 
+	auto config = GetConfigFromContext(context);
+
 	// Data cache config.
-	DataCacheConfigQueryFuncBindImpl(return_types, names);
+	DataCacheConfigQueryFuncBindImpl(config, return_types, names);
 
 	// Metadata cache config.
-	MetadataCacheConfigQueryFuncBindImpl(return_types, names);
+	MetadataCacheConfigQueryFuncBindImpl(config, return_types, names);
 
 	// File handle cache config.
-	FileHandleCacheConfigQueryFuncBindImpl(return_types, names);
+	FileHandleCacheConfigQueryFuncBindImpl(config, return_types, names);
 
 	// Glob cache config.
-	GlobCacheConfigQueryFuncBindImpl(return_types, names);
+	GlobCacheConfigQueryFuncBindImpl(config, return_types, names);
 
 	// Cache exclusion regex.
 	return_types.emplace_back(LogicalType::LIST(LogicalType {LogicalTypeId::VARCHAR}));
@@ -376,24 +398,26 @@ void CacheConfigQueryTableFunc(ClientContext &context, TableFunctionInput &data_
 	}
 	data.emitted = true;
 
+	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
 
 	// Data cache config.
-	FillDataCacheConfig(output, col);
+	FillDataCacheConfig(config, output, col);
 
 	// Metadata cache config.
-	FillMetadataCacheConfig(output, col);
+	FillMetadataCacheConfig(config, output, col);
 
 	// File handle cache config.
-	FillFileHandleCacheConfig(output, col);
+	FillFileHandleCacheConfig(config, output, col);
 
 	// Glob cache config.
-	FillGlobCacheConfig(output, col);
+	FillGlobCacheConfig(config, output, col);
 
 	// Cache exclusion regex.
-	output.SetValue(col++, /*index=*/0, GetCacheExclusionRegexes());
+	auto &state = GetInstanceStateOrThrow(*context.db);
+	output.SetValue(col++, /*index=*/0, GetCacheExclusionRegexes(state));
 
-	output.SetCardinality(/*count=*/1);
+	output.SetCardinality(/*count_p=*/1);
 }
 } // namespace
 

@@ -93,31 +93,22 @@ idx_t GetOverallFileSystemDiskSpace(const std::string &path) {
 #endif
 }
 
-bool CanCacheOnDisk(const std::string &path) {
-	if (g_test_insufficient_disk_space) {
-		return false;
+optional_idx GetTotalDiskSpace(const std::string &path) {
+#if defined(_WIN32)
+	ULARGE_INTEGER total_bytes;
+	ULARGE_INTEGER free_bytes_unused;
+	ULARGE_INTEGER total_free_unused;
+	if (!GetDiskFreeSpaceExA(path.c_str(), &free_bytes_unused, &total_bytes, &total_free_unused)) {
+		return optional_idx();
 	}
-
-	const auto avai_fs_bytes = FileSystem::GetAvailableDiskSpace(path);
-	if (!avai_fs_bytes.IsValid()) {
-		return false;
+	return optional_idx(static_cast<idx_t>(total_bytes.QuadPart));
+#else
+	struct statvfs vfs;
+	if (statvfs(path.c_str(), &vfs) != 0) {
+		return optional_idx();
 	}
-
-	// If the left disk space is smaller than a cache block, there's no need to do on-disk cache.
-	if (avai_fs_bytes.GetIndex() <= g_cache_block_size) {
-		return false;
-	}
-
-	// Check user override configurations if specified.
-	if (g_min_disk_bytes_for_cache != DEFAULT_MIN_DISK_BYTES_FOR_CACHE) {
-		return g_min_disk_bytes_for_cache <= avai_fs_bytes.GetIndex();
-	}
-
-	// Check default reserved disk space.
-	// The function if frequently called on critical path, but filesystem metadata is highly cache-able, so the overhead
-	// is just syscall.
-	const idx_t overall_fs_bytes = GetOverallFileSystemDiskSpace(path);
-	return overall_fs_bytes * MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE <= avai_fs_bytes.GetIndex();
+	return optional_idx(static_cast<idx_t>(vfs.f_blocks) * static_cast<idx_t>(vfs.f_frsize));
+#endif
 }
 
 map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string> &folders) {
@@ -238,6 +229,33 @@ string GetCacheVersion(const string &filepath) {
 #else
 	return "";
 #endif
+}
+
+bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t min_disk_bytes_for_cache) {
+	// Check available disk space
+	auto avai_fs_bytes = FileSystem::GetAvailableDiskSpace(cache_directory);
+	if (!avai_fs_bytes.IsValid()) {
+		return false;
+	}
+
+	// Not enough space for even one block
+	if (avai_fs_bytes.GetIndex() <= cache_block_size) {
+		return false;
+	}
+
+	// Use min_disk_bytes_for_cache if configured
+	if (min_disk_bytes_for_cache != DEFAULT_MIN_DISK_BYTES_FOR_CACHE) {
+		return min_disk_bytes_for_cache <= avai_fs_bytes.GetIndex();
+	}
+
+	// Default: reserve a portion of disk space
+	auto total_fs_bytes = GetTotalDiskSpace(cache_directory);
+	if (!total_fs_bytes.IsValid()) {
+		return false;
+	}
+
+	return static_cast<double>(avai_fs_bytes.GetIndex()) / total_fs_bytes.GetIndex() >
+	       MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE;
 }
 
 } // namespace duckdb

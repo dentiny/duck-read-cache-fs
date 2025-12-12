@@ -68,7 +68,12 @@ private:
 TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") {
 	// Cleanup default cache directory before test.
 	LocalFileSystem::CreateLocal()->RemoveDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// Uncached read.
 	{
@@ -88,14 +93,15 @@ TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") 
 TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhile last chunk",
           "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 26;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -124,14 +130,15 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhil
 TEST_CASE("Test on disk cache filesystem with requested chunk the first and last chunk",
           "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -159,14 +166,15 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first and last
 TEST_CASE("Test on disk cache filesystem with request for the last part of the file",
           "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read
 	{
@@ -198,14 +206,15 @@ TEST_CASE("Test on disk cache filesystem with request for the last part of the f
 TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle and last chunk",
           "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -234,14 +243,15 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle 
 // doesn't involve the end of the file.
 TEST_CASE("Test on disk cache filesystem with requested chunk first and last one", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -269,14 +279,15 @@ TEST_CASE("Test on disk cache filesystem with requested chunk first and last one
 // Requested chunk involves the end of the file.
 TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -310,14 +321,15 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", 
 // Requested chunk involves the middle of the file.
 TEST_CASE("Test on disk cache filesystem with requested chunk at middle of file", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -351,14 +363,15 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at middle of file"
 // All chunks cached locally, later access shouldn't create new cache file.
 TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -392,17 +405,18 @@ TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", 
 
 TEST_CASE("Test on reading non-existent file", "[on-disk cache filesystem test]") {
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
+
 	REQUIRE_THROWS(disk_cache_fs->OpenFile("non-existent-file", FileOpenFlags::FILE_FLAGS_READ));
 }
 
 TEST_CASE("Test on zero-byte cache file", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 
@@ -418,7 +432,12 @@ TEST_CASE("Test on zero-byte cache file", "[on-disk cache filesystem test]") {
 		file_handle->Close();
 	}
 
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// Check the empty file and verify no cache files are created.
 	{
@@ -440,12 +459,11 @@ TEST_CASE("Test on zero-byte cache file", "[on-disk cache filesystem test]") {
 }
 
 TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
-	g_cache_block_size = 5;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
-
-	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = 5;
+	TestCacheFileSystemHelper helper(config);
+	auto *on_disk_cache_fs = helper.GetCacheFileSystem();
 
 	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
 	                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
@@ -472,21 +490,13 @@ TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
 
 // Testing scenario: check timestamp-based eviction policy.
 TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") {
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	// Disable in-memory block cache, so that disk cache completely works on persistent content.
-	g_enable_disk_reader_mem_cache = false;
-
-	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
-	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
-	                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
 	const uint64_t start_offset = 0;
 	const uint64_t bytes_to_read = TEST_FILE_SIZE;
+	string content(bytes_to_read, '\0');
 
 	// Create stale files, which should be deleted when insufficient disk space detected.
+	LocalFileSystem::CreateLocal()->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 	const string old_cache_file = StringUtil::Format("%s/file1", TEST_ON_DISK_CACHE_DIRECTORY);
 	{
 		auto file_handle = LocalFileSystem::CreateLocal()->OpenFile(
@@ -499,35 +509,58 @@ TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") 
 	updated_time.modtime = two_day_ago;
 	REQUIRE(utime(old_cache_file.data(), &updated_time) == 0);
 
-	// Pretend there's no sufficient disk space, so cache file eviction is triggered.
-	g_test_insufficient_disk_space = true;
-	string content(bytes_to_read, '\0');
-	on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-	                       start_offset);
-	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+	// Phase 1: With insufficient disk space (very high min_disk_bytes_for_cache), eviction should happen
+	{
+		TestCacheConfig config;
+		config.cache_type = "on_disk";
+		config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+		config.enable_disk_reader_mem_cache = false;
+		// Pretend there's no sufficient disk space by setting a very high min_disk_bytes_for_cache
+		config.min_disk_bytes_for_cache = static_cast<idx_t>(-1); // UINT64_MAX
+		TestCacheFileSystemHelper helper(config);
+		auto *on_disk_cache_fs = helper.GetCacheFileSystem();
 
-	// At this point, stale cache file has already been deleted.
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 0);
-	REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(old_cache_file));
+		auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
+		                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
+		on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                       start_offset);
+		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 
-	// Second access is uncached read.
-	g_test_insufficient_disk_space = false;
-	on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-	                       start_offset);
-	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
+		// At this point, stale cache file has already been deleted.
+		REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 0);
+		REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(old_cache_file));
+	}
+
+	// Phase 2: With normal config, caching should work
+	{
+		TestCacheConfig config;
+		config.cache_type = "on_disk";
+		config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+		config.enable_disk_reader_mem_cache = false;
+		TestCacheFileSystemHelper helper(config);
+		auto *on_disk_cache_fs = helper.GetCacheFileSystem();
+
+		auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
+		                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
+		on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                       start_offset);
+		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+		REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
+	}
 }
 
 // Testing scenario: remove file should clear corresponding items in the cache.
 TEST_CASE("Test on file removal", "[on-disk cache filesystem test]") {
 	constexpr uint64_t test_block_size = 5;
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	g_cache_block_size = test_block_size;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
+
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	auto disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	TestCacheFileSystemHelper helper(config);
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -554,80 +587,91 @@ TEST_CASE("Test on file removal", "[on-disk cache filesystem test]") {
 
 // Testing scenario: check lru-based eviction policy.
 TEST_CASE("Test on lru eviction", "[on-disk cache filesystem test]") {
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
-	*g_on_disk_cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	*g_on_disk_eviction_policy = *ON_DISK_LRU_SINGLE_PROC_EVICTION;
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	// Disable in-memory block cache, so that disk cache completely works on persistent content.
-	g_enable_disk_reader_mem_cache = false;
+	LocalFileSystem::CreateLocal()->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 
-	auto on_disk_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
-	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
-	                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
 	const uint64_t start_offset = 0;
 	const uint64_t bytes_to_read = TEST_FILE_SIZE;
+	string content(bytes_to_read, '\0');
 
-	// Create existing file 1 and set modification timestamp to two days ago, which should be deleted when insufficient
-	// disk space detected.
+	// Create existing file 1 and set modification timestamp to two days ago
 	const string existing_file_1 = StringUtil::Format("%s/file1", TEST_ON_DISK_CACHE_DIRECTORY);
 	{
 		auto file_handle = LocalFileSystem::CreateLocal()->OpenFile(
 		    existing_file_1, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 	}
-	// Update file's modification timestamp.
 	{
 		const time_t now = std::time(nullptr);
-		const time_t two_day_ago = now - 48 * 60 * 60; // two days ago
+		const time_t two_day_ago = now - 48 * 60 * 60;
 		struct utimbuf updated_time;
 		updated_time.actime = two_day_ago;
 		updated_time.modtime = two_day_ago;
 		REQUIRE(utime(existing_file_1.data(), &updated_time) == 0);
 	}
 
-	// Create existing file 2 and set modification timestamp to two days ago, which should be deleted when insufficient
-	// disk space detected.
+	// Create existing file 2 and set modification timestamp to one day ago
 	const string existing_file_2 = StringUtil::Format("%s/file2", TEST_ON_DISK_CACHE_DIRECTORY);
 	{
 		auto file_handle = LocalFileSystem::CreateLocal()->OpenFile(
 		    existing_file_2, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 	}
-	// Update file's modification timestamp.
 	{
 		const time_t now = std::time(nullptr);
-		const time_t one_day_ago = now - 24 * 60 * 60; // one day ago
+		const time_t one_day_ago = now - 24 * 60 * 60;
 		struct utimbuf updated_time;
 		updated_time.actime = one_day_ago;
 		updated_time.modtime = one_day_ago;
 		REQUIRE(utime(existing_file_2.data(), &updated_time) == 0);
 	}
 
-	// Pretend there's no sufficient disk space, so cache file eviction is triggered.
-	g_test_insufficient_disk_space = true;
-	string content(bytes_to_read, '\0');
-	on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-	                       start_offset);
-	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+	// With insufficient disk space config, older file should be evicted first (LRU policy)
+	{
+		TestCacheConfig config;
+		config.cache_type = "on_disk";
+		config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+		config.eviction_policy = "lru_sp";
+		config.enable_disk_reader_mem_cache = false;
+		config.min_disk_bytes_for_cache = static_cast<idx_t>(-1); // UINT64_MAX
+		TestCacheFileSystemHelper helper(config);
+		auto *on_disk_cache_fs = helper.GetCacheFileSystem();
 
-	// At this point, the first existing file has already been deleted, with the second one still kept.
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
-	REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_1));
-	REQUIRE(LocalFileSystem::CreateLocal()->FileExists(existing_file_2));
+		auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
+		                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
+		on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                       start_offset);
+		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 
-	// At this point, both existing files have been deleted.
-	g_test_insufficient_disk_space = true;
-	on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-	                       start_offset);
-	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 0);
-	REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_1));
-	REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_2));
+		// At this point, the first existing file (oldest) has already been deleted, with the second one still kept.
+		REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 1);
+		REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_1));
+		REQUIRE(LocalFileSystem::CreateLocal()->FileExists(existing_file_2));
+	}
+
+	// Second read with new helper should evict the remaining file
+	{
+		TestCacheConfig config;
+		config.cache_type = "on_disk";
+		config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+		config.eviction_policy = "lru_sp";
+		config.enable_disk_reader_mem_cache = false;
+		config.min_disk_bytes_for_cache = static_cast<idx_t>(-1); // UINT64_MAX
+		TestCacheFileSystemHelper helper(config);
+		auto *on_disk_cache_fs = helper.GetCacheFileSystem();
+
+		auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
+		                                                            FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
+		on_disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                       start_offset);
+		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+
+		// At this point, both existing files have been deleted.
+		REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 0);
+		REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_1));
+		REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_2));
+	}
 }
 
 int main(int argc, char **argv) {
-	// Set global cache type for testing.
-	*g_test_cache_type = *ON_DISK_CACHE_TYPE;
 	CreateSourceTestFile();
 
 	int result = Catch::Session().run(argc, argv);

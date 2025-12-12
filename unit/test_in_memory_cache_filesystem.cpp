@@ -3,15 +3,14 @@
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
 
-#include "cache_filesystem_config.hpp"
+#include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/types/uuid.hpp"
-#include "in_memory_cache_reader.hpp"
+#include "duckdb/main/database.hpp"
 #include "mock_filesystem.hpp"
-#include "scope_guard.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
@@ -26,15 +25,72 @@ const auto TEST_FILE_CONTENT = []() {
 	return content;
 }();
 const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+
+// Helper struct to create a CacheFileSystem with a custom internal filesystem
+struct CustomFsHelper {
+	DuckDB db;
+	shared_ptr<CacheHttpfsInstanceState> instance_state;
+	unique_ptr<CacheFileSystem> cache_fs;
+
+	CustomFsHelper(unique_ptr<FileSystem> internal_fs, const TestCacheConfig &config) {
+		instance_state = make_shared_ptr<CacheHttpfsInstanceState>();
+
+		// Configure the instance
+		auto &inst_config = instance_state->config;
+		inst_config.cache_type = config.cache_type;
+		inst_config.cache_block_size = config.cache_block_size;
+		inst_config.enable_cache_validation = config.enable_cache_validation;
+		inst_config.enable_disk_reader_mem_cache = config.enable_disk_reader_mem_cache;
+
+		// Register state with instance
+		SetInstanceState(*db.instance.get(), instance_state);
+
+		// Create cache filesystem wrapping the provided filesystem
+		cache_fs = make_uniq<CacheFileSystem>(std::move(internal_fs), instance_state);
+	}
+
+	CacheFileSystem *GetCacheFileSystem() {
+		return cache_fs.get();
+	}
+};
+
+// Helper struct to create a CacheFileSystem with a MockFileSystem (keeps pointer to mock)
+struct MockFsHelper {
+	DuckDB db;
+	shared_ptr<CacheHttpfsInstanceState> instance_state;
+	unique_ptr<CacheFileSystem> cache_fs;
+	MockFileSystem *mock_fs_ptr = nullptr; // Non-owning pointer for accessing mock filesystem
+
+	MockFsHelper(unique_ptr<MockFileSystem> mock_fs, const TestCacheConfig &config) {
+		instance_state = make_shared_ptr<CacheHttpfsInstanceState>();
+
+		// Configure the instance
+		auto &inst_config = instance_state->config;
+		inst_config.cache_type = config.cache_type;
+		inst_config.cache_block_size = config.cache_block_size;
+		inst_config.enable_cache_validation = config.enable_cache_validation;
+		inst_config.enable_disk_reader_mem_cache = config.enable_disk_reader_mem_cache;
+
+		// Register state with instance
+		SetInstanceState(*db.instance.get(), instance_state);
+
+		// Create cache filesystem wrapping the provided filesystem
+		mock_fs_ptr = mock_fs.get();
+		cache_fs = make_uniq<CacheFileSystem>(std::move(mock_fs), instance_state);
+	}
+
+	CacheFileSystem *GetCacheFileSystem() {
+		return cache_fs.get();
+	}
+};
 } // namespace
 
 TEST_CASE("Test on in-memory cache filesystem", "[in-memory cache filesystem test]") {
-	g_cache_block_size = TEST_FILE_SIZE;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
-
-	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	TestCacheConfig config;
+	config.cache_type = "in_mem";
+	config.cache_block_size = TEST_FILE_SIZE;
+	TestCacheFileSystemHelper helper(config);
+	auto *in_mem_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -60,12 +116,11 @@ TEST_CASE("Test on in-memory cache filesystem", "[in-memory cache filesystem tes
 }
 
 TEST_CASE("Test on concurrent access", "[in-memory cache filesystem test]") {
-	g_cache_block_size = 5;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
-
-	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	TestCacheConfig config;
+	config.cache_type = "in_mem";
+	config.cache_block_size = 5;
+	TestCacheFileSystemHelper helper(config);
+	auto *in_mem_cache_fs = helper.GetCacheFileSystem();
 
 	auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME,
 	                                        FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
@@ -91,13 +146,13 @@ TEST_CASE("Test on concurrent access", "[in-memory cache filesystem test]") {
 }
 
 TEST_CASE("Test cache validation disabled", "[in-memory cache filesystem test]") {
-	g_cache_block_size = TEST_FILE_SIZE;
-	g_enable_cache_validation = false;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
+	TestCacheConfig config;
+	config.cache_type = "in_mem";
+	config.cache_block_size = TEST_FILE_SIZE;
+	config.enable_cache_validation = false;
 
-	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	CustomFsHelper helper(LocalFileSystem::CreateLocal(), config);
+	auto *in_mem_cache_fs = helper.GetCacheFileSystem();
 
 	// First read, should cache.
 	{
@@ -123,11 +178,10 @@ TEST_CASE("Test cache validation disabled", "[in-memory cache filesystem test]")
 }
 
 TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem test]") {
-	g_cache_block_size = TEST_FILE_SIZE;
-	g_enable_cache_validation = true;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
+	TestCacheConfig config;
+	config.cache_type = "in_mem";
+	config.cache_block_size = TEST_FILE_SIZE;
+	config.enable_cache_validation = true;
 
 	auto close_callback = []() {
 	};
@@ -138,8 +192,9 @@ TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem
 	mock_filesystem->SetVersionTag("v1");
 	mock_filesystem->SetLastModificationTime(timestamp_t {1000000});
 
-	auto *mock_filesystem_ptr = mock_filesystem.get();
-	auto in_mem_cache_fs = make_uniq<CacheFileSystem>(std::move(mock_filesystem));
+	MockFsHelper helper(std::move(mock_filesystem), config);
+	auto *mock_filesystem_ptr = helper.mock_fs_ptr;
+	auto *in_mem_cache_fs = helper.GetCacheFileSystem();
 
 	// First read, should cache with version tag "v1".
 	{
@@ -188,9 +243,6 @@ TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem
 }
 
 int main(int argc, char **argv) {
-	// Set global cache type for testing.
-	*g_test_cache_type = *IN_MEM_CACHE_TYPE;
-
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
 	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);

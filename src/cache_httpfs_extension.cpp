@@ -8,11 +8,8 @@
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
-#include "cache_filesystem_logger.hpp"
-#include "cache_filesystem_ref_registry.hpp"
-#include "cache_reader_manager.hpp"
+#include "cache_httpfs_instance_state.hpp"
 #include "cache_status_query_function.hpp"
-#include "crypto.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/opener_file_system.hpp"
@@ -26,7 +23,6 @@
 #include "s3fs.hpp"
 
 #include <algorithm>
-#include <array>
 
 namespace duckdb {
 
@@ -45,18 +41,21 @@ DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
 
 // Clear both in-memory and on-disk data block cache.
 void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
+	auto &instance = GetDatabaseInstance(state);
+	auto &inst_state = GetInstanceStateOrThrow(instance);
+
 	// Special handle local disk cache clear, since it's possible disk cache reader hasn't been initialized.
 	auto local_filesystem = LocalFileSystem::CreateLocal();
-	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
+	for (const auto &cur_cache_dir : inst_state.config.on_disk_cache_directories) {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		local_filesystem->CreateDirectory(cur_cache_dir);
 	}
 
 	// Clear data block cache for all initialized cache readers.
-	CacheReaderManager::Get().ClearCache();
+	inst_state.cache_reader_manager.ClearCache();
 
 	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
-	auto cache_filesystem_instances = CacheFsRefRegistry::Get().GetAllCacheFs();
+	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_cache_fs : cache_filesystem_instances) {
 		cur_cache_fs->ClearCache();
 	}
@@ -69,11 +68,14 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 	D_ASSERT(args.ColumnCount() == 1);
 	const string filepath = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
+	auto &instance = GetDatabaseInstance(state);
+	auto &inst_state = GetInstanceStateOrThrow(instance);
+
 	// Clear data block cache on the given [fname] for all initialized filesystems.
-	CacheReaderManager::Get().ClearCache(filepath);
+	inst_state.cache_reader_manager.ClearCache(filepath);
 
 	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
-	auto cache_filesystem_instances = CacheFsRefRegistry::Get().GetAllCacheFs();
+	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_cache_fs : cache_filesystem_instances) {
 		cur_cache_fs->ClearCache(filepath);
 	}
@@ -84,10 +86,12 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 
 // Get on-disk data cache file size for all cache filesystems.
 void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vector &result) {
-	auto local_filesystem = LocalFileSystem::CreateLocal();
+	auto &instance = GetDatabaseInstance(state);
+	auto &inst_state = GetInstanceStateOrThrow(instance);
 
+	auto local_filesystem = LocalFileSystem::CreateLocal();
 	int64_t total_cache_size = 0;
-	for (const auto &cur_cache_dir : *g_on_disk_cache_directories) {
+	for (const auto &cur_cache_dir : inst_state.config.on_disk_cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir, [&local_filesystem, &total_cache_size,
 		                                            &cur_cache_dir](const string &fname, bool /*unused*/) {
 			const string file_path = StringUtil::Format("%s/%s", cur_cache_dir, fname);
@@ -99,9 +103,12 @@ void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vecto
 }
 
 void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
+	auto &instance = GetDatabaseInstance(state);
+	auto &inst_state = GetInstanceStateOrThrow(instance);
+
 	string latest_stat;
 	uint64_t latest_timestamp = 0;
-	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
+	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
 		auto *profile_collector = cur_filesystem->GetProfileCollector();
 		// Profile collector is only initialized after cache filesystem access.
@@ -127,7 +134,10 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 }
 
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
-	const auto &cache_file_systems = CacheFsRefRegistry::Get().GetAllCacheFs();
+	auto &instance = GetDatabaseInstance(state);
+	auto &inst_state = GetInstanceStateOrThrow(instance);
+
+	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
 		auto *profile_collector = cur_filesystem->GetProfileCollector();
 		// Profile collector is only initialized after cache filesystem access.
@@ -156,8 +166,9 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 		throw InvalidInputException("Filesystem %s hasn't been registered yet!", filesystem_name);
 	}
 
-	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(internal_filesystem), duckdb_instance);
-	CacheFsRefRegistry::Get().Register(cache_filesystem.get());
+	auto cache_filesystem =
+	    make_uniq<CacheFileSystem>(std::move(internal_filesystem), GetInstanceStateShared(duckdb_instance));
+	// CacheFileSystem constructor auto-registers with per-instance registry
 	vfs.RegisterSubSystem(std::move(cache_filesystem));
 	DUCKDB_LOG_DEBUG(duckdb_instance, StringUtil::Format("Wrap filesystem %s with cache filesystem.", filesystem_name));
 
@@ -225,14 +236,20 @@ bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
 // 2. If uncached filesystem is registered later somehow, cached version is set mutual set so it has higher priority
 // than uncached version.
 void LoadInternal(ExtensionLoader &loader) {
-	// It's legal to reset database and reload extension, reset all global variable at load.
-	CacheFsRefRegistry::Get().Reset();
-	CacheReaderManager::Get().Reset();
-	ResetGlobalConfig();
+	auto &instance = loader.GetDatabaseInstance();
+
+	// Create per-instance state for this extension
+	auto state = make_shared_ptr<CacheHttpfsInstanceState>();
+	SetInstanceState(instance, state);
+
+	// Ensure cache directory exists
+	auto local_fs = LocalFileSystem::CreateLocal();
+	for (const auto &dir : state->config.on_disk_cache_directories) {
+		local_fs->CreateDirectory(dir);
+	}
 
 	// When cache httpfs enabled, by default disable external file cache, otherwise double buffering.
 	// Users could re-enable by setting the config afterwards.
-	auto &instance = loader.GetDatabaseInstance();
 	instance.config.options.enable_external_file_cache = false;
 	instance.GetExternalFileCache().SetEnabled(false);
 
@@ -264,25 +281,23 @@ void LoadInternal(ExtensionLoader &loader) {
 	vfs.RegisterSubSystem(make_uniq<CacheHttpfsFakeFileSystem>());
 
 	// By default register all filesystem instances inside of httpfs.
+	// CacheFileSystem constructor auto-registers with instance registry.
 	//
 	// Register http filesystem.
 	auto http_fs = ExtractOrCreateHttpfs(vfs);
-	auto cache_httpfs_filesystem = make_uniq<CacheFileSystem>(std::move(http_fs), &instance);
-	CacheFsRefRegistry::Get().Register(cache_httpfs_filesystem.get());
+	auto cache_httpfs_filesystem = make_uniq<CacheFileSystem>(std::move(http_fs), state);
 	vfs.RegisterSubSystem(std::move(cache_httpfs_filesystem));
 	DUCKDB_LOG_DEBUG(instance, "Wrap HTTPFileSystem with cache filesystem.");
 
 	// Register hugging filesystem.
 	auto hf_fs = ExtractOrCreateHuggingfs(vfs);
-	auto cache_hf_filesystem = make_uniq<CacheFileSystem>(std::move(hf_fs), &instance);
-	CacheFsRefRegistry::Get().Register(cache_hf_filesystem.get());
+	auto cache_hf_filesystem = make_uniq<CacheFileSystem>(std::move(hf_fs), state);
 	vfs.RegisterSubSystem(std::move(cache_hf_filesystem));
 	DUCKDB_LOG_DEBUG(instance, "Wrap HuggingFaceFileSystem with cache filesystem.");
 
 	// Register s3 filesystem.
 	auto s3_fs = ExtractOrCreateS3fs(vfs, instance);
-	auto cache_s3_filesystem = make_uniq<CacheFileSystem>(std::move(s3_fs), &instance);
-	CacheFsRefRegistry::Get().Register(cache_s3_filesystem.get());
+	auto cache_s3_filesystem = make_uniq<CacheFileSystem>(std::move(s3_fs), state);
 	vfs.RegisterSubSystem(std::move(cache_s3_filesystem));
 	DUCKDB_LOG_DEBUG(instance, "Wrap S3FileSystem with cache filesystem.");
 

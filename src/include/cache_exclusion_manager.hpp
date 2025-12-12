@@ -13,10 +13,8 @@ namespace duckdb {
 
 class CacheExclusionManager {
 public:
-	static CacheExclusionManager &GetInstance();
-
 	// Add exclusion regex.
-	void AddExlusionRegex(string regex);
+	void AddExclusionRegex(const string &regex);
 
 	// Reset exclusion regex.
 	void ResetExclusionRegex();
@@ -28,8 +26,6 @@ public:
 	vector<string> GetExclusionRegex() const;
 
 private:
-	CacheExclusionManager() = default;
-
 	mutable std::mutex mu;
 	vector<unique_ptr<::duckdb_re2::RE2>> exclusion_regexes;
 };

@@ -6,12 +6,7 @@
 
 namespace duckdb {
 
-/*static*/ CacheExclusionManager &CacheExclusionManager::GetInstance() {
-	static auto *cache_exclusion_manager = new CacheExclusionManager {};
-	return *cache_exclusion_manager;
-}
-
-void CacheExclusionManager::AddExlusionRegex(string regex) {
+void CacheExclusionManager::AddExclusionRegex(const string &regex) {
 	auto pattern = make_uniq<::duckdb_re2::RE2>(regex);
 	std::lock_guard<std::mutex> lck(mu);
 	exclusion_regexes.emplace_back(std::move(pattern));

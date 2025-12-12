@@ -28,12 +28,11 @@ const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::Ge
 } // namespace
 
 TEST_CASE("Test on noop cache filesystem", "[noop cache filesystem test]") {
-	g_cache_block_size = TEST_FILE_SIZE;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
-
-	auto noop_filesystem = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
+	TestCacheConfig config;
+	config.cache_type = "noop";
+	config.cache_block_size = TEST_FILE_SIZE;
+	TestCacheFileSystemHelper helper(config);
+	auto *noop_filesystem = helper.GetCacheFileSystem();
 
 	// First uncached read.
 	{
@@ -59,12 +58,12 @@ TEST_CASE("Test on noop cache filesystem", "[noop cache filesystem test]") {
 }
 
 TEST_CASE("Test noop read whole file", "[noop cache filesystem test]") {
-	g_cache_block_size = TEST_FILE_SIZE;
-	SCOPE_EXIT {
-		ResetGlobalStateAndConfig();
-	};
+	TestCacheConfig config;
+	config.cache_type = "noop";
+	config.cache_block_size = TEST_FILE_SIZE;
+	TestCacheFileSystemHelper helper(config);
+	auto *noop_filesystem = helper.GetCacheFileSystem();
 
-	auto noop_filesystem = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal());
 	auto handle = noop_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
 	const uint64_t start_offset = 0;
 	const uint64_t bytes_to_read = TEST_FILE_SIZE;
@@ -75,9 +74,6 @@ TEST_CASE("Test noop read whole file", "[noop cache filesystem test]") {
 }
 
 int main(int argc, char **argv) {
-	// Set global cache type for testing.
-	*g_test_cache_type = *NOOP_CACHE_TYPE;
-
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
 	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);

@@ -6,15 +6,15 @@
 using namespace duckdb; // NOLINT
 
 TEST_CASE("Exclusion test", "[cache exclusion manager test]") {
-	auto &exclusion_manager = CacheExclusionManager::GetInstance();
+	CacheExclusionManager exclusion_manager;
 
 	// A non-match-all regex.
-	exclusion_manager.AddExlusionRegex(".*config.*");
+	exclusion_manager.AddExclusionRegex(".*config.*");
 	REQUIRE(!exclusion_manager.MatchAnyExclusion("non-match-file"));
 	REQUIRE(exclusion_manager.MatchAnyExclusion("/tmp/config"));
 
 	// A match-all regex.
-	exclusion_manager.AddExlusionRegex(".*");
+	exclusion_manager.AddExclusionRegex(".*");
 	REQUIRE(exclusion_manager.MatchAnyExclusion("match-file"));
 }
 
