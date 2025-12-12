@@ -30,16 +30,14 @@ struct InMemoryCacheReaderConfig {
 };
 
 // Get runtime config from instance state (returns copy with defaults if unavailable)
-InMemoryCacheReaderConfig GetConfig(CacheHttpfsInstanceState *instance_state) {
-	InMemoryCacheReaderConfig config;
-	if (instance_state) {
-		config.max_cache_block_count = instance_state->config.max_in_mem_cache_block_count;
-		config.cache_block_timeout_millisec = instance_state->config.in_mem_cache_block_timeout_millisec;
-		config.cache_block_size = instance_state->config.cache_block_size;
-		config.max_subrequest_count = instance_state->config.max_subrequest_count;
-		config.enable_cache_validation = instance_state->config.enable_cache_validation;
-	}
-	return config;
+InMemoryCacheReaderConfig GetConfig(const CacheHttpfsInstanceState &instance_state) {
+	return InMemoryCacheReaderConfig {
+	    .max_cache_block_count = instance_state.config.max_in_mem_cache_block_count,
+	    .cache_block_timeout_millisec = instance_state.config.in_mem_cache_block_timeout_millisec,
+	    .cache_block_size = instance_state.config.cache_block_size,
+	    .max_subrequest_count = instance_state.config.max_subrequest_count,
+	    .enable_cache_validation = instance_state.config.enable_cache_validation,
+	};
 }
 
 } // namespace
@@ -58,7 +56,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		return;
 	}
 
-	const auto config = GetConfig(instance_state.lock().get());
+	const auto config = GetConfig(*instance_state.lock());
 
 	std::call_once(cache_init_flag, [this, &config]() {
 		cache = make_uniq<InMemCache>(config.max_cache_block_count, config.cache_block_timeout_millisec);

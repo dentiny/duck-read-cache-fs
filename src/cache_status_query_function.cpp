@@ -181,11 +181,8 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 	}
 
 	// Get cache access info from all initialized cache readers.
-	auto *inst_state = GetInstanceState(*context.db);
-	if (!inst_state) {
-		return std::move(result);
-	}
-	const auto cache_readers = inst_state->cache_reader_manager.GetCacheReaders();
+	auto &inst_state = GetInstanceStateOrThrow(*context.db);
+	const auto cache_readers = inst_state.cache_reader_manager.GetCacheReaders();
 	for (auto *cur_cache_reader : cache_readers) {
 		auto *profiler_collector = cur_cache_reader->GetProfileCollector();
 		if (profiler_collector == nullptr) {
@@ -293,14 +290,12 @@ unique_ptr<GlobalTableFunctionState> WrappedCacheFileSystemsFuncInit(ClientConte
 	auto &wrapped_filesystems = result->wrapped_filesystems;
 
 	// Get cache filesystems from per-instance registry
-	auto *state = GetInstanceState(*context.db);
-	if (state) {
-		auto cache_filesystem_instances = state->registry.GetAllCacheFs();
-		wrapped_filesystems.reserve(cache_filesystem_instances.size());
+	auto &inst_state = GetInstanceStateOrThrow(*context.db);
+	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
+	wrapped_filesystems.reserve(cache_filesystem_instances.size());
 
-		for (auto *cur_cache_fs : cache_filesystem_instances) {
-			wrapped_filesystems.emplace_back(cur_cache_fs->GetInternalFileSystem()->GetName());
-		}
+	for (auto *cur_cache_fs : cache_filesystem_instances) {
+		wrapped_filesystems.emplace_back(cur_cache_fs->GetInternalFileSystem()->GetName());
 	}
 
 	return std::move(result);

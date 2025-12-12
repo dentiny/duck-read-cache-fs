@@ -16,17 +16,12 @@ namespace {
 constexpr bool SUCCESS = true;
 
 // Get exclusion manager from expression state.
-CacheExclusionManager *GetExclusionManager(ExpressionState &state) {
-	auto *executor = state.root.executor;
-	auto &client_context = executor->GetContext();
-	auto &instance = *client_context.db.get();
+CacheExclusionManager &GetExclusionManagerOrThrow(ExpressionState &state) {
+	auto &context = state.GetContext();
+	auto &instance = *context.db.get();
+	auto &inst_state = GetInstanceStateOrThrow(instance);
 
-	auto *inst_state = GetInstanceState(instance);
-	if (inst_state == nullptr) {
-		return nullptr;
-	}
-
-	return &inst_state->exclusion_manager;
+	return inst_state.exclusion_manager;
 }
 
 //===--------------------------------------------------------------------===//
@@ -98,18 +93,14 @@ void AddCacheExclusionRegex(const DataChunk &args, ExpressionState &state, Vecto
 	D_ASSERT(args.ColumnCount() == 1);
 	string regex = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
-	auto *exclusion_manager = GetExclusionManager(state);
-	if (exclusion_manager) {
-		exclusion_manager->AddExclusionRegex(regex);
-	}
+	auto &exclusion_manager = GetExclusionManagerOrThrow(state);
+	exclusion_manager.AddExclusionRegex(regex);
 	result.Reference(Value(SUCCESS));
 }
 
 void ResetCacheExclusionRegex(const DataChunk &args, ExpressionState &state, Vector &result) {
-	auto *exclusion_manager = GetExclusionManager(state);
-	if (exclusion_manager) {
-		exclusion_manager->ResetExclusionRegex();
-	}
+	auto &exclusion_manager = GetExclusionManagerOrThrow(state);
+	exclusion_manager.ResetExclusionRegex();
 	result.Reference(Value(SUCCESS));
 }
 

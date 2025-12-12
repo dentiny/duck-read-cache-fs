@@ -42,24 +42,20 @@ DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
 // Clear both in-memory and on-disk data block cache.
 void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
-	auto *inst_state = GetInstanceState(instance);
-	if (!inst_state) {
-		result.Reference(Value(false));
-		return;
-	}
+	auto &inst_state = GetInstanceStateOrThrow(instance);
 
 	// Special handle local disk cache clear, since it's possible disk cache reader hasn't been initialized.
 	auto local_filesystem = LocalFileSystem::CreateLocal();
-	for (const auto &cur_cache_dir : inst_state->config.on_disk_cache_directories) {
+	for (const auto &cur_cache_dir : inst_state.config.on_disk_cache_directories) {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		local_filesystem->CreateDirectory(cur_cache_dir);
 	}
 
 	// Clear data block cache for all initialized cache readers.
-	inst_state->cache_reader_manager.ClearCache();
+	inst_state.cache_reader_manager.ClearCache();
 
 	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
-	auto cache_filesystem_instances = inst_state->registry.GetAllCacheFs();
+	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_cache_fs : cache_filesystem_instances) {
 		cur_cache_fs->ClearCache();
 	}
@@ -73,17 +69,13 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 	const string filepath = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
 	auto &instance = GetDatabaseInstance(state);
-	auto *inst_state = GetInstanceState(instance);
-	if (!inst_state) {
-		result.Reference(Value(false));
-		return;
-	}
+	auto &inst_state = GetInstanceStateOrThrow(instance);
 
 	// Clear data block cache on the given [fname] for all initialized filesystems.
-	inst_state->cache_reader_manager.ClearCache(filepath);
+	inst_state.cache_reader_manager.ClearCache(filepath);
 
 	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
-	auto cache_filesystem_instances = inst_state->registry.GetAllCacheFs();
+	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_cache_fs : cache_filesystem_instances) {
 		cur_cache_fs->ClearCache(filepath);
 	}
@@ -95,15 +87,11 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 // Get on-disk data cache file size for all cache filesystems.
 void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
-	auto *inst_state = GetInstanceState(instance);
-	if (!inst_state) {
-		result.Reference(Value(static_cast<int64_t>(0)));
-		return;
-	}
+	auto &inst_state = GetInstanceStateOrThrow(instance);
 
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	int64_t total_cache_size = 0;
-	for (const auto &cur_cache_dir : inst_state->config.on_disk_cache_directories) {
+	for (const auto &cur_cache_dir : inst_state.config.on_disk_cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir, [&local_filesystem, &total_cache_size,
 		                                            &cur_cache_dir](const string &fname, bool /*unused*/) {
 			const string file_path = StringUtil::Format("%s/%s", cur_cache_dir, fname);
@@ -116,15 +104,11 @@ void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vecto
 
 void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
-	auto *inst_state = GetInstanceState(instance);
-	if (!inst_state) {
-		result.Reference(Value("Instance state not found"));
-		return;
-	}
+	auto &inst_state = GetInstanceStateOrThrow(instance);
 
 	string latest_stat;
 	uint64_t latest_timestamp = 0;
-	const auto cache_file_systems = inst_state->registry.GetAllCacheFs();
+	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
 		auto *profile_collector = cur_filesystem->GetProfileCollector();
 		// Profile collector is only initialized after cache filesystem access.
@@ -151,13 +135,9 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
-	auto *inst_state = GetInstanceState(instance);
-	if (!inst_state) {
-		result.Reference(Value(false));
-		return;
-	}
+	auto &inst_state = GetInstanceStateOrThrow(instance);
 
-	const auto cache_file_systems = inst_state->registry.GetAllCacheFs();
+	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
 		auto *profile_collector = cur_filesystem->GetProfileCollector();
 		// Profile collector is only initialized after cache filesystem access.

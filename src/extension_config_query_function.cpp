@@ -35,14 +35,12 @@ Value GetDiskCacheDirectories(const InstanceConfig &config) {
 }
 
 // Get cache exclusion regexes in duckdb [`Value`].
-Value GetCacheExclusionRegexes(CacheHttpfsInstanceState *state) {
+Value GetCacheExclusionRegexes(CacheHttpfsInstanceState &state) {
+	auto exclusion_regexes = state.exclusion_manager.GetExclusionRegex();
 	vector<Value> exclusion_regex_values;
-	if (state) {
-		auto exclusion_regexes = state->exclusion_manager.GetExclusionRegex();
-		exclusion_regex_values.reserve(exclusion_regexes.size());
-		for (auto &cur_regex : exclusion_regexes) {
-			exclusion_regex_values.emplace_back(Value {std::move(cur_regex)});
-		}
+	exclusion_regex_values.reserve(exclusion_regexes.size());
+	for (auto &cur_regex : exclusion_regexes) {
+		exclusion_regex_values.emplace_back(Value {std::move(cur_regex)});
 	}
 	return Value::LIST(LogicalType {LogicalTypeId::VARCHAR}, std::move(exclusion_regex_values));
 }
@@ -142,15 +140,10 @@ void FillGlobCacheConfig(const InstanceConfig &config, DataChunk &output, idx_t 
 	}
 }
 
-// Helper to get config from context, with defaults fallback
+// Helper to get config from context.
 InstanceConfig GetConfigFromContext(ClientContext &context) {
-	auto *state = GetInstanceState(*context.db);
-	if (state) {
-		return state->config;
-	}
-	// Return default config if instance state not found
-	InstanceConfig default_config;
-	return default_config;
+	auto &state = GetInstanceStateOrThrow(*context.db);
+	return state.config;
 }
 
 //===--------------------------------------------------------------------===//
@@ -184,7 +177,7 @@ void DataCacheConfigQueryTableFunc(ClientContext &context, TableFunctionInput &d
 	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
 	FillDataCacheConfig(config, output, col);
-	output.SetCardinality(/*count=*/1);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -218,7 +211,7 @@ void MetadataCacheConfigQueryTableFunc(ClientContext &context, TableFunctionInpu
 	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
 	FillMetadataCacheConfig(config, output, col);
-	output.SetCardinality(/*count=*/1);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -252,7 +245,7 @@ void FileHandleCacheConfigQueryTableFunc(ClientContext &context, TableFunctionIn
 	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
 	FillFileHandleCacheConfig(config, output, col);
-	output.SetCardinality(/*count=*/1);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -286,7 +279,7 @@ void GlobCacheConfigQueryTableFunc(ClientContext &context, TableFunctionInput &d
 	auto config = GetConfigFromContext(context);
 	idx_t col = 0;
 	FillGlobCacheConfig(config, output, col);
-	output.SetCardinality(/*count=*/1);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -358,7 +351,7 @@ void CacheTypeQueryTableFunc(ClientContext &context, TableFunctionInput &data_p,
 		output.SetValue(col++, /*index=*/0, "disabled");
 	}
 
-	output.SetCardinality(/*count=*/1);
+	output.SetCardinality(/*count_p=*/1);
 }
 
 //===--------------------------------------------------------------------===//
@@ -421,10 +414,10 @@ void CacheConfigQueryTableFunc(ClientContext &context, TableFunctionInput &data_
 	FillGlobCacheConfig(config, output, col);
 
 	// Cache exclusion regex.
-	auto *state = GetInstanceState(*context.db);
+	auto &state = GetInstanceStateOrThrow(*context.db);
 	output.SetValue(col++, /*index=*/0, GetCacheExclusionRegexes(state));
 
-	output.SetCardinality(/*count=*/1);
+	output.SetCardinality(/*count_p=*/1);
 }
 } // namespace
 

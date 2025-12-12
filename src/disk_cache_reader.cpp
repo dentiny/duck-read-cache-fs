@@ -148,19 +148,17 @@ struct DiskCacheReaderConfig {
 };
 
 // Get runtime config from instance state (returns copy with defaults if unavailable)
-DiskCacheReaderConfig GetConfig(CacheHttpfsInstanceState *instance_state) {
-	DiskCacheReaderConfig config;
-	if (instance_state) {
-		config.cache_block_size = instance_state->config.cache_block_size;
-		config.eviction_policy = instance_state->config.on_disk_eviction_policy;
-		config.enable_mem_cache = instance_state->config.enable_disk_reader_mem_cache;
-		config.mem_cache_block_count = instance_state->config.disk_reader_max_mem_cache_block_count;
-		config.mem_cache_timeout_millisec = instance_state->config.disk_reader_max_mem_cache_timeout_millisec;
-		config.min_disk_bytes_for_cache = instance_state->config.min_disk_bytes_for_cache;
-		config.max_subrequest_count = instance_state->config.max_subrequest_count;
-		config.enable_cache_validation = instance_state->config.enable_cache_validation;
-	}
-	return config;
+DiskCacheReaderConfig GetConfig(const CacheHttpfsInstanceState &instance_state) {
+	return DiskCacheReaderConfig {
+	    .cache_block_size = instance_state.config.cache_block_size,
+	    .eviction_policy = instance_state.config.on_disk_eviction_policy,
+	    .enable_mem_cache = instance_state.config.enable_disk_reader_mem_cache,
+	    .mem_cache_block_count = instance_state.config.disk_reader_max_mem_cache_block_count,
+	    .mem_cache_timeout_millisec = instance_state.config.disk_reader_max_mem_cache_timeout_millisec,
+	    .min_disk_bytes_for_cache = instance_state.config.min_disk_bytes_for_cache,
+	    .max_subrequest_count = instance_state.config.max_subrequest_count,
+	    .enable_cache_validation = instance_state.config.enable_cache_validation,
+	};
 }
 
 } // namespace
@@ -209,7 +207,7 @@ bool DiskCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const str
 
 void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_directory,
                                  const string &local_cache_file, const string &content, const string &version_tag) {
-	const auto config = GetConfig(instance_state.lock().get());
+	const auto config = GetConfig(*instance_state.lock());
 
 	// Skip local cache if insufficient disk space.
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
@@ -288,7 +286,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		return;
 	}
 
-	const auto config = GetConfig(instance_state.lock().get());
+	const auto config = GetConfig(*instance_state.lock());
 
 	std::call_once(cache_init_flag, [this, &config]() {
 		if (config.enable_mem_cache) {
@@ -371,7 +369,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		// Perform read operation in parallel.
 		//
 		// TODO(hjiang): Refactor the thread function.
-		io_threads.Push([this, &handle, block_size, &config, version_tag = std::cref(version_tag),
+		io_threads.Push([this, &handle, &config, version_tag = std::cref(version_tag),
 		                 cache_read_chunk = cache_read_chunk]() mutable {
 			SetThreadName("RdCachRdThd");
 
