@@ -162,4 +162,7 @@ shared_ptr<CacheHttpfsInstanceState> GetInstanceStateShared(DatabaseInstance &in
 // Get instance state, throwing if not found
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance);
 
+// Get instance config from the instance state.
+InstanceConfig& GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
+
 } // namespace duckdb
