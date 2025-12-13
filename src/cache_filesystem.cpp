@@ -317,6 +317,7 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	const std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
 
 	// Update instance config from opener
+	// TODO(hjiang): If we use setting callback, we don't need to update from opener every time.
 	auto &config = instance_state_locked->config;
 	config.UpdateFromOpener(opener);
 
@@ -451,7 +452,6 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 		return bytes_to_read;
 	}
 
-	// Leverage cache read manager.
 	state->cache_reader_manager.GetCacheReader()->ReadAndCache(handle, static_cast<char *>(buffer), location,
 	                                                           bytes_to_read, file_size);
 	return bytes_to_read;
