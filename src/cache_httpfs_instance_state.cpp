@@ -45,7 +45,7 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 	if (config.cache_type == *ON_DISK_CACHE_TYPE) {
 		if (on_disk_cache_reader == nullptr) {
 			on_disk_cache_reader =
-			    make_uniq<DiskCacheReader>(std::move(instance_state_p), config.on_disk_cache_directories);
+			    make_uniq<DiskCacheReader>(std::move(instance_state_p));
 		}
 		internal_cache_reader = on_disk_cache_reader.get();
 		return;
@@ -88,7 +88,7 @@ void InstanceCacheReaderManager::InitializeDiskCacheReader(const vector<string> 
                                                            weak_ptr<CacheHttpfsInstanceState> instance_state_p) {
 	std::lock_guard<std::mutex> lock(mutex);
 	if (on_disk_cache_reader == nullptr) {
-		on_disk_cache_reader = make_uniq<DiskCacheReader>(std::move(instance_state_p), cache_directories);
+		on_disk_cache_reader = make_uniq<DiskCacheReader>(std::move(instance_state_p));
 	}
 }
 
@@ -331,6 +331,14 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance) {
 		throw InternalException("cache_httpfs instance state not found - extension not properly loaded");
 	}
 	return *state;
+}
+
+InstanceConfig& GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state) {
+	auto instance_state_locked = instance_state.lock();
+	if (instance_state_locked == nullptr) {
+		throw InternalException("cache_httpfs instance state is no longer valid");
+	}
+	return instance_state_locked->config;
 }
 
 } // namespace duckdb

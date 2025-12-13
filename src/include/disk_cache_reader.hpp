@@ -23,8 +23,7 @@ struct CacheHttpfsInstanceState;
 class DiskCacheReader final : public BaseCacheReader {
 public:
 	// Constructor: cache_directories defines where cache files are stored.
-	explicit DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p,
-	                         vector<string> cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY});
+	explicit DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p);
 	~DiskCacheReader() override = default;
 
 	std::string GetName() const override {
@@ -66,8 +65,6 @@ private:
 
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
-	// Cache directories (where cache files are stored).
-	vector<string> cache_directories;
 	// Used for on-disk cache block LRU-based eviction.
 	std::mutex cache_file_creation_timestamp_map_mutex;
 	// Maps from last access timestamp to filepath.
