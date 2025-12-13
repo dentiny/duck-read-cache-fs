@@ -142,7 +142,7 @@ DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_sta
 }
 
 string DiskCacheReader::EvictCacheBlockLru() {
-	std::lock_guard<std::mutex> lck(cache_file_creation_timestamp_map_mutex);
+	const std::lock_guard<std::mutex> lck(cache_file_creation_timestamp_map_mutex);
 	// Initialize file creation timestamp map, which should be called only once.
 	// IO operation is performed inside of critical section intentionally, since it's required for all threads.
 	if (cache_file_creation_timestamp_map.empty()) {

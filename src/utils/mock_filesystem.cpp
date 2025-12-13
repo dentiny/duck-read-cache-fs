@@ -34,12 +34,12 @@ MockFileHandle::MockFileHandle(FileSystem &file_system, string path, FileOpenFla
 
 unique_ptr<FileHandle> MockFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                 optional_ptr<FileOpener> opener) {
-	std::lock_guard<std::mutex> lck(mtx);
+	const std::lock_guard<std::mutex> lck(mtx);
 	++file_open_invocation;
 	return make_uniq<MockFileHandle>(*this, path, flags, close_callback, dtor_callback);
 }
 void MockFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
-	std::lock_guard<std::mutex> lck(mtx);
+	const std::lock_guard<std::mutex> lck(mtx);
 	std::memset(buffer, 'a', nr_bytes);
 	read_operations.emplace_back(ReadOper {
 	    .start_offset = location,

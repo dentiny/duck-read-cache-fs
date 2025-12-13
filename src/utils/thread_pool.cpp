@@ -55,7 +55,7 @@ void ThreadPool::Wait() {
 
 ThreadPool::~ThreadPool() noexcept {
 	{
-		std::lock_guard<std::mutex> lck(mutex_);
+		const std::lock_guard<std::mutex> lck(mutex_);
 		stopped_ = true;
 		new_job_cv_.notify_all();
 	}

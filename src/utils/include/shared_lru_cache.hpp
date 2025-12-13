@@ -197,14 +197,14 @@ public:
 
 	// Insert `value` with key `key`. This will replace any previous entry with the same key.
 	void Put(Key key, shared_ptr<Val> value) {
-		std::lock_guard<std::mutex> lock(mu);
+		const std::lock_guard<std::mutex> lock(mu);
 		internal_cache.Put(std::move(key), std::move(value));
 	}
 
 	// Delete the entry with key `key`. Return true if the entry was found for `key`, false if the entry was not found.
 	// In both cases, there is no entry with key `key` existed after the call.
 	bool Delete(const Key &key) {
-		std::lock_guard<std::mutex> lock(mu);
+		const std::lock_guard<std::mutex> lock(mu);
 		return internal_cache.Delete(key);
 	}
 
@@ -217,14 +217,14 @@ public:
 
 	// Clear the cache.
 	void Clear() {
-		std::lock_guard<std::mutex> lock(mu);
+		const std::lock_guard<std::mutex> lock(mu);
 		internal_cache.Clear();
 	}
 
 	// Clear cache entry by its key functor.
 	template <typename KeyFilter>
 	void Clear(KeyFilter &&key_filter) {
-		std::lock_guard<std::mutex> lock(mu);
+		const std::lock_guard<std::mutex> lock(mu);
 		internal_cache.Clear(std::forward<KeyFilter>(key_filter));
 	}
 
@@ -235,7 +235,7 @@ public:
 
 	// Get all keys inside of the cache; the order of keys returned is not deterministic.
 	vector<Key> Keys() const {
-		std::lock_guard<std::mutex> lock(mu);
+		const std::lock_guard<std::mutex> lock(mu);
 		return internal_cache.Keys();
 	}
 
@@ -280,7 +280,7 @@ public:
 		shared_ptr<Val> val = factory(key);
 
 		{
-			std::lock_guard<std::mutex> lck(mu);
+			const std::lock_guard<std::mutex> lck(mu);
 			internal_cache.Put(key, val);
 			creation_token->val = val;
 			creation_token->cv.notify_all();

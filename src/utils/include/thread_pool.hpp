@@ -50,7 +50,7 @@ auto ThreadPool::Push(Fn &&fn, Args &&...args) -> std::future<typename std::resu
 	    std::make_shared<std::packaged_task<Ret()>>(std::bind(std::forward<Fn>(fn), std::forward<Args>(args)...));
 	std::future<Ret> result = job->get_future();
 	{
-		std::lock_guard<std::mutex> lck(mutex_);
+		const std::lock_guard<std::mutex> lck(mutex_);
 		jobs_.emplace([job = std::move(job)]() mutable { (*job)(); });
 		new_job_cv_.notify_one();
 	}
