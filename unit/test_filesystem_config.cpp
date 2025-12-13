@@ -35,7 +35,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-		auto *cache_reader = helper.GetInstanceState()->cache_reader_manager.GetCacheReader();
+		auto *cache_reader = helper.GetInstanceStateOrThrow().cache_reader_manager.GetCacheReader();
 		REQUIRE(cache_reader != nullptr);
 		[[maybe_unused]] auto &noop_handle = cache_reader->Cast<NoopCacheReader>();
 	}
@@ -48,7 +48,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-		auto *cache_reader = helper.GetInstanceState()->cache_reader_manager.GetCacheReader();
+		auto *cache_reader = helper.GetInstanceStateOrThrow().cache_reader_manager.GetCacheReader();
 		REQUIRE(cache_reader != nullptr);
 		[[maybe_unused]] auto &in_mem_handle = cache_reader->Cast<InMemoryCacheReader>();
 	}
@@ -61,7 +61,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-		auto *cache_reader = helper.GetInstanceState()->cache_reader_manager.GetCacheReader();
+		auto *cache_reader = helper.GetInstanceStateOrThrow().cache_reader_manager.GetCacheReader();
 		REQUIRE(cache_reader != nullptr);
 		[[maybe_unused]] auto &disk_handle = cache_reader->Cast<DiskCacheReader>();
 	}

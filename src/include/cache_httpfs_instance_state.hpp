@@ -153,9 +153,6 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 // Store instance state in DatabaseInstance
 void SetInstanceState(DatabaseInstance &instance, shared_ptr<CacheHttpfsInstanceState> state);
 
-// Get instance state from DatabaseInstance (returns nullptr if not set)
-CacheHttpfsInstanceState *GetInstanceState(DatabaseInstance &instance);
-
 // Get instance state as shared_ptr from DatabaseInstance (returns nullptr if not set)
 shared_ptr<CacheHttpfsInstanceState> GetInstanceStateShared(DatabaseInstance &instance);
 
@@ -163,6 +160,6 @@ shared_ptr<CacheHttpfsInstanceState> GetInstanceStateShared(DatabaseInstance &in
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance);
 
 // Get instance config from the instance state.
-InstanceConfig& GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
+InstanceConfig &GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
 
 } // namespace duckdb

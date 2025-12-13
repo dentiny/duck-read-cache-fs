@@ -44,8 +44,7 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 
 	if (config.cache_type == *ON_DISK_CACHE_TYPE) {
 		if (on_disk_cache_reader == nullptr) {
-			on_disk_cache_reader =
-			    make_uniq<DiskCacheReader>(std::move(instance_state_p));
+			on_disk_cache_reader = make_uniq<DiskCacheReader>(std::move(instance_state_p));
 		}
 		internal_cache_reader = on_disk_cache_reader.get();
 		return;
@@ -316,24 +315,19 @@ void SetInstanceState(DatabaseInstance &instance, shared_ptr<CacheHttpfsInstance
 	instance.GetObjectCache().Put(CacheHttpfsInstanceState::CACHE_KEY, std::move(state));
 }
 
-CacheHttpfsInstanceState *GetInstanceState(DatabaseInstance &instance) {
-	auto state = instance.GetObjectCache().Get<CacheHttpfsInstanceState>(CacheHttpfsInstanceState::CACHE_KEY);
-	return state.get();
-}
-
 shared_ptr<CacheHttpfsInstanceState> GetInstanceStateShared(DatabaseInstance &instance) {
 	return instance.GetObjectCache().Get<CacheHttpfsInstanceState>(CacheHttpfsInstanceState::CACHE_KEY);
 }
 
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance) {
-	auto *state = GetInstanceState(instance);
+	auto state = instance.GetObjectCache().Get<CacheHttpfsInstanceState>(CacheHttpfsInstanceState::CACHE_KEY);
 	if (state == nullptr) {
 		throw InternalException("cache_httpfs instance state not found - extension not properly loaded");
 	}
 	return *state;
 }
 
-InstanceConfig& GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state) {
+InstanceConfig &GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state) {
 	auto instance_state_locked = instance_state.lock();
 	if (instance_state_locked == nullptr) {
 		throw InternalException("cache_httpfs instance state is no longer valid");
