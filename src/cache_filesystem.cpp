@@ -14,15 +14,6 @@ namespace {
 constexpr const char *FILE_SIZE_INFO_KEY = "file_size";
 // For certain filesystems, file open info contains "last_modified" field in the extended stats map.
 constexpr const char *LAST_MOD_TIMESTAMP_KEY = "last_modified";
-
-// Helper to get exclusion manager from instance state
-CacheExclusionManager *GetExclusionManager(CacheHttpfsInstanceState *state) {
-	if (!state) {
-		return nullptr;
-	}
-	return &state->exclusion_manager;
-}
-
 } // namespace
 
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
@@ -454,8 +445,7 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 
 	// If the source filepath matches exclusion regex, skip caching.
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
-	auto *exclusion_mgr = GetExclusionManager(state.get());
-	if (exclusion_mgr && exclusion_mgr->MatchAnyExclusion(handle.GetPath())) {
+	if (state->exclusion_manager.MatchAnyExclusion(handle.GetPath())) {
 		auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
 		internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, nr_bytes, location);
 		return bytes_to_read;
