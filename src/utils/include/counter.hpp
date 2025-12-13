@@ -79,7 +79,7 @@ public:
 	// Increment the count for the given [key], and return the new count.
 	template <typename KeyLike>
 	unsigned Increment(KeyLike &&key) {
-		std::lock_guard<std::mutex> lck(mu);
+		const std::lock_guard<std::mutex> lck(mu);
 		return counter.Increment(std::forward<KeyLike>(key));
 	}
 
@@ -87,14 +87,14 @@ public:
 	// Precondition: the key exist in the counter map, otherwise assertion failure.
 	template <typename KeyLike>
 	unsigned Decrement(const KeyLike &key) {
-		std::lock_guard<std::mutex> lck(mu);
+		const std::lock_guard<std::mutex> lck(mu);
 		return counter.Decrement(key);
 	}
 
 	// Get the count for the given [key].
 	template <typename KeyLike>
 	unsigned GetCount(const KeyLike &key) {
-		std::lock_guard<std::mutex> lck(mu);
+		const std::lock_guard<std::mutex> lck(mu);
 		return counter.GetCount(key);
 	}
 

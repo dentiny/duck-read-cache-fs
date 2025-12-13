@@ -14,31 +14,6 @@ namespace {
 constexpr const char *FILE_SIZE_INFO_KEY = "file_size";
 // For certain filesystems, file open info contains "last_modified" field in the extended stats map.
 constexpr const char *LAST_MOD_TIMESTAMP_KEY = "last_modified";
-
-// Helper to get cache reader manager from instance state
-InstanceCacheReaderManager *GetCacheReaderManager(CacheHttpfsInstanceState *state) {
-	if (!state) {
-		return nullptr;
-	}
-	return &state->cache_reader_manager;
-}
-
-// Helper to get instance config
-InstanceConfig *GetInstanceConfig(CacheHttpfsInstanceState *state) {
-	if (!state) {
-		return nullptr;
-	}
-	return &state->config;
-}
-
-// Helper to get exclusion manager from instance state
-CacheExclusionManager *GetExclusionManager(CacheHttpfsInstanceState *state) {
-	if (!state) {
-		return nullptr;
-	}
-	return &state->exclusion_manager;
-}
-
 } // namespace
 
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
@@ -71,18 +46,14 @@ void CacheFileSystemHandle::Close() {
 }
 
 void CacheFileSystem::SetMetadataCache() {
-	auto *config = GetInstanceConfig(instance_state.lock().get());
-	bool enable = config ? config->enable_metadata_cache : DEFAULT_ENABLE_METADATA_CACHE;
-	idx_t max_entry = config ? config->max_metadata_cache_entry : DEFAULT_MAX_METADATA_CACHE_ENTRY;
-	idx_t timeout =
-	    config ? config->metadata_cache_entry_timeout_millisec : DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
-
-	if (!enable) {
+	const auto &config = instance_state.lock()->config;
+	if (!config.enable_metadata_cache) {
 		metadata_cache = nullptr;
 		return;
 	}
 	if (metadata_cache == nullptr) {
-		metadata_cache = make_uniq<MetadataCache>(max_entry, timeout);
+		metadata_cache =
+		    make_uniq<MetadataCache>(config.max_metadata_cache_entry, config.metadata_cache_entry_timeout_millisec);
 	}
 }
 
@@ -97,17 +68,13 @@ void CacheFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener
 }
 
 void CacheFileSystem::SetGlobCache() {
-	auto *config = GetInstanceConfig(instance_state.lock().get());
-	bool enable = config ? config->enable_glob_cache : DEFAULT_ENABLE_GLOB_CACHE;
-	idx_t max_entry = config ? config->max_glob_cache_entry : DEFAULT_MAX_GLOB_CACHE_ENTRY;
-	idx_t timeout = config ? config->glob_cache_entry_timeout_millisec : DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;
-
-	if (!enable) {
+	const auto &config = instance_state.lock()->config;
+	if (!config.enable_glob_cache) {
 		glob_cache = nullptr;
 		return;
 	}
 	if (glob_cache == nullptr) {
-		glob_cache = make_uniq<GlobCache>(max_entry, timeout);
+		glob_cache = make_uniq<GlobCache>(config.max_glob_cache_entry, config.glob_cache_entry_timeout_millisec);
 	}
 }
 
@@ -135,18 +102,14 @@ void CacheFileSystem::ClearFileHandleCache(const std::string &filepath) {
 }
 
 void CacheFileSystem::SetFileHandleCache() {
-	auto *config = GetInstanceConfig(instance_state.lock().get());
-	bool enable = config ? config->enable_file_handle_cache : DEFAULT_ENABLE_FILE_HANDLE_CACHE;
-	idx_t max_entry = config ? config->max_file_handle_cache_entry : DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY;
-	idx_t timeout =
-	    config ? config->file_handle_cache_entry_timeout_millisec : DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC;
-
-	if (!enable) {
+	const auto &config = instance_state.lock()->config;
+	if (!config.enable_file_handle_cache) {
 		ClearFileHandleCache();
 		return;
 	}
 	if (file_handle_cache == nullptr) {
-		file_handle_cache = make_shared_ptr<FileHandleCache>(max_entry, timeout);
+		file_handle_cache = make_shared_ptr<FileHandleCache>(config.max_file_handle_cache_entry,
+		                                                     config.file_handle_cache_entry_timeout_millisec);
 	}
 	if (in_use_file_handle_counter == nullptr) {
 		in_use_file_handle_counter = make_shared_ptr<InUseFileHandleCounter>();
@@ -154,9 +117,7 @@ void CacheFileSystem::SetFileHandleCache() {
 }
 
 void CacheFileSystem::SetProfileCollector() {
-	auto *config = GetInstanceConfig(instance_state.lock().get());
-	string profile_type = config ? config->profile_type : *DEFAULT_PROFILE_TYPE;
-
+	const auto &profile_type = instance_state.lock()->config.profile_type;
 	if (profile_type == *NOOP_PROFILE_TYPE) {
 		if (profile_collector == nullptr || profile_collector->GetProfilerType() != *NOOP_PROFILE_TYPE) {
 			profile_collector = make_uniq<NoopProfileCollector>();
@@ -183,10 +144,7 @@ void CacheFileSystem::ClearCache() {
 		glob_cache->Clear();
 	}
 	ClearFileHandleCache();
-	auto *mgr = GetCacheReaderManager(instance_state.lock().get());
-	if (mgr) {
-		mgr->ClearCache();
-	}
+	instance_state.lock()->cache_reader_manager.ClearCache();
 }
 
 void CacheFileSystem::ClearCache(const std::string &filepath) {
@@ -197,10 +155,7 @@ void CacheFileSystem::ClearCache(const std::string &filepath) {
 		glob_cache->Clear([&filepath](const std::string &key) { return key == filepath; });
 	}
 	ClearFileHandleCache(filepath);
-	auto *mgr = GetCacheReaderManager(instance_state.lock().get());
-	if (mgr) {
-		mgr->ClearCache(filepath);
-	}
+	instance_state.lock()->cache_reader_manager.ClearCache(filepath);
 }
 
 bool CacheFileSystem::CanHandleFile(const string &fpath) {
@@ -358,35 +313,23 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	// Initialize cache reader with mutex guard against concurrent access.
 	// For duckdb, read operation happens after successful file open, at which point we won't have new configs and read
 	// operation happening concurrently.
-	std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
-
-	auto state = instance_state.lock();
+	auto instance_state_locked = instance_state.lock();
+	const std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
 
 	// Update instance config from opener
-	auto *config = GetInstanceConfig(state.get());
-	if (config) {
-		config->UpdateFromOpener(opener);
-	}
+	// TODO(hjiang): If we use setting callback, we don't need to update from opener every time.
+	auto &config = instance_state_locked->config;
+	config.UpdateFromOpener(opener);
 
 	SetProfileCollector();
-
-	// Initialize cache reader via instance manager
-	auto *mgr = GetCacheReaderManager(state.get());
-	if (mgr && config) {
-		mgr->SetCacheReader(*config, instance_state);
-	}
+	instance_state_locked->cache_reader_manager.SetCacheReader(config, instance_state);
 
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();
 
 	D_ASSERT(profile_collector != nullptr);
-	if (mgr) {
-		auto *reader = mgr->GetCacheReader();
-		if (reader) {
-			reader->SetProfileCollector(profile_collector.get());
-		}
-	}
+	instance_state_locked->cache_reader_manager.GetCacheReader()->SetProfileCollector(profile_collector.get());
 }
 
 unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const string &path, FileOpenFlags flags,
@@ -503,30 +446,14 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 
 	// If the source filepath matches exclusion regex, skip caching.
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
-	auto *exclusion_mgr = GetExclusionManager(state.get());
-	if (exclusion_mgr && exclusion_mgr->MatchAnyExclusion(handle.GetPath())) {
+	if (state->exclusion_manager.MatchAnyExclusion(handle.GetPath())) {
 		auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
 		internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, nr_bytes, location);
 		return bytes_to_read;
 	}
 
-	// Leverage cache read manager.
-	auto *mgr = GetCacheReaderManager(state.get());
-	if (mgr) {
-		auto *reader = mgr->GetCacheReader();
-		if (!reader) {
-			auto *config = GetInstanceConfig(instance_state.lock().get());
-			mgr->SetCacheReader(*config, instance_state);
-			reader = mgr->GetCacheReader();
-		}
-
-		reader->ReadAndCache(handle, static_cast<char *>(buffer), location, bytes_to_read, file_size);
-	} else {
-		// Fallback to direct read if no manager
-		auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
-		internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, nr_bytes, location);
-	}
-
+	state->cache_reader_manager.GetCacheReader()->ReadAndCache(handle, static_cast<char *>(buffer), location,
+	                                                           bytes_to_read, file_size);
 	return bytes_to_read;
 }
 

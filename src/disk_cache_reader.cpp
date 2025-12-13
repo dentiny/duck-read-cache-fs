@@ -138,16 +138,15 @@ void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, cons
 } // namespace
 
 DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-    : local_filesystem(LocalFileSystem::CreateLocal()),
-      instance_state(std::move(instance_state_p)) {
+    : local_filesystem(LocalFileSystem::CreateLocal()), instance_state(std::move(instance_state_p)) {
 }
 
 string DiskCacheReader::EvictCacheBlockLru() {
-	std::lock_guard<std::mutex> lck(cache_file_creation_timestamp_map_mutex);
+	const std::lock_guard<std::mutex> lck(cache_file_creation_timestamp_map_mutex);
 	// Initialize file creation timestamp map, which should be called only once.
 	// IO operation is performed inside of critical section intentionally, since it's required for all threads.
 	if (cache_file_creation_timestamp_map.empty()) {
-		const auto& cache_directories = GetInstanceConfig(instance_state).on_disk_cache_directories;
+		const auto &cache_directories = GetInstanceConfig(instance_state).on_disk_cache_directories;
 		cache_file_creation_timestamp_map = GetOnDiskFilesUnder(cache_directories);
 	}
 	D_ASSERT(!cache_file_creation_timestamp_map.empty());
@@ -237,7 +236,7 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	}
 
 	// Fill in on disk cache entries.
-	const auto& cache_directories = GetInstanceConfig(instance_state).on_disk_cache_directories;
+	const auto &cache_directories = GetInstanceConfig(instance_state).on_disk_cache_directories;
 	for (const auto &cur_cache_dir : cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir,
 		                            [&cache_entries_info, cur_cache_dir](const std::string &fname, bool /*unused*/) {
@@ -264,8 +263,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	const auto config = GetInstanceConfig(instance_state);
 	std::call_once(cache_init_flag, [this, &config]() {
 		if (config.enable_disk_reader_mem_cache) {
-			in_mem_cache_blocks =
-			    make_uniq<InMemCache>(config.disk_reader_max_mem_cache_timeout_millisec, config.disk_reader_max_mem_cache_timeout_millisec);
+			in_mem_cache_blocks = make_uniq<InMemCache>(config.disk_reader_max_mem_cache_timeout_millisec,
+			                                            config.disk_reader_max_mem_cache_timeout_millisec);
 		}
 	});
 
@@ -353,8 +352,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 			block_key.start_off = cache_read_chunk.aligned_start_offset;
 			block_key.blk_size = cache_read_chunk.chunk_size;
 			auto cache_destination =
-			    GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(), cache_read_chunk.aligned_start_offset,
-			                      cache_read_chunk.chunk_size);
+			    GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(),
+			                      cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
 
 			if (in_mem_cache_blocks != nullptr) {
 				auto cache_entry = in_mem_cache_blocks->Get(block_key);
@@ -460,7 +459,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 }
 
 void DiskCacheReader::ClearCache() {
-	const auto& config = GetInstanceConfig(instance_state);
+	const auto &config = GetInstanceConfig(instance_state);
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		// Create an empty directory, otherwise later read access errors.
@@ -473,7 +472,7 @@ void DiskCacheReader::ClearCache() {
 
 void DiskCacheReader::ClearCache(const string &fname) {
 	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
-	const auto& config = GetInstanceConfig(instance_state);
+	const auto &config = GetInstanceConfig(instance_state);
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir, [&](const string &cur_file, bool /*unused*/) {
 			if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {

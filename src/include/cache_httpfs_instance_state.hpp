@@ -13,8 +13,8 @@
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/unique_ptr.hpp"
+#include "duckdb/common/unordered_set.hpp"
 #include "duckdb/common/vector.hpp"
-#include "duckdb/common/set.hpp"
 #include "duckdb/storage/object_cache.hpp"
 
 namespace duckdb {
@@ -30,18 +30,17 @@ struct CacheHttpfsInstanceState;
 //===--------------------------------------------------------------------===//
 class InstanceCacheFsRegistry {
 public:
-	// Register `fs` in the registry. Registering the same CacheFileSystem
-	// multiple time is harmless but useless.
+	// Register `fs` in the registry. Registering the same CacheFileSystem for multiple time is harmless but useless.
 	void Register(CacheFileSystem *fs);
-	// Unregister `fs` from the registry. Unregistering a CacheFileSystem
-	// that is not registered doesn't have any effect.
+	// Unregister `fs` from the registry. Unregistering a CacheFileSystem that is not registered doesn't have any
+	// effect.
 	void Unregister(CacheFileSystem *fs);
-	set<CacheFileSystem *> GetAllCacheFs() const;
+	unordered_set<CacheFileSystem *> GetAllCacheFs() const;
 	void Reset();
 
 private:
 	mutable std::mutex mutex;
-	set<CacheFileSystem *> cache_filesystems;
+	unordered_set<CacheFileSystem *> cache_filesystems;
 };
 
 //===--------------------------------------------------------------------===//
@@ -129,9 +128,12 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	static constexpr const char *OBJECT_TYPE = "CacheHttpfsInstanceState";
 	static constexpr const char *CACHE_KEY = "cache_httpfs_instance_state";
 
-	InstanceCacheFsRegistry registry;
-	InstanceCacheReaderManager cache_reader_manager;
+	// Extension config for the current duckdb instance.
 	InstanceConfig config;
+	// Cache filesystem registry.
+	InstanceCacheFsRegistry registry;
+
+	InstanceCacheReaderManager cache_reader_manager;
 	CacheExclusionManager exclusion_manager;
 
 	CacheHttpfsInstanceState() = default;
@@ -153,9 +155,6 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 // Store instance state in DatabaseInstance
 void SetInstanceState(DatabaseInstance &instance, shared_ptr<CacheHttpfsInstanceState> state);
 
-// Get instance state from DatabaseInstance (returns nullptr if not set)
-CacheHttpfsInstanceState *GetInstanceState(DatabaseInstance &instance);
-
 // Get instance state as shared_ptr from DatabaseInstance (returns nullptr if not set)
 shared_ptr<CacheHttpfsInstanceState> GetInstanceStateShared(DatabaseInstance &instance);
 
@@ -163,6 +162,6 @@ shared_ptr<CacheHttpfsInstanceState> GetInstanceStateShared(DatabaseInstance &in
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance);
 
 // Get instance config from the instance state.
-InstanceConfig& GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
+InstanceConfig &GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
 
 } // namespace duckdb

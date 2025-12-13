@@ -168,7 +168,6 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 
 	auto cache_filesystem =
 	    make_uniq<CacheFileSystem>(std::move(internal_filesystem), GetInstanceStateShared(duckdb_instance));
-	// CacheFileSystem constructor auto-registers with per-instance registry
 	vfs.RegisterSubSystem(std::move(cache_filesystem));
 	DUCKDB_LOG_DEBUG(duckdb_instance, StringUtil::Format("Wrap filesystem %s with cache filesystem.", filesystem_name));
 

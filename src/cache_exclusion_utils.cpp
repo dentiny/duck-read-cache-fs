@@ -54,10 +54,8 @@ unique_ptr<FunctionData> ListCacheExclusionRegexQueryFuncBind(ClientContext &con
 unique_ptr<GlobalTableFunctionState> ListCacheExclusionRegexQueryFuncInit(ClientContext &context,
                                                                           TableFunctionInitInput &input) {
 	auto result = make_uniq<ListCacheExclusionRegexData>();
-	auto *state = GetInstanceState(*context.db);
-	if (state) {
-		result->exclusion_regex_string = state->exclusion_manager.GetExclusionRegex();
-	}
+	auto &state = GetInstanceStateOrThrow(*context.db);
+	result->exclusion_regex_string = state.exclusion_manager.GetExclusionRegex();
 
 	// Sort the results to ensure determinististism and testibility.
 	std::sort(result->exclusion_regex_string.begin(), result->exclusion_regex_string.end());

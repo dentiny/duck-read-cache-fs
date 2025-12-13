@@ -51,7 +51,7 @@ public:
 	}
 
 	// Get the instance state
-	CacheHttpfsInstanceState *GetInstanceState();
+	CacheHttpfsInstanceState &GetInstanceStateOrThrow();
 
 	// Get the config for inspection/modification
 	InstanceConfig &GetConfig();

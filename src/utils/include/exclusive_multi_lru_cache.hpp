@@ -268,7 +268,7 @@ public:
 	// Insert `value` with key `key`, the values with the same key will be kept and evicted first.
 	// Return evicted value if any.
 	unique_ptr<Val> Put(Key key, unique_ptr<Val> value) {
-		std::lock_guard<std::mutex> lock(mu);
+		const std::lock_guard<std::mutex> lock(mu);
 		return internal_cache.Put(std::move(key), std::move(value));
 	}
 

@@ -48,8 +48,8 @@ TestCacheFileSystemHelper::~TestCacheFileSystemHelper() {
 	cache_fs.reset();
 }
 
-CacheHttpfsInstanceState *TestCacheFileSystemHelper::GetInstanceState() {
-	return instance_state.get();
+CacheHttpfsInstanceState &TestCacheFileSystemHelper::GetInstanceStateOrThrow() {
+	return *instance_state;
 }
 
 InstanceConfig &TestCacheFileSystemHelper::GetConfig() {
