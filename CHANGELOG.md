@@ -1,3 +1,17 @@
+# 0.11.0
+
+## Fixed
+
+- Allow one single process to run multiple duckdb instances with cache httpfs extension ([#329])
+
+[#329]: https://github.com/dentiny/duck-read-cache-fs/pull/329
+
+## Improved
+
+- Leverage duckdb setting callback to update instance state config active, instead of check all configs passively at every IO operation ([#336])
+
+[#336]: https://github.com/dentiny/duck-read-cache-fs/pull/336
+
 # 0.10.1
 
 ## Changed
