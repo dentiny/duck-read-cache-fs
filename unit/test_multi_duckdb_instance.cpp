@@ -10,6 +10,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
+#include "scoped_directory.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
@@ -44,10 +45,9 @@ TEST_CASE("Test multiple instances with different cache types", "[multi-instance
 	const string cache_dir_2 = "/tmp/duckdb_multi_test_cache_2";
 	const string cache_dir_3 = "/tmp/duckdb_multi_test_cache_3";
 
-	// Cleanup cache directories before test
-	LocalFileSystem::CreateLocal()->RemoveDirectory(cache_dir_1);
-	LocalFileSystem::CreateLocal()->RemoveDirectory(cache_dir_2);
-	LocalFileSystem::CreateLocal()->RemoveDirectory(cache_dir_3);
+	ScopedDirectory scoped_dir_1(cache_dir_1);
+	ScopedDirectory scoped_dir_2(cache_dir_2);
+	ScopedDirectory scoped_dir_3(cache_dir_3);
 
 	// Create first instance with on disk cache
 	TestCacheConfig config1;
