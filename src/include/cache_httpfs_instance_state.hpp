@@ -21,6 +21,7 @@ namespace duckdb {
 
 // Forward declarations
 class CacheFileSystem;
+class ClientContext;
 class DatabaseInstance;
 class FileOpener;
 struct CacheHttpfsInstanceState;
@@ -111,13 +112,6 @@ struct InstanceConfig {
 
 	// Cache validation config
 	bool enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
-
-	// Testing config
-	string test_cache_type = "";
-	bool test_insufficient_disk_space = false;
-
-	// Update from FileOpener settings
-	void UpdateFromOpener(optional_ptr<FileOpener> opener);
 };
 
 //===--------------------------------------------------------------------===//
@@ -160,6 +154,9 @@ shared_ptr<CacheHttpfsInstanceState> GetInstanceStateShared(DatabaseInstance &in
 
 // Get instance state, throwing if not found
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance);
+
+// Get instance state from ClientContext, throwing if not found
+CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context);
 
 // Get instance config from the instance state.
 InstanceConfig &GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);

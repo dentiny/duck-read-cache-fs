@@ -75,8 +75,12 @@ TEST_CASE("Test on changing extension config change default cache dir path setti
 	instance_state->config.cache_type = *ON_DISK_CACHE_TYPE;
 	SetInstanceState(*instance, instance_state);
 
+	auto local_fs = LocalFileSystem::CreateLocal();
+	local_fs->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+
 	auto &fs = instance->GetFileSystem();
-	fs.RegisterSubSystem(make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal(), std::move(instance_state)));
+	auto db_instance_state = GetInstanceStateShared(*instance);
+	fs.RegisterSubSystem(make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal(), db_instance_state));
 
 	Connection con(db);
 	con.Query(StringUtil::Format("SET cache_httpfs_cache_directory ='%s'", TEST_ON_DISK_CACHE_DIRECTORY));
@@ -95,10 +99,6 @@ TEST_CASE("Test on changing extension config change default cache dir path setti
 	const int files_after_query = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY);
 	const auto files_in_cache = GetSortedFilesUnder(TEST_ON_DISK_CACHE_DIRECTORY);
 	REQUIRE(files_after_query == 1);
-
-	// Note: With per-instance state, dynamic config changes via SET require recreation of the cache reader.
-	// The following tests validate that the initial config works correctly.
-	// Dynamic config changes would require recreating the CacheFileSystem or implementing config refresh.
 
 	// Verify cached read still works (should hit the cache)
 	result = con.Query(StringUtil::Format("SELECT * FROM '%s'", TEST_ON_DISK_CACHE_FILE));

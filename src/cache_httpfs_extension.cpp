@@ -13,7 +13,9 @@
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/opener_file_system.hpp"
+#include "duckdb/common/string_util.hpp"
 #include "duckdb/main/extension_manager.hpp"
+#include "duckdb/main/setting_info.hpp"
 #include "duckdb/storage/external_file_cache.hpp"
 #include "extension_config_query_function.hpp"
 #include "fake_filesystem.hpp"
@@ -227,6 +229,232 @@ bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
 	return std::find(loaded_extensions.begin(), loaded_extensions.end(), HTTPFS_EXTENSION) != loaded_extensions.end();
 }
 
+//===--------------------------------------------------------------------===//
+// Extension option callbacks - update instance state config when settings change
+//===--------------------------------------------------------------------===//
+
+void UpdateCacheType(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	auto cache_type_str = parameter.ToString();
+	if (ALL_CACHE_TYPES.find(cache_type_str) == ALL_CACHE_TYPES.end()) {
+		vector<string> valid_types(ALL_CACHE_TYPES.begin(), ALL_CACHE_TYPES.end());
+		throw InvalidInputException("Invalid cache_httpfs_type '%s'. Valid options are: %s", cache_type_str,
+		                            StringUtil::Join(valid_types, ", "));
+	}
+	inst_state.config.cache_type = std::move(cache_type_str);
+}
+
+void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto cache_block_size = parameter.GetValue<uint64_t>();
+	if (cache_block_size == 0) {
+		throw InvalidInputException("cache_httpfs_cache_block_size must be greater than 0");
+	}
+	inst_state.config.cache_block_size = cache_block_size;
+}
+
+void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	auto profile_type_str = parameter.ToString();
+	if (ALL_PROFILE_TYPES->find(profile_type_str) == ALL_PROFILE_TYPES->end()) {
+		const vector<string> valid_types(ALL_PROFILE_TYPES->begin(), ALL_PROFILE_TYPES->end());
+		throw InvalidInputException("Invalid cache_httpfs_profile_type '%s'. Valid options are: %s", profile_type_str,
+		                            StringUtil::Join(valid_types, ", "));
+	}
+	inst_state.config.profile_type = std::move(profile_type_str);
+}
+
+void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto max_subrequest_count = parameter.GetValue<uint64_t>();
+	if (max_subrequest_count == 0) {
+		throw InvalidInputException("cache_httpfs_max_fanout_subrequest must be greater than 0");
+	}
+	inst_state.config.max_subrequest_count = max_subrequest_count;
+}
+
+void UpdateEnableCacheValidation(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.enable_cache_validation = parameter.GetValue<bool>();
+}
+
+// Implementation for check cache directories and create directories if necessary.
+void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<string> directories) {
+	std::sort(directories.begin(), directories.end());
+	if (directories == inst_state.config.on_disk_cache_directories) {
+		return;
+	}
+
+	auto local_fs = LocalFileSystem::CreateLocal();
+	for (const auto &dir : directories) {
+		local_fs->CreateDirectory(dir);
+	}
+	inst_state.config.on_disk_cache_directories = std::move(directories);
+}
+
+void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	auto new_cache_directory = parameter.ToString();
+
+	// If empty directory is provided, fall back to default directory.
+	if (new_cache_directory.empty()) {
+		new_cache_directory = *DEFAULT_ON_DISK_CACHE_DIRECTORY;
+	}
+
+	vector<string> directories;
+	directories.emplace_back(std::move(new_cache_directory));
+	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
+}
+
+void UpdateCacheDirectoriesConfig(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	auto directories_config_str = parameter.ToString();
+
+	vector<string> directories;
+	if (!directories_config_str.empty()) {
+		directories = StringUtil::Split(directories_config_str, ';');
+	}
+	// If the provided config is set to empty, fall back to default directory.
+	else {
+		directories.emplace_back(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	}
+
+	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
+}
+
+void UpdateMinDiskBytesForCache(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto disk_cache_min_bytes = parameter.GetValue<uint64_t>();
+	if (disk_cache_min_bytes == 0) {
+		throw InvalidInputException("cache_httpfs_min_disk_bytes_for_cache must be greater than 0");
+	}
+	inst_state.config.min_disk_bytes_for_cache = disk_cache_min_bytes;
+}
+
+void UpdateEvictPolicy(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto eviction_policy = parameter.ToString();
+	if (eviction_policy == *ON_DISK_CREATION_TIMESTAMP_EVICTION) {
+		inst_state.config.on_disk_eviction_policy = *ON_DISK_CREATION_TIMESTAMP_EVICTION;
+	} else if (eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION) {
+		inst_state.config.on_disk_eviction_policy = *ON_DISK_LRU_SINGLE_PROC_EVICTION;
+	} else {
+		throw InvalidInputException("Invalid cache_httpfs_evict_policy '%s'. Valid options are: %s, %s",
+		                            eviction_policy, *ON_DISK_CREATION_TIMESTAMP_EVICTION,
+		                            *ON_DISK_LRU_SINGLE_PROC_EVICTION);
+	}
+}
+
+void UpdateDiskCacheReaderEnableMemoryCache(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.enable_disk_reader_mem_cache = parameter.GetValue<bool>();
+}
+
+void UpdateDiskCacheReaderMemCacheBlockCount(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto block_count = parameter.GetValue<idx_t>();
+	if (block_count == 0) {
+		throw InvalidInputException("cache_httpfs_disk_cache_reader_mem_cache_block_count must be greater than 0");
+	}
+	inst_state.config.disk_reader_max_mem_cache_block_count = block_count;
+}
+
+void UpdateDiskCacheReaderMemCacheTimeout(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto timeout = parameter.GetValue<idx_t>();
+	if (timeout == 0) {
+		throw InvalidInputException("cache_httpfs_disk_cache_reader_mem_cache_timeout_millisec must be greater than 0");
+	}
+	inst_state.config.disk_reader_max_mem_cache_timeout_millisec = timeout;
+}
+
+void UpdateMaxInMemCacheBlockCount(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto in_mem_block_count = parameter.GetValue<uint64_t>();
+	if (in_mem_block_count == 0) {
+		throw InvalidInputException("cache_httpfs_max_in_mem_cache_block_count must be greater than 0");
+	}
+	inst_state.config.max_in_mem_cache_block_count = in_mem_block_count;
+}
+
+void UpdateInMemCacheBlockTimeout(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto timeout = parameter.GetValue<uint64_t>();
+	if (timeout == 0) {
+		throw InvalidInputException("cache_httpfs_in_mem_cache_block_timeout_millisec must be greater than 0");
+	}
+	inst_state.config.in_mem_cache_block_timeout_millisec = timeout;
+}
+
+void UpdateEnableMetadataCache(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.enable_metadata_cache = parameter.GetValue<bool>();
+}
+
+void UpdateMetadataCacheEntrySize(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto entry_size = parameter.GetValue<uint64_t>();
+	if (entry_size == 0) {
+		throw InvalidInputException("cache_httpfs_metadata_cache_entry_size must be greater than 0");
+	}
+	inst_state.config.max_metadata_cache_entry = entry_size;
+}
+
+void UpdateMetadataCacheEntryTimeout(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto timeout = parameter.GetValue<uint64_t>();
+	if (timeout == 0) {
+		throw InvalidInputException("cache_httpfs_metadata_cache_entry_timeout_millisec must be greater than 0");
+	}
+	inst_state.config.metadata_cache_entry_timeout_millisec = timeout;
+}
+
+void UpdateEnableFileHandleCache(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.enable_file_handle_cache = parameter.GetValue<bool>();
+}
+
+void UpdateFileHandleCacheEntrySize(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto entry_size = parameter.GetValue<uint64_t>();
+	if (entry_size == 0) {
+		throw InvalidInputException("cache_httpfs_file_handle_cache_entry_size must be greater than 0");
+	}
+	inst_state.config.max_file_handle_cache_entry = entry_size;
+}
+
+void UpdateFileHandleCacheEntryTimeout(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto timeout = parameter.GetValue<uint64_t>();
+	if (timeout == 0) {
+		throw InvalidInputException("cache_httpfs_file_handle_cache_entry_timeout_millisec must be greater than 0");
+	}
+	inst_state.config.file_handle_cache_entry_timeout_millisec = timeout;
+}
+
+void UpdateEnableGlobCache(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.enable_glob_cache = parameter.GetValue<bool>();
+}
+
+void UpdateGlobCacheEntrySize(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto entry_size = parameter.GetValue<uint64_t>();
+	if (entry_size == 0) {
+		throw InvalidInputException("cache_httpfs_glob_cache_entry_size must be greater than 0");
+	}
+	inst_state.config.max_glob_cache_entry = entry_size;
+}
+
+void UpdateGlobCacheEntryTimeout(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	const auto timeout = parameter.GetValue<uint64_t>();
+	if (timeout == 0) {
+		throw InvalidInputException("cache_httpfs_glob_cache_entry_timeout_millisec must be greater than 0");
+	}
+	inst_state.config.glob_cache_entry_timeout_millisec = timeout;
+}
+
 // Cached httpfs cannot co-exist with non-cached version, because duckdb virtual filesystem doesn't provide a native fs
 // wrapper nor priority system, so co-existence doesn't guarantee cached version is actually used.
 //
@@ -308,24 +536,24 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          "Type for cached filesystem. Currently there're two types available, one is `in_mem`, "
 	                          "another is `on_disk`. By default we use on-disk cache. Set to `noop` to disable, which "
 	                          "behaves exactly same as httpfs extension.",
-	                          LogicalType {LogicalTypeId::VARCHAR}, *ON_DISK_CACHE_TYPE);
+	                          LogicalType {LogicalTypeId::VARCHAR}, *ON_DISK_CACHE_TYPE, UpdateCacheType);
 	config.AddExtensionOption(
 	    "cache_httpfs_cache_block_size",
 	    "Block size for cache, applies to both in-memory cache filesystem and on-disk cache filesystem. It's worth "
 	    "noting for on-disk filesystem, all existing cache files are invalidated after config update.",
-	    LogicalType {LogicalTypeId::UBIGINT}, Value::UBIGINT(DEFAULT_CACHE_BLOCK_SIZE));
+	    LogicalType {LogicalTypeId::UBIGINT}, Value::UBIGINT(DEFAULT_CACHE_BLOCK_SIZE), UpdateCacheBlockSize);
 	config.AddExtensionOption(
 	    "cache_httpfs_profile_type",
 	    "Profiling type for cached filesystem. There're three options available: `noop`, `temp`, and `duckdb`. `temp` "
 	    "option stores the latest IO operation profiling result, which potentially suffers concurrent updates; "
 	    "`duckdb` stores the IO operation profiling results into duckdb table, which unblocks advanced analysis.",
-	    LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_PROFILE_TYPE);
+	    LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_PROFILE_TYPE, UpdateProfileType);
 	config.AddExtensionOption(
 	    "cache_httpfs_max_fanout_subrequest",
 	    "Cached httpfs performs parallel request by splittng them into small request, with request size decided by "
 	    "config [cache_httpfs_cache_block_size]. The setting limits the maximum request to issue for a single "
 	    "filesystem read request. 0 means no limit, by default we set no limit.",
-	    LogicalType {LogicalTypeId::BIGINT}, 0);
+	    LogicalType {LogicalTypeId::BIGINT}, 0, UpdateMaxFanoutSubrequest);
 
 	// Add configurations to ignore SIGPIPE.
 	auto ignore_sigpipe_callback = [](ClientContext &context, SetScope scope, Value &parameter) {
@@ -345,18 +573,19 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          "Whether to enable cache validation using version tag and last modification timestamp. "
 	                          "When enabled, cache entries are validated against the current file version tag and "
 	                          "modification timestamp to ensure cache consistency. By default disabled.",
-	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_CACHE_VALIDATION);
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_CACHE_VALIDATION, UpdateEnableCacheValidation);
 
 	// On disk cache config.
 	// TODO(hjiang): Add a new configurable for on-disk cache staleness.
 	config.AddExtensionOption("cache_httpfs_cache_directory", "The disk cache directory that stores cached data",
-	                          LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	                          LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_ON_DISK_CACHE_DIRECTORY,
+	                          UpdateCacheDirectory);
 	config.AddExtensionOption("cache_httpfs_min_disk_bytes_for_cache",
 	                          "Min number of bytes on disk for the cache filesystem to enable on-disk cache; if left "
 	                          "bytes is less than the threshold, LRU based cache file eviction will be performed."
 	                          "By default, 5% disk space will be reserved for other usage. When min disk bytes "
 	                          "specified with a positive value, the default value will be overriden.",
-	                          LogicalType {LogicalTypeId::UBIGINT}, 0);
+	                          LogicalType {LogicalTypeId::UBIGINT}, 0, UpdateMinDiskBytesForCache);
 	config.AddExtensionOption(
 	    "cache_httpfs_evict_policy",
 	    "Eviction policy for on-disk cache cache blocks. By default "
@@ -364,7 +593,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	    "created earlier than threshold. Other supported policy include 'lru_single_proc' (LRU for"
 	    "single process access), which performs LRU-based eviction, mainly made single process"
 	    "usage.",
-	    LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_ON_DISK_EVICTION_POLICY);
+	    LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_ON_DISK_EVICTION_POLICY, UpdateEvictPolicy);
 	// TODO(hjiang): there're quite a few optimizations which could be done in the config. For example,
 	// - Each cache directories could have their own config, like min/max cache file size;
 	// - Current implementation uses static hash based distribution, which doesn't work well when directory set changes;
@@ -377,20 +606,23 @@ void LoadInternal(ExtensionLoader &loader) {
 	    "Between different runs, it's expected to provide same cache directories, otherwise it's not guaranteed cache "
 	    "files still exist and accessible."
 	    "Overrides 'cache_httpfs_cache_directory' if set.",
-	    LogicalType {LogicalTypeId::VARCHAR}, std::string {});
+	    LogicalType {LogicalTypeId::VARCHAR}, std::string {}, UpdateCacheDirectoriesConfig);
 
 	// Memory cache for disk cache reader.
 	config.AddExtensionOption("cache_httpfs_disk_cache_reader_enable_memory_cache",
 	                          "Whether enable process-wise read-through/write-through cache for disk cache reader. "
 	                          "When enabled, local cache file will be accessed with direct IO.",
-	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_DISK_READER_MEM_CACHE);
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_DISK_READER_MEM_CACHE,
+	                          UpdateDiskCacheReaderEnableMemoryCache);
 	config.AddExtensionOption(
 	    "cache_httpfs_disk_cache_reader_mem_cache_block_count",
 	    "Max number of cache blocks for the read-through/write-through cache for disk cache reader.",
-	    LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT));
+	    LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT),
+	    UpdateDiskCacheReaderMemCacheBlockCount);
 	config.AddExtensionOption("cache_httpfs_disk_cache_reader_mem_cache_timeout_millisec",
 	                          "Timeout in milliseconds for the read-through/write-through cache for disk cache reader.",
-	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC));
+	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC),
+	                          UpdateDiskCacheReaderMemCacheTimeout);
 
 	// In-memory cache config.
 	config.AddExtensionOption("cache_httpfs_max_in_mem_cache_block_count",
@@ -398,40 +630,46 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          "users are able to configure the maximum memory consumption. It's worth noting it "
 	                          "should be set only once before all filesystem access, otherwise there's no affect.",
 	                          LogicalType {LogicalTypeId::UBIGINT},
-	                          Value::UBIGINT(DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT));
+	                          Value::UBIGINT(DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT), UpdateMaxInMemCacheBlockCount);
 	config.AddExtensionOption("cache_httpfs_in_mem_cache_block_timeout_millisec",
 	                          "Data block cache entry timeout in milliseconds.", LogicalTypeId::UBIGINT,
-	                          Value::UBIGINT(DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC));
+	                          Value::UBIGINT(DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC),
+	                          UpdateInMemCacheBlockTimeout);
 
 	// Metadata cache config.
 	config.AddExtensionOption("cache_httpfs_enable_metadata_cache",
 	                          "Whether metadata cache is enable for cache filesystem. By default enabled.",
-	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_METADATA_CACHE);
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_METADATA_CACHE, UpdateEnableMetadataCache);
 	config.AddExtensionOption("cache_httpfs_metadata_cache_entry_size", "Max cache size for metadata LRU cache.",
-	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_METADATA_CACHE_ENTRY));
+	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_METADATA_CACHE_ENTRY),
+	                          UpdateMetadataCacheEntrySize);
 	config.AddExtensionOption("cache_httpfs_metadata_cache_entry_timeout_millisec",
 	                          "Cache entry timeout in milliseconds for metadata LRU cache.", LogicalTypeId::UBIGINT,
-	                          Value::UBIGINT(DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC));
+	                          Value::UBIGINT(DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC),
+	                          UpdateMetadataCacheEntryTimeout);
 
 	// File handle cache config.
 	config.AddExtensionOption("cache_httpfs_enable_file_handle_cache",
 	                          "Whether file handle cache is enable for cache filesystem. By default enabled.",
-	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_FILE_HANDLE_CACHE);
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_FILE_HANDLE_CACHE, UpdateEnableFileHandleCache);
 	config.AddExtensionOption("cache_httpfs_file_handle_cache_entry_size", "Max cache size for file handle cache.",
-	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY));
+	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY),
+	                          UpdateFileHandleCacheEntrySize);
 	config.AddExtensionOption("cache_httpfs_file_handle_cache_entry_timeout_millisec",
 	                          "Cache entry timeout in milliseconds for file handle cache.", LogicalTypeId::UBIGINT,
-	                          Value::UBIGINT(DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC));
+	                          Value::UBIGINT(DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC),
+	                          UpdateFileHandleCacheEntryTimeout);
 
 	// Glob cache config.
 	config.AddExtensionOption("cache_httpfs_enable_glob_cache",
 	                          "Whether glob cache is enable for cache filesystem. By default enabled.",
-	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_GLOB_CACHE);
+	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_GLOB_CACHE, UpdateEnableGlobCache);
 	config.AddExtensionOption("cache_httpfs_glob_cache_entry_size", "Max cache size for glob cache.",
-	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_GLOB_CACHE_ENTRY));
+	                          LogicalTypeId::UBIGINT, Value::UBIGINT(DEFAULT_MAX_GLOB_CACHE_ENTRY),
+	                          UpdateGlobCacheEntrySize);
 	config.AddExtensionOption("cache_httpfs_glob_cache_entry_timeout_millisec",
 	                          "Cache entry timeout in milliseconds for glob cache.", LogicalTypeId::UBIGINT,
-	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC));
+	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC), UpdateGlobCacheEntryTimeout);
 
 	// Cache exclusion regex list.
 	ScalarFunction add_cache_exclusion_regex("cache_httpfs_add_exclusion_regex",

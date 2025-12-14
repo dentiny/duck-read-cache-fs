@@ -13,18 +13,6 @@ SELECT cache_httpfs_clear_cache();
 statement ok
 SET cache_httpfs_cache_block_size=1;
 
-# Test max fanout subrequests size for a few possible values.
-# //===--------------------------------------------------------------------===//
-# // Unlimited subrequest number
-# //===--------------------------------------------------------------------===//
-statement ok
-SET cache_httpfs_max_fanout_subrequest=0
-
-query I
-SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
-----
-251
-
 # //===--------------------------------------------------------------------===//
 # // Subrequest number 1, which means no parallelism
 # //===--------------------------------------------------------------------===//

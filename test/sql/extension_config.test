@@ -1,5 +1,5 @@
 # name: test/sql/extension_config.test
-# description: test extension config fetching
+# description: test extension config
 # group: [sql]
 
 require cache_httpfs
@@ -45,3 +45,7 @@ query II
 SELECT * FROM cache_httpfs_get_glob_cache_config();
 ----
 enabled		64
+
+# Test cache_httpfs_cache_directory, empty string falls back to default
+statement ok
+SET cache_httpfs_cache_directory='';
