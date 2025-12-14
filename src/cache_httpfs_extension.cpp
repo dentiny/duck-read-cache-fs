@@ -276,7 +276,7 @@ void UpdateEnableCacheValidation(ClientContext &context, SetScope scope, Value &
 
 void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
-	
+
 	auto new_cache_directory = parameter.ToString();
 	// If empty directory is provided, fall back to default directory.
 	if (new_cache_directory.empty()) {
@@ -295,37 +295,25 @@ void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &paramet
 
 void UpdateCacheDirectoriesConfig(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
-	
+	auto local_fs = LocalFileSystem::CreateLocal();
 	auto directories_config_str = parameter.ToString();
+
 	if (!directories_config_str.empty()) {
 		auto directories = StringUtil::Split(directories_config_str, ';');
 		std::sort(directories.begin(), directories.end());
-		
 		if (directories == inst_state.config.on_disk_cache_directories) {
 			return;
 		}
-		auto local_fs = LocalFileSystem::CreateLocal();
 		for (const auto &dir : directories) {
 			local_fs->CreateDirectory(dir);
 		}
 		inst_state.config.on_disk_cache_directories = std::move(directories);
 		return;
-	} 
-
-	// If the provided config is set to empty, fall back to default.
-	Value cache_directory_val;
-	SettingLookupResult lookup_result = context.TryGetCurrentSetting("cache_httpfs_cache_directory", cache_directory_val);
-	if (lookup_result && !cache_directory_val.ToString().empty()) {
-		vector<string> directories;
-		directories.emplace_back(cache_directory_val.ToString());
-		if (directories != inst_state.config.on_disk_cache_directories) {
-			auto local_fs = LocalFileSystem::CreateLocal();
-			for (const auto &dir : directories) {
-				local_fs->CreateDirectory(dir);
-			}
-			inst_state.config.on_disk_cache_directories = std::move(directories);
-		}
 	}
+
+	// If the provided config is set to empty, fall back to default directory.
+	local_fs->CreateDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	inst_state.config.on_disk_cache_directories = vector<string> {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
 }
 
 void UpdateMinDiskBytesForCache(ClientContext &context, SetScope scope, Value &parameter) {
@@ -675,8 +663,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          UpdateGlobCacheEntrySize);
 	config.AddExtensionOption("cache_httpfs_glob_cache_entry_timeout_millisec",
 	                          "Cache entry timeout in milliseconds for glob cache.", LogicalTypeId::UBIGINT,
-	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC),
-	                          UpdateGlobCacheEntryTimeout);
+	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC), UpdateGlobCacheEntryTimeout);
 
 	// Cache exclusion regex list.
 	ScalarFunction add_cache_exclusion_regex("cache_httpfs_add_exclusion_regex",

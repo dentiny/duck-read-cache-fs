@@ -130,7 +130,6 @@ void InstanceCacheReaderManager::Reset() {
 // InstanceConfig implementation
 //===--------------------------------------------------------------------===//
 
-
 //===--------------------------------------------------------------------===//
 // Instance state storage/retrieval using DuckDB's ObjectCache
 //===--------------------------------------------------------------------===//
