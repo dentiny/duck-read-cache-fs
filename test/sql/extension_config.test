@@ -45,3 +45,99 @@ query II
 SELECT * FROM cache_httpfs_get_glob_cache_config();
 ----
 enabled		64
+
+# Test invalid parameter values - all should fail with validation errors
+
+# Test cache_httpfs_type - invalid value
+statement error
+SET cache_httpfs_type='invalid_type';
+----
+Invalid cache_httpfs_type
+
+# Test cache_httpfs_cache_block_size - zero value
+statement error
+SET cache_httpfs_cache_block_size=0;
+----
+cache_httpfs_cache_block_size must be greater than 0
+
+# Test cache_httpfs_profile_type - invalid value
+statement error
+SET cache_httpfs_profile_type='invalid_profile';
+----
+Invalid cache_httpfs_profile_type
+
+# Test cache_httpfs_cache_directory - empty string falls back to default
+statement ok
+SET cache_httpfs_cache_directory='';
+
+# Test cache_httpfs_evict_policy - invalid value
+statement error
+SET cache_httpfs_evict_policy='invalid_policy';
+----
+Invalid cache_httpfs_evict_policy
+
+# Test cache_httpfs_min_disk_bytes_for_cache - zero value
+statement error
+SET cache_httpfs_min_disk_bytes_for_cache=0;
+----
+cache_httpfs_min_disk_bytes_for_cache must be greater than 0
+
+# Test cache_httpfs_disk_cache_reader_mem_cache_block_count - zero value
+statement error
+SET cache_httpfs_disk_cache_reader_mem_cache_block_count=0;
+----
+cache_httpfs_disk_cache_reader_mem_cache_block_count must be greater than 0
+
+# Test cache_httpfs_max_in_mem_cache_block_count - zero value
+statement error
+SET cache_httpfs_max_in_mem_cache_block_count=0;
+----
+cache_httpfs_max_in_mem_cache_block_count must be greater than 0
+
+# Test cache_httpfs_metadata_cache_entry_size - zero value
+statement error
+SET cache_httpfs_metadata_cache_entry_size=0;
+----
+cache_httpfs_metadata_cache_entry_size must be greater than 0
+
+# Test cache_httpfs_file_handle_cache_entry_size - zero value
+statement error
+SET cache_httpfs_file_handle_cache_entry_size=0;
+----
+cache_httpfs_file_handle_cache_entry_size must be greater than 0
+
+# Test cache_httpfs_glob_cache_entry_size - zero value
+statement error
+SET cache_httpfs_glob_cache_entry_size=0;
+----
+cache_httpfs_glob_cache_entry_size must be greater than 0
+
+# Test cache_httpfs_disk_cache_reader_mem_cache_timeout_millisec - zero value
+statement error
+SET cache_httpfs_disk_cache_reader_mem_cache_timeout_millisec=0;
+----
+cache_httpfs_disk_cache_reader_mem_cache_timeout_millisec must be greater than 0
+
+# Test cache_httpfs_in_mem_cache_block_timeout_millisec - zero value
+statement error
+SET cache_httpfs_in_mem_cache_block_timeout_millisec=0;
+----
+cache_httpfs_in_mem_cache_block_timeout_millisec must be greater than 0
+
+# Test cache_httpfs_metadata_cache_entry_timeout_millisec - zero value
+statement error
+SET cache_httpfs_metadata_cache_entry_timeout_millisec=0;
+----
+cache_httpfs_metadata_cache_entry_timeout_millisec must be greater than 0
+
+# Test cache_httpfs_file_handle_cache_entry_timeout_millisec - zero value
+statement error
+SET cache_httpfs_file_handle_cache_entry_timeout_millisec=0;
+----
+cache_httpfs_file_handle_cache_entry_timeout_millisec must be greater than 0
+
+# Test cache_httpfs_glob_cache_entry_timeout_millisec - zero value
+statement error
+SET cache_httpfs_glob_cache_entry_timeout_millisec=0;
+----
+cache_httpfs_glob_cache_entry_timeout_millisec must be greater than 0
