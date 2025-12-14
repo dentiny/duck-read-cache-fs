@@ -316,10 +316,7 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	auto instance_state_locked = instance_state.lock();
 	const std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
 
-	// Config updates are handled via callbacks registered with AddExtensionOption
-	// Tests set instance state directly, so no need to read from opener
 	auto &config = instance_state_locked->config;
-
 	SetProfileCollector();
 	instance_state_locked->cache_reader_manager.SetCacheReader(config, instance_state);
 

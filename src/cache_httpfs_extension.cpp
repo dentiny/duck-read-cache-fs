@@ -266,7 +266,11 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
-	inst_state.config.max_subrequest_count = parameter.GetValue<uint64_t>();
+	const auto max_subrequest_count = parameter.GetValue<uint64_t>();
+	if (max_subrequest_count == 0) {
+		throw InvalidInputException("cache_httpfs_max_fanout_subrequest must be greater than 0");
+	}
+	inst_state.config.max_subrequest_count = max_subrequest_count;
 }
 
 void UpdateEnableCacheValidation(ClientContext &context, SetScope scope, Value &parameter) {
@@ -274,46 +278,48 @@ void UpdateEnableCacheValidation(ClientContext &context, SetScope scope, Value &
 	inst_state.config.enable_cache_validation = parameter.GetValue<bool>();
 }
 
+// Implementation for check cache directories and create directories if necessary.
+void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<string> directories) {
+	std::sort(directories.begin(), directories.end());
+	if (directories == inst_state.config.on_disk_cache_directories) {
+		return;
+	}
+
+	auto local_fs = LocalFileSystem::CreateLocal();
+	for (const auto &dir : directories) {
+		local_fs->CreateDirectory(dir);
+	}
+	inst_state.config.on_disk_cache_directories = std::move(directories);
+}
+
 void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
-
 	auto new_cache_directory = parameter.ToString();
+
 	// If empty directory is provided, fall back to default directory.
 	if (new_cache_directory.empty()) {
 		new_cache_directory = *DEFAULT_ON_DISK_CACHE_DIRECTORY;
 	}
+
 	vector<string> directories;
 	directories.emplace_back(std::move(new_cache_directory));
-	if (directories != inst_state.config.on_disk_cache_directories) {
-		auto local_fs = LocalFileSystem::CreateLocal();
-		for (const auto &dir : directories) {
-			local_fs->CreateDirectory(dir);
-		}
-		inst_state.config.on_disk_cache_directories = std::move(directories);
-	}
+	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
 }
 
 void UpdateCacheDirectoriesConfig(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
-	auto local_fs = LocalFileSystem::CreateLocal();
 	auto directories_config_str = parameter.ToString();
 
+	vector<string> directories;
 	if (!directories_config_str.empty()) {
-		auto directories = StringUtil::Split(directories_config_str, ';');
-		std::sort(directories.begin(), directories.end());
-		if (directories == inst_state.config.on_disk_cache_directories) {
-			return;
-		}
-		for (const auto &dir : directories) {
-			local_fs->CreateDirectory(dir);
-		}
-		inst_state.config.on_disk_cache_directories = std::move(directories);
-		return;
+		directories = StringUtil::Split(directories_config_str, ';');
+	}
+	// If the provided config is set to empty, fall back to default directory.
+	else {
+		directories.emplace_back(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
 	}
 
-	// If the provided config is set to empty, fall back to default directory.
-	local_fs->CreateDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
-	inst_state.config.on_disk_cache_directories = vector<string> {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
+	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
 }
 
 void UpdateMinDiskBytesForCache(ClientContext &context, SetScope scope, Value &parameter) {

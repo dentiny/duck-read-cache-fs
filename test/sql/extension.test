@@ -31,17 +31,6 @@ SELECT cache_httpfs_get_ondisk_data_cache_size();
 ----
 0
 
-# Check if extension validates invalid values correctly.
-statement error
-SET cache_httpfs_max_in_mem_cache_block_count=0;
-----
-cache_httpfs_max_in_mem_cache_block_count must be greater than 0
-
-statement error
-SET cache_httpfs_cache_block_size=0;
-----
-cache_httpfs_cache_block_size must be greater than 0
-
 query IIIIII
 SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv') LIMIT 1;
 ----

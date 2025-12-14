@@ -75,11 +75,9 @@ TEST_CASE("Test on changing extension config change default cache dir path setti
 	instance_state->config.cache_type = *ON_DISK_CACHE_TYPE;
 	SetInstanceState(*instance, instance_state);
 
-	// Ensure the cache directory exists
 	auto local_fs = LocalFileSystem::CreateLocal();
 	local_fs->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 
-	// Get the instance state from the database (same one that SET will update)
 	auto &fs = instance->GetFileSystem();
 	auto db_instance_state = GetInstanceStateShared(*instance);
 	fs.RegisterSubSystem(make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal(), db_instance_state));

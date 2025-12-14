@@ -112,9 +112,6 @@ struct InstanceConfig {
 
 	// Cache validation config
 	bool enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
-
-	// Testing config
-	bool test_insufficient_disk_space = false;
 };
 
 //===--------------------------------------------------------------------===//
