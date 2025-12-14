@@ -42,6 +42,7 @@ set(EXTENSION_SOURCES
     src/utils/fake_filesystem.cpp
     src/utils/filesystem_utils.cpp
     src/utils/mock_filesystem.cpp
+    src/utils/scoped_directory.cpp
     src/utils/test_utils.cpp
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
@@ -189,6 +190,14 @@ target_link_libraries(test_no_destructor ${EXTENSION_NAME})
 add_executable(test_cache_exclusion_manager
                unit/test_cache_exclusion_manager.cpp)
 target_link_libraries(test_cache_exclusion_manager ${EXTENSION_NAME})
+
+add_executable(test_multi_duckdb_instance
+               unit/test_multi_duckdb_instance.cpp)
+target_link_libraries(test_multi_duckdb_instance ${EXTENSION_NAME})
+
+add_executable(test_scoped_directory
+               unit/test_scoped_directory.cpp)
+target_link_libraries(test_scoped_directory ${EXTENSION_NAME})
 
 # Benchmark
 add_executable(read_s3_object benchmark/read_s3_object.cpp)
