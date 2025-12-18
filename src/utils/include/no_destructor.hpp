@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <new>
+#include <type_traits>
 #include <utility>
 
 namespace duckdb {
@@ -18,50 +20,80 @@ namespace duckdb {
 template <typename T>
 class NoDestructor {
 public:
-	NoDestructor() : obj(*new T {}) {
+	// Forwards arguments to the T's constructor: calls T(args...).
+	template <typename... Ts,
+	          // Disable this overload when it might collide with copy/move.
+	          typename std::enable_if<
+	              !std::is_same<void(typename std::decay<Ts>::type &...), void(NoDestructor &)>::value, int>::type = 0>
+	explicit constexpr NoDestructor(Ts &&...args) : impl_(std::forward<Ts>(args)...) {
 	}
 
-	explicit NoDestructor(const T &data) : obj(*new T {data}) {
+	// Forwards copy and move construction for T.
+	explicit constexpr NoDestructor(const T &x) : impl_(x) {
+	}
+	explicit constexpr NoDestructor(T &&x) : impl_(std::move(x)) {
 	}
 
-	explicit NoDestructor(T &&data) : obj(*new T {std::move(data)}) {
-	}
-
-	template <typename... Args>
-	explicit NoDestructor(Args &&...args) : obj(*new T {std::forward<Args>(args)...}) {
-	}
-
+	// No copy and move.
 	NoDestructor(const NoDestructor &) = delete;
 	NoDestructor &operator=(const NoDestructor &) = delete;
-	NoDestructor(NoDestructor &&) = delete;
-	NoDestructor &operator=(NoDestructor &&) = delete;
 
-	// Intentionally no destruct.
-	~NoDestructor() = default;
-
-	T &Get() & {
-		return obj;
+	// Pretend to be a smart pointer to T with deep constness.
+	// Never returns a null pointer.
+	T &operator*() {
+		return *get();
 	}
-	const T &Get() const & {
-		return obj;
+	T *operator->() {
+		return get();
 	}
-
-	T &operator*() & {
-		return Get();
+	T *get() {
+		return impl_.get();
 	}
-	const T &operator*() const & {
-		return Get();
+	const T &operator*() const {
+		return *get();
 	}
-
-	T *operator->() & {
-		return &Get();
+	const T *operator->() const {
+		return get();
 	}
-	const T *operator->() const & {
-		return &Get();
+	const T *get() const {
+		return impl_.get();
 	}
 
 private:
-	T &obj;
+	class DirectImpl {
+	public:
+		template <typename... Args>
+		explicit constexpr DirectImpl(Args &&...args) : value_(std::forward<Args>(args)...) {
+		}
+		const T *get() const {
+			return &value_;
+		}
+		T *get() {
+			return &value_;
+		}
+
+	private:
+		T value_;
+	};
+
+	class PlacementImpl {
+	public:
+		template <typename... Args>
+		explicit PlacementImpl(Args &&...args) {
+			new (&space_) T(std::forward<Args>(args)...);
+		}
+		const T *get() const {
+			return reinterpret_cast<const T *>(&space_);
+		}
+		T *get() {
+			return reinterpret_cast<T *>(&space_);
+		}
+
+	private:
+		alignas(T) unsigned char space_[sizeof(T)];
+	};
+
+	typename std::conditional<std::is_trivially_destructible<T>::value, DirectImpl, PlacementImpl>::type impl_;
 };
 
 } // namespace duckdb

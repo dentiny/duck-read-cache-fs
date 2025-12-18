@@ -32,8 +32,8 @@ inline const NoDestructor<string> NOOP_PROFILE_TYPE {"noop"};
 inline const NoDestructor<string> TEMP_PROFILE_TYPE {"temp"};
 // Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
 inline const NoDestructor<string> PERSISTENT_PROFILE_TYPE {"duckdb"};
-inline const NoDestructor<std::unordered_set<string>> ALL_PROFILE_TYPES {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE,
-                                                                         *PERSISTENT_PROFILE_TYPE};
+inline const NoDestructor<std::unordered_set<string>> ALL_PROFILE_TYPES {
+    {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE, *PERSISTENT_PROFILE_TYPE}};
 
 //===--------------------------------------------------------------------===//
 // Default configuration
