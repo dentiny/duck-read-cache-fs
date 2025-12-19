@@ -367,7 +367,6 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 	return CreateCacheFileHandleForRead(std::move(file_handle));
 }
 
-// LCOV_EXCL_START
 unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &file, FileOpenFlags flags,
                                                          optional_ptr<FileOpener> opener) {
 	InitializeGlobalConfig(opener);
@@ -384,15 +383,7 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
 
 unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                  optional_ptr<FileOpener> opener) {
-	InitializeGlobalConfig(opener);
-	if (flags.OpenForReading()) {
-		return GetOrCreateFileHandleForRead(OpenFileInfo(path), flags, opener);
-	}
-
-	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
-	auto file_handle = internal_filesystem->OpenFile(path, flags, opener);
-	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
-	                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
+	return OpenFileExtended(OpenFileInfo(path), flags, opener);
 }
 
 void CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
