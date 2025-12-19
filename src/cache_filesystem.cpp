@@ -328,7 +328,7 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	SetGlobCache();
 }
 
-unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const string &path, FileOpenFlags flags,
+unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenFileInfo &file, FileOpenFlags flags,
                                                                      optional_ptr<FileOpener> opener) {
 	D_ASSERT(flags.OpenForReading());
 	auto state = instance_state.lock();
@@ -338,7 +338,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 	// Cache is exclusive, so we don't need to acquire lock for avoid repeated access.
 	if (file_handle_cache != nullptr) {
 		FileHandleCacheKey key {
-		    .path = path,
+		    .path = file.path,
 		    .flags = flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS,
 		};
 		auto get_and_pop_res = file_handle_cache->GetAndPop(key);
@@ -364,19 +364,34 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const strin
 	unique_ptr<FileHandle> file_handle = nullptr;
 	if (collector) {
 		const auto latency_guard = collector->RecordOperationStart(IoOperation::kOpen);
-		file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
+		file_handle = internal_filesystem->OpenFile(file, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	} else {
-		file_handle = internal_filesystem->OpenFile(path, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
+		file_handle = internal_filesystem->OpenFile(file, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	}
 	DUCKDB_LOG_OPEN_CACHE_MISS_PTR((file_handle));
 	return CreateCacheFileHandleForRead(std::move(file_handle), conn_id);
+}
+
+// LCOV_EXCL_START
+unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &file, FileOpenFlags flags,
+                                                         optional_ptr<FileOpener> opener) {
+	InitializeGlobalConfig(opener);
+	if (flags.OpenForReading()) {
+		return GetOrCreateFileHandleForRead(file, flags, opener);
+	}
+
+	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
+	// For write handles, we still need the connection_id for consistency
+	auto file_handle = internal_filesystem->OpenFile(file, flags, opener);
+	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
+	                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
 }
 
 unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                  optional_ptr<FileOpener> opener) {
 	InitializeGlobalConfig(opener);
 	if (flags.OpenForReading()) {
-		return GetOrCreateFileHandleForRead(path, flags, opener);
+		return GetOrCreateFileHandleForRead(OpenFileInfo(path), flags, opener);
 	}
 
 	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
