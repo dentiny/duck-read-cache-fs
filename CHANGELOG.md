@@ -1,3 +1,18 @@
+# 0.11.1
+
+## Fixed
+
+- On write operations, corresponding cache entries are deleted ([#346])
+
+[#346]: https://github.com/dentiny/duck-read-cache-fs/pull/346
+
+## Add
+
+- Implement extended APIs for duckdb filesystem interface ([#341], [#345])
+
+[#341]: https://github.com/dentiny/duck-read-cache-fs/pull/341
+[#345]: https://github.com/dentiny/duck-read-cache-fs/pull/345
+
 # 0.11.0
 
 ## Fixed
