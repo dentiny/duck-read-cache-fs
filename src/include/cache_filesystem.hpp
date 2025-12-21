@@ -111,6 +111,13 @@ public:
 	bool ListFiles(const string &directory, const std::function<void(const string &, bool)> &callback,
 	               FileOpener *opener = nullptr) override;
 
+	// Write operations, which clear corresponding cache entries.
+	//
+	// TODO(hjiang): Current cache entries cleanup is expensive, it's always a O(N) linear search, if it proves to be
+	// bottleneck we should add a bloom filter.
+	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
+	int64_t Write(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
+
 	// Clear all cache inside of cache filesystem (i.e. glob cache, file handle cache, metadata cache).
 	// It's worth noting data block cache won't get deleted.
 	void ClearCache();
@@ -129,14 +136,6 @@ public:
 		auto file_handle = internal_filesystem->OpenCompressedFile(context, std::move(handle), write);
 		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
 		                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
-	}
-	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override {
-		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-		internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes, location);
-	}
-	int64_t Write(FileHandle &handle, void *buffer, int64_t nr_bytes) override {
-		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-		return internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes);
 	}
 	bool Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
