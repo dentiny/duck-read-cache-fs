@@ -107,6 +107,10 @@ public:
 		return internal_filesystem.get();
 	}
 
+	// List files.
+	bool ListFiles(const string &directory, const std::function<void(const string &, bool)> &callback,
+	               FileOpener *opener = nullptr) override;
+
 	// Clear all cache inside of cache filesystem (i.e. glob cache, file handle cache, metadata cache).
 	// It's worth noting data block cache won't get deleted.
 	void ClearCache();
@@ -154,10 +158,6 @@ public:
 	}
 	void RemoveDirectory(const string &directory, optional_ptr<FileOpener> opener = nullptr) override {
 		internal_filesystem->RemoveDirectory(directory, opener);
-	}
-	bool ListFiles(const string &directory, const std::function<void(const string &, bool)> &callback,
-	               FileOpener *opener = nullptr) override {
-		return internal_filesystem->ListFiles(directory, callback, opener);
 	}
 	void MoveFile(const string &source, const string &target, optional_ptr<FileOpener> opener = nullptr) override {
 		internal_filesystem->MoveFile(source, target, opener);
@@ -222,11 +222,13 @@ public:
 protected:
 	unique_ptr<FileHandle> OpenFileExtended(const OpenFileInfo &file, FileOpenFlags flags,
 	                                        optional_ptr<FileOpener> opener) override;
+	bool ListFilesExtended(const string &directory, const std::function<void(OpenFileInfo &info)> &callback,
+	                       optional_ptr<FileOpener> opener) override;
 	bool SupportsOpenFileExtended() const override {
 		return true;
 	}
 	bool SupportsListFilesExtended() const override {
-		return false;
+		return true;
 	}
 
 private:

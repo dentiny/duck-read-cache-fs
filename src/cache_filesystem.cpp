@@ -45,6 +45,21 @@ void CacheFileSystemHandle::Close() {
 	}
 }
 
+bool CacheFileSystem::ListFiles(const string &directory, const std::function<void(const string &, bool)> &callback,
+                                FileOpener *opener) {
+	auto wrapped_callback = [this, &callback](OpenFileInfo &info) {
+		const bool is_dir = this->IsDirectory(info.path);
+		callback(info.path, is_dir);
+	};
+	return ListFilesExtended(directory, wrapped_callback, opener);
+}
+
+bool CacheFileSystem::ListFilesExtended(const string &directory,
+                                        const std::function<void(OpenFileInfo &info)> &callback,
+                                        optional_ptr<FileOpener> opener) {
+	return internal_filesystem->ListFiles(directory, callback, opener);
+}
+
 void CacheFileSystem::SetMetadataCache() {
 	const auto &config = instance_state.lock()->config;
 	if (!config.enable_metadata_cache) {
