@@ -206,6 +206,18 @@ std::string CacheFileSystem::GetName() const {
 	return StringUtil::Format("cache_httpfs_%s", internal_filesystem->GetName());
 }
 
+void CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
+	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes, location);
+	ClearCache(handle.GetPath());
+}
+int64_t CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes) {
+	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto result = internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes);
+	ClearCache(handle.GetPath());
+	return result;
+}
+
 unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle) {
 	if (internal_file_handle == nullptr) {
 		return nullptr;
