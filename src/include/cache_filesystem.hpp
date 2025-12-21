@@ -133,10 +133,13 @@ public:
 	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 		internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes, location);
+		ClearCache(handle.GetPath());
 	}
 	int64_t Write(FileHandle &handle, void *buffer, int64_t nr_bytes) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-		return internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes);
+		auto result = internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes);
+		ClearCache(handle.GetPath());
+		return result;
 	}
 	bool Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
