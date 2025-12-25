@@ -21,12 +21,12 @@ public:
 	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override;
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override;
 	void RecordActualCacheRead(idx_t cache_bytes, idx_t actual_bytes) override;
-	std::string GetProfilerType() override {
+	string GetProfilerType() override {
 		return *TEMP_PROFILE_TYPE;
 	}
 	vector<CacheAccessInfo> GetCacheAccessInfo() const override;
 	void Reset() override;
-	std::pair<std::string, uint64_t> GetHumanReadableStats() override;
+	std::pair<string, uint64_t> GetHumanReadableStats() override;
 
 private:
 	// Only records finished operations, which maps from io operation to histogram.

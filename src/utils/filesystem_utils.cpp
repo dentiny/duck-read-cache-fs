@@ -21,6 +21,7 @@
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/string.hpp"
 #include "duckdb/common/string_util.hpp"
 
 namespace duckdb {
@@ -58,22 +59,22 @@ vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &
 	return evicted_cache_files;
 }
 
-int GetFileCountUnder(const std::string &folder) {
+int GetFileCountUnder(const string &folder) {
 	int file_count = 0;
 	LocalFileSystem::CreateLocal()->ListFiles(
 	    folder, [&file_count](const string & /*unused*/, bool /*unused*/) { ++file_count; });
 	return file_count;
 }
 
-vector<std::string> GetSortedFilesUnder(const std::string &folder) {
-	vector<std::string> file_names;
+vector<string> GetSortedFilesUnder(const string &folder) {
+	vector<string> file_names;
 	LocalFileSystem::CreateLocal()->ListFiles(
 	    folder, [&file_names](const string &fname, bool /*unused*/) { file_names.emplace_back(fname); });
 	std::sort(file_names.begin(), file_names.end());
 	return file_names;
 }
 
-idx_t GetOverallFileSystemDiskSpace(const std::string &path) {
+idx_t GetOverallFileSystemDiskSpace(const string &path) {
 #if defined(_WIN32)
 	ULARGE_INTEGER total_bytes;
 	ULARGE_INTEGER free_bytes_unused;
@@ -93,7 +94,7 @@ idx_t GetOverallFileSystemDiskSpace(const std::string &path) {
 #endif
 }
 
-optional_idx GetTotalDiskSpace(const std::string &path) {
+optional_idx GetTotalDiskSpace(const string &path) {
 #if defined(_WIN32)
 	ULARGE_INTEGER total_bytes;
 	ULARGE_INTEGER free_bytes_unused;

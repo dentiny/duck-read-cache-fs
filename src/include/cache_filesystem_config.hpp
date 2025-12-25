@@ -19,7 +19,8 @@ namespace duckdb {
 inline const NoDestructor<string> NOOP_CACHE_TYPE {"noop"};
 inline const NoDestructor<string> ON_DISK_CACHE_TYPE {"on_disk"};
 inline const NoDestructor<string> IN_MEM_CACHE_TYPE {"in_mem"};
-inline const std::unordered_set<string> ALL_CACHE_TYPES {*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE, *IN_MEM_CACHE_TYPE};
+inline const NoDestructor<unordered_set<string>> ALL_CACHE_TYPES {
+    {*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE, *IN_MEM_CACHE_TYPE}};
 
 // Creation timestamp-based on-disk eviction policy.
 inline const NoDestructor<string> ON_DISK_CREATION_TIMESTAMP_EVICTION {"creation_timestamp"};
@@ -32,7 +33,7 @@ inline const NoDestructor<string> NOOP_PROFILE_TYPE {"noop"};
 inline const NoDestructor<string> TEMP_PROFILE_TYPE {"temp"};
 // Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
 inline const NoDestructor<string> PERSISTENT_PROFILE_TYPE {"duckdb"};
-inline const NoDestructor<std::unordered_set<string>> ALL_PROFILE_TYPES {
+inline const NoDestructor<unordered_set<string>> ALL_PROFILE_TYPES {
     {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE, *PERSISTENT_PROFILE_TYPE}};
 
 //===--------------------------------------------------------------------===//

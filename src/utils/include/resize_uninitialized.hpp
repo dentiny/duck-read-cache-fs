@@ -52,7 +52,7 @@ struct ResizeUninitializedTraits<string_type,
 // Like str->resize(new_size), except any new characters added to "*str" as a
 // result of resizing may be left uninitialized, rather than being filled with
 // '0' bytes. Typically used when code is then going to overwrite the backing
-// store of the std::string with known data.
+// store of the string with known data.
 template <typename string_type, typename = void>
 inline void STLStringResizeUninitialized(string_type *s, size_t new_size) {
 	internal::ResizeUninitializedTraits<string_type>::Resize(s, new_size);
@@ -60,8 +60,8 @@ inline void STLStringResizeUninitialized(string_type *s, size_t new_size) {
 
 // Create a string with the given size, with all bytes uninitialized. Useful to
 // use as a buffer.
-inline std::string CreateResizeUninitializedString(size_t size) {
-	std::string content;
+inline string CreateResizeUninitializedString(size_t size) {
+	string content;
 	STLStringResizeUninitialized(&content, size);
 	return content;
 }

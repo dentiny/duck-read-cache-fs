@@ -149,7 +149,7 @@ private:
 	};
 
 	using KeyConstRef = std::reference_wrapper<const Key>;
-	using EntryMap = std::unordered_map<KeyConstRef, Entry, RefHash<KeyHash>, RefEq<KeyEqual>>;
+	using EntryMap = unordered_map<KeyConstRef, Entry, RefHash<KeyHash>, RefEq<KeyEqual>>;
 
 	// Delete key-value pairs indicated by the given entry map iterator [iter] from cache.
 	void DeleteImpl(typename EntryMap::iterator iter) {
@@ -310,7 +310,7 @@ private:
 	mutable std::mutex mu;
 	CopiableValueLruCache<Key, Val, KeyHash, KeyEqual> internal_cache;
 	// Ongoing creation.
-	std::unordered_map<Key, shared_ptr<CreationToken>, KeyHash, KeyEqual> ongoing_creation;
+	unordered_map<Key, shared_ptr<CreationToken>, KeyHash, KeyEqual> ongoing_creation;
 };
 
 // Same interfaces as `CopiableValueLruCache`, but all cached values are `const` specified to avoid concurrent updates.

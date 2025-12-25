@@ -38,7 +38,7 @@ struct CacheFileDestination {
 // Convert SHA256 value to hex string.
 string Sha256ToHexString(const duckdb::hash_bytes &sha256) {
 	static constexpr char kHexChars[] = "0123456789abcdef";
-	std::string result;
+	string result;
 	// SHA256 has 32 byte, we encode 2 chars for each byte of SHA256.
 	result.reserve(64);
 
@@ -82,8 +82,8 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
 }
 
 // Get remote file information from the given local cache [fname].
-std::tuple<std::string /*remote_filename*/, uint64_t /*start_offset*/, uint64_t /*end_offset*/>
-GetRemoteFileInfo(const std::string &fname) {
+std::tuple<string /*remote_filename*/, uint64_t /*start_offset*/, uint64_t /*end_offset*/>
+GetRemoteFileInfo(const string &fname) {
 	// [fname] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
 	vector<string> tokens = StringUtil::Split(fname, "-");
 	D_ASSERT(tokens.size() >= 4);
@@ -238,7 +238,7 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	const auto &cache_directories = GetInstanceConfig(instance_state).on_disk_cache_directories;
 	for (const auto &cur_cache_dir : cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir,
-		                            [&cache_entries_info, cur_cache_dir](const std::string &fname, bool /*unused*/) {
+		                            [&cache_entries_info, cur_cache_dir](const string &fname, bool /*unused*/) {
 			                            auto remote_file_info = GetRemoteFileInfo(fname);
 			                            cache_entries_info.emplace_back(DataCacheEntryInfo {
 			                                .cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname),

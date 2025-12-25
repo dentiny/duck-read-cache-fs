@@ -236,8 +236,8 @@ bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
 void UpdateCacheType(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	auto cache_type_str = parameter.ToString();
-	if (ALL_CACHE_TYPES.find(cache_type_str) == ALL_CACHE_TYPES.end()) {
-		vector<string> valid_types(ALL_CACHE_TYPES.begin(), ALL_CACHE_TYPES.end());
+	if (ALL_CACHE_TYPES->find(cache_type_str) == ALL_CACHE_TYPES->end()) {
+		vector<string> valid_types(ALL_CACHE_TYPES->begin(), ALL_CACHE_TYPES->end());
 		throw InvalidInputException("Invalid cache_httpfs_type '%s'. Valid options are: %s", cache_type_str,
 		                            StringUtil::Join(valid_types, ", "));
 	}
@@ -606,7 +606,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	    "Between different runs, it's expected to provide same cache directories, otherwise it's not guaranteed cache "
 	    "files still exist and accessible."
 	    "Overrides 'cache_httpfs_cache_directory' if set.",
-	    LogicalType {LogicalTypeId::VARCHAR}, std::string {}, UpdateCacheDirectoriesConfig);
+	    LogicalType {LogicalTypeId::VARCHAR}, string {}, UpdateCacheDirectoriesConfig);
 
 	// Memory cache for disk cache reader.
 	config.AddExtensionOption("cache_httpfs_disk_cache_reader_enable_memory_cache",
@@ -752,7 +752,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	loader.RegisterFunction(GetWrappedCacheFileSystemsFunc());
 
 	// Fill in extension load information.
-	std::string description = StringUtil::Format(
+	string description = StringUtil::Format(
 	    "Adds a read cache filesystem to DuckDB, which acts as a wrapper of duckdb-compatible filesystems.");
 	loader.SetDescription(description);
 }
@@ -762,11 +762,11 @@ void LoadInternal(ExtensionLoader &loader) {
 void CacheHttpfsExtension::Load(ExtensionLoader &loader) {
 	LoadInternal(loader);
 }
-std::string CacheHttpfsExtension::Name() {
+string CacheHttpfsExtension::Name() {
 	return "cache_httpfs";
 }
 
-std::string CacheHttpfsExtension::Version() const {
+string CacheHttpfsExtension::Version() const {
 #ifdef EXT_VERSION_CACHE_HTTPFS
 	return EXT_VERSION_CACHE_HTTPFS;
 #else

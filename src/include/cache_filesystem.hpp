@@ -94,7 +94,7 @@ public:
 	int64_t Read(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags,
 	                                optional_ptr<FileOpener> opener = nullptr) override;
-	std::string GetName() const override;
+	string GetName() const override;
 	BaseProfileCollector *GetProfileCollector() const {
 		return profile_collector.get();
 	}
@@ -124,7 +124,7 @@ public:
 
 	// Clear cache entries inside of cache filesystem (i.e. glob cache, file handle cache, metadata cache).
 	// It's worth noting data block cache won't get deleted.
-	void ClearCache(const std::string &filepath);
+	void ClearCache(const string &filepath);
 
 	// Remove file from both internal filesystem and cache.
 	bool TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
@@ -258,7 +258,7 @@ private:
 	};
 	struct FileHandleCacheKeyHash {
 		std::size_t operator()(const FileHandleCacheKey &key) const {
-			return std::hash<std::string> {}(key.path) ^ std::hash<idx_t> {}(key.flags.GetFlagsInternal());
+			return std::hash<string> {}(key.path) ^ std::hash<idx_t> {}(key.flags.GetFlagsInternal());
 		}
 	};
 
@@ -305,7 +305,7 @@ private:
 	void ClearFileHandleCache();
 
 	// Clear file handle cache by filepath, and close deleted file handle resource inside.
-	void ClearFileHandleCache(const std::string &filepath);
+	void ClearFileHandleCache(const string &filepath);
 
 	// Get file handle from cache, or open if it doesn't exist.
 	// Return cached file handle.

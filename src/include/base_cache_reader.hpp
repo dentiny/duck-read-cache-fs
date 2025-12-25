@@ -37,7 +37,7 @@ public:
 	virtual void ClearCache(const string &fname) = 0;
 
 	// Get name for cache reader.
-	virtual std::string GetName() const {
+	virtual string GetName() const {
 		throw NotImplementedException("Base cache reader doesn't implement GetName.");
 	}
 

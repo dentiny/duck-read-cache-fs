@@ -14,7 +14,7 @@ namespace {
 constexpr char CACHE_DIRECTORIES_CONFIG_SPLITTER = ';';
 
 // Parse directory configuration string into directories.
-vector<string> ParseCacheDirectoryConfig(const std::string &directory_config_str) {
+vector<string> ParseCacheDirectoryConfig(const string &directory_config_str) {
 	auto directories = StringUtil::Split(directory_config_str, /*delimiter=*/CACHE_DIRECTORIES_CONFIG_SPLITTER);
 	// Sort the cache directories, so for different directories config value with same directory sets, ordering doesn't
 	// affect cache status.
@@ -34,7 +34,7 @@ uint64_t GetThreadCountForSubrequests(uint64_t io_request_count, uint64_t max_su
 	return MinValue<uint64_t>(io_request_count, max_subrequest_count);
 }
 
-std::vector<std::string> GetCacheDirectoryConfig(optional_ptr<FileOpener> opener) {
+std::vector<string> GetCacheDirectoryConfig(optional_ptr<FileOpener> opener) {
 	Value val;
 
 	// Attempt to get cache directories config first.

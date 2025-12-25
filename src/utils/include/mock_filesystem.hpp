@@ -74,7 +74,7 @@ public:
 	}
 	void Seek(FileHandle &handle, idx_t location) override {
 	}
-	std::string GetName() const override {
+	string GetName() const override {
 		return "mock filesystem";
 	}
 

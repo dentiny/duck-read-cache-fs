@@ -166,7 +166,7 @@ private:
 	};
 
 	using KeyConstRef = std::reference_wrapper<const Key>;
-	using EntryMap = std::unordered_map<KeyConstRef, Entry, RefHash<KeyHash>, RefEq<KeyEqual>>;
+	using EntryMap = unordered_map<KeyConstRef, Entry, RefHash<KeyHash>, RefEq<KeyEqual>>;
 
 	// Delete key-value pairs indicated by the given entry map iterator [iter] from cache.
 	unique_ptr<Val> DeleteImpl(typename EntryMap::iterator iter) {

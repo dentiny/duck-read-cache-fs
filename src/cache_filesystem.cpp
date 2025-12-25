@@ -105,7 +105,7 @@ void CacheFileSystem::ClearFileHandleCache() {
 	in_use_file_handle_counter = nullptr;
 }
 
-void CacheFileSystem::ClearFileHandleCache(const std::string &filepath) {
+void CacheFileSystem::ClearFileHandleCache(const string &filepath) {
 	if (file_handle_cache == nullptr) {
 		return;
 	}
@@ -162,12 +162,12 @@ void CacheFileSystem::ClearCache() {
 	instance_state.lock()->cache_reader_manager.ClearCache();
 }
 
-void CacheFileSystem::ClearCache(const std::string &filepath) {
+void CacheFileSystem::ClearCache(const string &filepath) {
 	if (metadata_cache != nullptr) {
-		metadata_cache->Clear([&filepath](const std::string &key) { return key == filepath; });
+		metadata_cache->Clear([&filepath](const string &key) { return key == filepath; });
 	}
 	if (glob_cache != nullptr) {
-		glob_cache->Clear([&filepath](const std::string &key) { return key == filepath; });
+		glob_cache->Clear([&filepath](const string &key) { return key == filepath; });
 	}
 	ClearFileHandleCache(filepath);
 	instance_state.lock()->cache_reader_manager.ClearCache(filepath);
@@ -202,7 +202,7 @@ bool CacheFileSystem::IsManuallySet() {
 	return true;
 }
 
-std::string CacheFileSystem::GetName() const {
+string CacheFileSystem::GetName() const {
 	return StringUtil::Format("cache_httpfs_%s", internal_filesystem->GetName());
 }
 

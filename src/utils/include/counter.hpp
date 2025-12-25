@@ -59,7 +59,7 @@ public:
 	}
 
 private:
-	std::unordered_map<Key, unsigned, KeyHash, KeyEqual> counter;
+	unordered_map<Key, unsigned, KeyHash, KeyEqual> counter;
 };
 
 // Thread-safe implementation.

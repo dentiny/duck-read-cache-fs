@@ -203,7 +203,7 @@ private:
 		typename std::list<Key>::iterator lru_iterator;
 	};
 
-	using EntryMap = std::unordered_map<Key, std::deque<Entry>, KeyHash, KeyEqual>;
+	using EntryMap = unordered_map<Key, std::deque<Entry>, KeyHash, KeyEqual>;
 
 	// Delete the first entry from the given [iter], return the deleted entry.
 	unique_ptr<Val> DeleteFirstEntry(typename EntryMap::iterator iter) {

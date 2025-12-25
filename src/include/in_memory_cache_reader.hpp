@@ -21,7 +21,7 @@ public:
 	}
 	~InMemoryCacheReader() override = default;
 
-	std::string GetName() const override {
+	string GetName() const override {
 		return "in_mem_cache_reader";
 	}
 

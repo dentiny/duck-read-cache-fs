@@ -26,7 +26,7 @@ public:
 		return {};
 	}
 
-	std::string GetName() const override {
+	string GetName() const override {
 		return "noop_cache_reader";
 	}
 };

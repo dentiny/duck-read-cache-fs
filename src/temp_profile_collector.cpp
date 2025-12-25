@@ -97,7 +97,7 @@ vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
 	return cache_access_info;
 }
 
-std::pair<std::string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
+std::pair<string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 	const std::lock_guard<std::mutex> lck(stats_mutex);
 
 	string stats =

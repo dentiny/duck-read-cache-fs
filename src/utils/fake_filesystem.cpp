@@ -6,7 +6,7 @@
 namespace duckdb {
 
 namespace {
-const NoDestructor<std::string> FAKE_FILESYSTEM_PREFIX {"/tmp/cache_httpfs_fake_filesystem"};
+const NoDestructor<string> FAKE_FILESYSTEM_PREFIX {"/tmp/cache_httpfs_fake_filesystem"};
 } // namespace
 
 CacheHttpfsFakeFsHandle::CacheHttpfsFakeFsHandle(string path, unique_ptr<FileHandle> internal_file_handle_p,

@@ -26,7 +26,7 @@ public:
 	explicit DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p);
 	~DiskCacheReader() override = default;
 
-	std::string GetName() const override {
+	string GetName() const override {
 		return "on_disk_cache_reader";
 	}
 
