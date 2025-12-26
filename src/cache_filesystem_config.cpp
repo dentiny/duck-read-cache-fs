@@ -5,6 +5,7 @@
 
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "utils/include/filesystem_utils.hpp"
 
 namespace duckdb {
 

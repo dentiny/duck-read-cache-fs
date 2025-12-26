@@ -6,16 +6,15 @@
 #include <filesystem>
 #include <iterator>
 
-#if defined(_WIN32)
-#include <windows.h>
-#endif
-
 #if !defined(_WIN32)
 #include <cerrno>
 #include <cstring>
+#include <cstdlib>
 #include <utime.h>
 #include <sys/statvfs.h>
 #include <sys/xattr.h>
+#else
+#include <windows.h>
 #endif
 
 #include "cache_filesystem_config.hpp"
@@ -23,6 +22,7 @@
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "no_destructor.hpp"
 
 namespace duckdb {
 
@@ -257,6 +257,57 @@ bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t
 
 	return static_cast<double>(avai_fs_bytes.GetIndex()) / total_fs_bytes.GetIndex() >
 	       MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE;
+}
+
+string GetTemporaryDirectory() {
+#if defined(_WIN32)
+	char temp_path[MAX_PATH];
+	DWORD ret = GetTempPathA(MAX_PATH, temp_path);
+	if (ret > 0 && ret < MAX_PATH) {
+		// GetTempPath returns path with trailing backslash, remove it
+		string result(temp_path);
+		if (!result.empty() && (result.back() == '\\' || result.back() == '/')) {
+			result.pop_back();
+		}
+		return result;
+	}
+	// Fallback to environment variables
+	const char *temp = std::getenv("TEMP");
+	if (temp != nullptr) {
+		return string(temp);
+	}
+	const char *tmp = std::getenv("TMP");
+	if (tmp != nullptr) {
+		return string(tmp);
+	}
+	// Last resort fallback
+	return "C:\\Temp";
+#else
+	const char *tmpdir = std::getenv("TMPDIR");
+	if (tmpdir != nullptr) {
+		return string(tmpdir);
+	}
+	// Default to /tmp on Unix systems
+	return "/tmp";
+#endif
+}
+
+const string &GetDefaultOnDiskCacheDirectory() {
+	static NoDestructor<string> instance {[]() {
+		auto temp_dir = GetTemporaryDirectory();
+		auto local_fs = LocalFileSystem::CreateLocal();
+		return local_fs->JoinPath(temp_dir, "duckdb_cache_httpfs_cache");
+	}()};
+	return *instance;
+}
+
+const string &GetFakeOnDiskCacheDirectory() {
+	static NoDestructor<string> instance {[]() {
+		auto temp_dir = GetTemporaryDirectory();
+		auto local_fs = LocalFileSystem::CreateLocal();
+		return local_fs->JoinPath(temp_dir, "cache_httpfs_fake_filesystem");
+	}()};
+	return *instance;
 }
 
 } // namespace duckdb

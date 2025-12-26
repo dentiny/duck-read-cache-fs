@@ -199,7 +199,7 @@ TEST_CASE("Test file attribute for glob invocation", "[mock filesystem test]") {
 }
 
 TEST_CASE("Test disk cache reader with mock filesystem", "[mock filesystem test]") {
-	for (const auto &cur_cache_dir : {*DEFAULT_ON_DISK_CACHE_DIRECTORY}) {
+	for (const auto &cur_cache_dir : {GetDefaultOnDiskCacheDirectory()}) {
 		LocalFileSystem::CreateLocal()->RemoveDirectory(cur_cache_dir);
 	}
 
@@ -211,7 +211,7 @@ TEST_CASE("Test disk cache reader with mock filesystem", "[mock filesystem test]
 }
 
 TEST_CASE("Test in-memory cache reader with mock filesystem", "[mock filesystem test]") {
-	for (const auto &cur_cache_dir : {*DEFAULT_ON_DISK_CACHE_DIRECTORY}) {
+	for (const auto &cur_cache_dir : {GetDefaultOnDiskCacheDirectory()}) {
 		LocalFileSystem::CreateLocal()->RemoveDirectory(cur_cache_dir);
 	}
 
