@@ -118,10 +118,12 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 			continue;
 		}
 
-		auto [cur_profile_stat, cur_timestamp] = profile_collector->GetHumanReadableStats();
+		auto stats_pair = profile_collector->GetHumanReadableStats();
+		const auto &cur_profile_stat = stats_pair.first;
+		const auto &cur_timestamp = stats_pair.second;
 		if (cur_timestamp > latest_timestamp) {
 			latest_timestamp = cur_timestamp;
-			latest_stat = std::move(cur_profile_stat);
+			latest_stat = std::move(stats_pair.first);
 			continue;
 		}
 		if (cur_timestamp == latest_timestamp) {

@@ -234,8 +234,8 @@ private:
 	friend class CacheFileSystemHandle;
 
 	struct FileMetadata {
-		inline constexpr static int64_t CACHE_HTTPFS_INVALID_FILE_SIZE = -1;
-		inline constexpr static timestamp_t CACHE_HTTPFS_INVALID_MODIFICATION_TIME = static_cast<timestamp_t>(-1);
+		constexpr static int64_t CACHE_HTTPFS_INVALID_FILE_SIZE = -1;
+		constexpr static timestamp_t CACHE_HTTPFS_INVALID_MODIFICATION_TIME = static_cast<timestamp_t>(-1);
 
 		int64_t file_size = CACHE_HTTPFS_INVALID_FILE_SIZE;
 		timestamp_t last_modification_time = CACHE_HTTPFS_INVALID_MODIFICATION_TIME;

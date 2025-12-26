@@ -226,10 +226,9 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 	const auto flags = internal_file_handle->GetFlags();
 	D_ASSERT(flags.OpenForReading());
 
-	CacheFileSystem::FileHandleCacheKey cache_key {
-	    .path = internal_file_handle->GetPath(),
-	    .flags = flags | FileFlags::FILE_FLAGS_PARALLEL_ACCESS,
-	};
+	CacheFileSystem::FileHandleCacheKey cache_key;
+	cache_key.path = internal_file_handle->GetPath();
+	cache_key.flags = flags | FileFlags::FILE_FLAGS_PARALLEL_ACCESS;
 	if (in_use_file_handle_counter != nullptr) {
 		in_use_file_handle_counter->Increment(cache_key);
 	}
@@ -260,10 +259,9 @@ shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &han
 	// Get last modification timestamp.
 	const timestamp_t last_modification_time = internal_filesystem->GetLastModifiedTime(handle);
 
-	FileMetadata file_metadata {
-	    .file_size = file_size,
-	    .last_modification_time = last_modification_time,
-	};
+	FileMetadata file_metadata;
+	file_metadata.file_size = file_size;
+	file_metadata.last_modification_time = last_modification_time;
 	return make_shared_ptr<FileMetadata>(std::move(file_metadata));
 }
 
@@ -304,10 +302,9 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 		auto &last_modification_time_value = iter->second;
 		const timestamp_t last_modification_time = last_modification_time_value.GetValue<timestamp_t>();
 
-		FileMetadata file_metadata {
-		    .file_size = file_size,
-		    .last_modification_time = last_modification_time,
-		};
+		FileMetadata file_metadata;
+		file_metadata.file_size = file_size;
+		file_metadata.last_modification_time = last_modification_time;
 		metadata_cache->Put(filepath, make_shared_ptr<FileMetadata>(std::move(file_metadata)));
 	}
 	return open_file_info;
@@ -361,10 +358,9 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 
 	// Cache is exclusive, so we don't need to acquire lock for avoid repeated access.
 	if (file_handle_cache != nullptr) {
-		FileHandleCacheKey key {
-		    .path = file.path,
-		    .flags = flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS,
-		};
+		FileHandleCacheKey key;
+		key.path = file.path;
+		key.flags = flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS;
 		auto get_and_pop_res = file_handle_cache->GetAndPop(key);
 		for (auto &cur_val : get_and_pop_res.evicted_items) {
 			cur_val->Close();
