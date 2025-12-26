@@ -101,6 +101,12 @@ target_link_libraries(${EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto
 target_link_libraries(${LOADABLE_EXTENSION_NAME} OpenSSL::SSL OpenSSL::Crypto
                       CURL::libcurl)
 
+# Link Windows Cryptography API library for certificate loading on Windows
+if(MINGW OR WIN32)
+  target_link_libraries(${EXTENSION_NAME} crypt32)
+  target_link_libraries(${LOADABLE_EXTENSION_NAME} crypt32)
+endif()
+
 install(
   TARGETS ${EXTENSION_NAME}
   EXPORT "${DUCKDB_EXPORT_SET}"
