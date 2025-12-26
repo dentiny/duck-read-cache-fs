@@ -4,37 +4,21 @@
 
 #include "duckdb/common/types/timestamp.hpp"
 
-#include <chrono>
 #include <cstdint>
 #include <ctime>
 
 namespace duckdb {
 
-extern const uint64_t kMicrosToNanos;
-extern const uint64_t kSecondsToMicros;
-extern const uint64_t kSecondsToNanos;
-extern const uint64_t kMilliToNanos;
-
 // Get current timestamp in steady clock since epoch in nanoseconds.
-inline int64_t GetSteadyNowNanoSecSinceEpoch() {
-	return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
-	    .count();
-}
+int64_t GetSteadyNowNanoSecSinceEpoch();
 
 // Get current timestamp in steady clock since epoch in milliseconds.
-inline int64_t GetSteadyNowMilliSecSinceEpoch() {
-	return GetSteadyNowNanoSecSinceEpoch() / kMilliToNanos;
-}
+int64_t GetSteadyNowMilliSecSinceEpoch();
 
 // Get current timestamp in steady clock since epoch in nanoseconds.
-inline int64_t GetSystemNowNanoSecSinceEpoch() {
-	return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch())
-	    .count();
-}
+int64_t GetSystemNowNanoSecSinceEpoch();
 
 // Get current timestamp in steady clock since epoch in milliseconds.
-inline int64_t GetSystemNowMilliSecSinceEpoch() {
-	return GetSystemNowNanoSecSinceEpoch() / kMilliToNanos;
-}
+int64_t GetSystemNowMilliSecSinceEpoch();
 
 } // namespace duckdb
