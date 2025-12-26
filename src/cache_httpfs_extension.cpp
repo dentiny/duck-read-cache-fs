@@ -556,12 +556,15 @@ void LoadInternal(ExtensionLoader &loader) {
 	    LogicalType {LogicalTypeId::BIGINT}, 0, UpdateMaxFanoutSubrequest);
 
 	// Add configurations to ignore SIGPIPE.
+	// Notice, it only works on unix platform.
 	auto ignore_sigpipe_callback = [](ClientContext &context, SetScope scope, Value &parameter) {
+#if !defined(_WIN32)
 		const bool ignore = parameter.GetValue<bool>();
 		if (ignore) {
 			// Ignore SIGPIPE, reference: https://blog.erratasec.com/2018/10/tcpip-sockets-and-sigpipe.html
 			std::signal(SIGPIPE, SIG_IGN);
 		}
+#endif
 	};
 	config.AddExtensionOption(
 	    "cache_httpfs_ignore_sigpipe",
