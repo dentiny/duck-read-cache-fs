@@ -6,18 +6,15 @@
 #include <filesystem>
 #include <iterator>
 
-#if defined(_WIN32)
-#include <windows.h>
-#else
-#include <cstdlib>
-#endif
-
 #if !defined(_WIN32)
 #include <cerrno>
 #include <cstring>
+#include <cstdlib>
 #include <utime.h>
 #include <sys/statvfs.h>
 #include <sys/xattr.h>
+#else
+#include <windows.h>
 #endif
 
 #include "cache_filesystem_config.hpp"
@@ -300,6 +297,15 @@ const string &GetDefaultOnDiskCacheDirectory() {
 		auto temp_dir = GetTemporaryDirectory();
 		auto local_fs = LocalFileSystem::CreateLocal();
 		return local_fs->JoinPath(temp_dir, "duckdb_cache_httpfs_cache");
+	}()};
+	return *instance;
+}
+
+const string &GetFakeOnDiskCacheDirectory() {
+	static NoDestructor<string> instance {[]() {
+		auto temp_dir = GetTemporaryDirectory();
+		auto local_fs = LocalFileSystem::CreateLocal();
+		return local_fs->JoinPath(temp_dir, "cache_httpfs_fake_filesystem");
 	}()};
 	return *instance;
 }

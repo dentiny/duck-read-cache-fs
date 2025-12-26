@@ -58,4 +58,7 @@ string GetTemporaryDirectory();
 // Returns a path in the system temporary directory with the cache subdirectory name.
 const string &GetDefaultOnDiskCacheDirectory();
 
+// Get the fake filesystem directory path.
+const string &GetFakeOnDiskCacheDirectory();
+
 } // namespace duckdb

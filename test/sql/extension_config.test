@@ -2,6 +2,8 @@
 # description: test extension config
 # group: [sql]
 
+require notwindows
+
 require cache_httpfs
 
 # Query cache type.
