@@ -67,11 +67,11 @@ private:
 // Test default directory works for uncached read.
 TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") {
 	// Cleanup default cache directory before test.
-	LocalFileSystem::CreateLocal()->RemoveDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	LocalFileSystem::CreateLocal()->RemoveDirectory(GetDefaultOnDiskCacheDirectory());
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
-	config.cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
+	config.cache_directories = {GetDefaultOnDiskCacheDirectory()};
 	TestCacheFileSystemHelper helper(config);
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
@@ -86,7 +86,7 @@ TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") 
 		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 	}
 
-	REQUIRE(GetFileCountUnder(*DEFAULT_ON_DISK_CACHE_DIRECTORY) > 0);
+	REQUIRE(GetFileCountUnder(GetDefaultOnDiskCacheDirectory()) > 0);
 }
 
 // One chunk is involved, requested bytes include only "first and last chunk".

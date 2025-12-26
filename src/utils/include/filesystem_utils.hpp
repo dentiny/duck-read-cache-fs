@@ -51,4 +51,11 @@ string GetCacheVersion(const string &filepath);
 // Check if caching is allowed (sufficient disk space)
 bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t min_disk_bytes_for_cache);
 
+// Get the system temporary directory path for the current platform.
+string GetTemporaryDirectory();
+
+// Get the default on-disk cache directory path.
+// Returns a path in the system temporary directory with the cache subdirectory name.
+const string &GetDefaultOnDiskCacheDirectory();
+
 } // namespace duckdb

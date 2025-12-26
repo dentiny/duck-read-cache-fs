@@ -298,7 +298,7 @@ void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &paramet
 
 	// If empty directory is provided, fall back to default directory.
 	if (new_cache_directory.empty()) {
-		new_cache_directory = *DEFAULT_ON_DISK_CACHE_DIRECTORY;
+		new_cache_directory = GetDefaultOnDiskCacheDirectory();
 	}
 
 	vector<string> directories;
@@ -316,7 +316,7 @@ void UpdateCacheDirectoriesConfig(ClientContext &context, SetScope scope, Value 
 	}
 	// If the provided config is set to empty, fall back to default directory.
 	else {
-		directories.emplace_back(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+		directories.emplace_back(GetDefaultOnDiskCacheDirectory());
 	}
 
 	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
@@ -581,7 +581,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	// On disk cache config.
 	// TODO(hjiang): Add a new configurable for on-disk cache staleness.
 	config.AddExtensionOption("cache_httpfs_cache_directory", "The disk cache directory that stores cached data",
-	                          LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_ON_DISK_CACHE_DIRECTORY,
+	                          LogicalType {LogicalTypeId::VARCHAR}, GetDefaultOnDiskCacheDirectory(),
 	                          UpdateCacheDirectory);
 	config.AddExtensionOption("cache_httpfs_min_disk_bytes_for_cache",
 	                          "Min number of bytes on disk for the cache filesystem to enable on-disk cache; if left "
@@ -749,7 +749,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	loader.RegisterFunction(GetCacheAccessInfoQueryFunc());
 
 	// Create default cache directory.
-	LocalFileSystem::CreateLocal()->CreateDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	LocalFileSystem::CreateLocal()->CreateDirectory(GetDefaultOnDiskCacheDirectory());
 
 	// Register wrapped cache filesystems info.
 	loader.RegisterFunction(GetWrappedCacheFileSystemsFunc());

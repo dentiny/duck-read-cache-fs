@@ -87,7 +87,7 @@ TEST_CASE("Test for cache directory config with multiple directories", "[on-disk
 	REQUIRE(non_empty_directory_count > 1);
 
 	// Check default cache directory is not accessed.
-	auto default_file_count = GetFileCountUnder(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	auto default_file_count = GetFileCountUnder(GetDefaultOnDiskCacheDirectory());
 	REQUIRE(default_file_count == 0);
 
 	// Second cached read.
@@ -111,14 +111,14 @@ TEST_CASE("Test for cache directory config with multiple directories", "[on-disk
 	REQUIRE(file_counts_first_read == file_counts_second_read);
 
 	// Check default cache directory is not accessed.
-	default_file_count = GetFileCountUnder(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	default_file_count = GetFileCountUnder(GetDefaultOnDiskCacheDirectory());
 	REQUIRE(default_file_count == 0);
 }
 
 int main(int argc, char **argv) {
 	// Remove default cache directory.
 	auto local_filesystem = LocalFileSystem::CreateLocal();
-	local_filesystem->RemoveDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	local_filesystem->RemoveDirectory(GetDefaultOnDiskCacheDirectory());
 
 	// Create test files.
 	for (const auto &cur_file : TEST_FILES) {

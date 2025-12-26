@@ -16,6 +16,7 @@
 #include "duckdb/common/unordered_set.hpp"
 #include "duckdb/common/vector.hpp"
 #include "duckdb/storage/object_cache.hpp"
+#include "filesystem_utils.hpp"
 
 namespace duckdb {
 
@@ -82,7 +83,7 @@ struct InstanceConfig {
 	bool ignore_sigpipe = DEFAULT_IGNORE_SIGPIPE;
 
 	// On-disk cache config
-	vector<string> on_disk_cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
+	vector<string> on_disk_cache_directories = {GetDefaultOnDiskCacheDirectory()};
 	idx_t min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 	string on_disk_eviction_policy = *DEFAULT_ON_DISK_EVICTION_POLICY;
 
