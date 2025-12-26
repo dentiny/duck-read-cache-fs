@@ -37,6 +37,7 @@ set(EXTENSION_SOURCES
     src/in_memory_cache_reader.cpp
     src/histogram.cpp
     src/filesystem_status_query_function.cpp
+    src/io_operations.cpp
     src/noop_cache_reader.cpp
     src/temp_profile_collector.cpp
     src/utils/chunk_utils.cpp
@@ -47,6 +48,7 @@ set(EXTENSION_SOURCES
     src/utils/test_utils.cpp
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
+    src/utils/time_utils.cpp
     duckdb-httpfs/src/create_secret_functions.cpp
     duckdb-httpfs/src/crypto.cpp
     duckdb-httpfs/src/hash_functions.cpp
