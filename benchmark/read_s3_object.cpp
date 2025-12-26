@@ -107,8 +107,10 @@ void ReadUncachedWholeFile(uint64_t block_size) {
 } // namespace duckdb
 
 int main(int argc, char **argv) {
+#if !defined(_WIN32)
 	// Ignore SIGPIPE, reference: https://blog.erratasec.com/2018/10/tcpip-sockets-and-sigpipe.html
 	std::signal(SIGPIPE, SIG_IGN);
+#endif
 
 	constexpr std::array<uint64_t, 10> BLOCK_SIZE_ARR {
 	    64ULL * 1024,        // 64KiB

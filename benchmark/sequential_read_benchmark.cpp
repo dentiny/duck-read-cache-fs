@@ -81,8 +81,10 @@ void TestSequentialRead(const BenchmarkSetup &benchmark_setup) {
 } // namespace duckdb
 
 int main(int argc, char **argv) {
+#if !defined(_WIN32)
 	// Ignore SIGPIPE, reference: https://blog.erratasec.com/2018/10/tcpip-sockets-and-sigpipe.html
 	std::signal(SIGPIPE, SIG_IGN);
+#endif
 
 	const std::string disk_cache_directory = "/tmp/benchmark_cache";
 
