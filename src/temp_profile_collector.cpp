@@ -8,7 +8,6 @@ namespace duckdb {
 
 namespace {
 // Heuristic estimation of single IO request latency, out of which range are classified as outliers.
-// Heuristic estimation of single IO request latency, out of which range are classified as outliers.
 struct LatencyHeuristic {
 	double min_latency_ms;
 	double max_latency_ms;
