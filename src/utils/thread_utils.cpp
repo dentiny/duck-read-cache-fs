@@ -21,14 +21,14 @@ void SetThreadName(const string &thread_name) {
 }
 
 int GetCpuCoreCount() {
-#if defined(__APPLE__)
-	return std::thread::hardware_concurrency();
-#elif defined(__linux__)
+#if defined(__linux__)
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
 	sched_getaffinity(0, sizeof(cpuset), &cpuset);
 	const int core_count = CPU_COUNT(&cpuset);
 	return core_count;
+#else
+	return std::thread::hardware_concurrency();
 #endif
 }
 
