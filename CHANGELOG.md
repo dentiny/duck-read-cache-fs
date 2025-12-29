@@ -1,3 +1,11 @@
+# 0.11.2
+
+## Fixed
+
+- Temporarily disable caching on compressed read ([#360])
+
+[#360]: https://github.com/dentiny/duck-read-cache-fs/pull/360
+
 # 0.11.1
 
 ## Fixed
