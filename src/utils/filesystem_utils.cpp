@@ -283,11 +283,6 @@ string GetTemporaryDirectory() {
 	// Last resort fallback
 	return "C:\\Temp";
 #else
-	const char *tmpdir = std::getenv("TMPDIR");
-	if (tmpdir != nullptr) {
-		return string(tmpdir);
-	}
-	// Default to /tmp on Unix systems
 	return "/tmp";
 #endif
 }
