@@ -390,15 +390,11 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 	return CreateCacheFileHandleForRead(std::move(file_handle));
 }
 
+// If the target file is compressed, here we only read and potentially cache compressed content.
+// Based on duckdb virtual filesystem's implementation, decompression happens after raw bytes read over.
+// Same strategy applies for duckdb internal "external file cache".
 unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &file, FileOpenFlags flags,
                                                          optional_ptr<FileOpener> opener) {
-	// TODO(hjiang): For compressed content, we temporarily disable caching.
-	// Reference issue: https://github.com/dentiny/duck-read-cache-fs/issues/359
-	if (flags.Compression() != FileCompressionType::UNCOMPRESSED) {
-		auto file_handle = internal_filesystem->OpenFile(file, flags, opener);
-		return file_handle;
-	}
-
 	// Now we handle uncompressed files, which should be cached.
 	InitializeGlobalConfig(opener);
 	if (flags.OpenForReading()) {
