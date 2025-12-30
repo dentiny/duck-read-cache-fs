@@ -1,3 +1,15 @@
+# 0.12.0
+
+## Fixed
+
+- Double checked cached read doesn't affect program correctness when compression gets involved, so revert the aggressive change. ([#361])
+
+[#361]: https://github.com/dentiny/duck-read-cache-fs/pull/361
+
+- Fix IO exception handling in multi-threaded read ([#363])
+
+[#363]: https://github.com/dentiny/duck-read-cache-fs/pull/363
+
 # 0.11.2
 
 ## Fixed
