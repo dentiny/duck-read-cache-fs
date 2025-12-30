@@ -6,6 +6,7 @@
 
 #include "base_cache_reader.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_read_chunk.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/map.hpp"
 #include "duckdb/common/shared_ptr.hpp"
@@ -17,8 +18,9 @@
 
 namespace duckdb {
 
-// Forward declaration.
+// Forward declarations.
 struct CacheHttpfsInstanceState;
+struct InstanceConfig;
 
 class DiskCacheReader final : public BaseCacheReader {
 public:
@@ -62,6 +64,10 @@ private:
 	// Otherwise, nothing happens.
 	void CacheLocal(const FileHandle &handle, const string &cache_directory, const string &local_cache_file,
 	                const string &content, const string &version_tag);
+
+	// Process a single cache read chunk in a worker thread.
+	void ProcessCacheReadChunk(FileHandle &handle, const InstanceConfig &config, const string &version_tag,
+	                           CacheReadChunk cache_read_chunk);
 
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;

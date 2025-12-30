@@ -14,11 +14,9 @@
 #include "utils/include/thread_utils.hpp"
 
 #include <cstdint>
+#include <future>
 #include <utility>
-
 namespace duckdb {
-
-namespace {
 
 // Runtime config for InMemoryCacheReader (fetched from instance state or defaults)
 struct InMemoryCacheReaderConfig {
@@ -28,6 +26,8 @@ struct InMemoryCacheReaderConfig {
 	uint64_t max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 	bool enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
 };
+
+namespace {
 
 // Get runtime config from instance state (returns copy with defaults if unavailable)
 InMemoryCacheReaderConfig GetConfig(const CacheHttpfsInstanceState &instance_state) {
@@ -48,6 +48,54 @@ bool InMemoryCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const
 		return true;
 	}
 	return cache_entry->version_tag == version_tag;
+}
+
+void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string &version_tag,
+                                                CacheReadChunk cache_read_chunk) {
+	SetThreadName("RdCachRdThd");
+
+	// Check local cache first, see if we could do a cached read.
+	InMemCacheBlock block_key;
+	block_key.fname = handle.GetPath();
+	block_key.start_off = cache_read_chunk.aligned_start_offset;
+	block_key.blk_size = cache_read_chunk.chunk_size;
+	auto cache_entry = cache->Get(block_key);
+
+	// Check cache entry validity and clear if necessary.
+	if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag)) {
+		cache->Delete(block_key);
+		cache_entry = nullptr;
+	}
+
+	if (cache_entry != nullptr) {
+		profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+		DUCKDB_LOG_OPEN_CACHE_HIT((handle));
+		cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
+		return;
+	}
+
+	// We suffer a cache loss, fallback to remote access then local filesystem write.
+	profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
+	DUCKDB_LOG_OPEN_CACHE_MISS((handle));
+	auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
+	void *addr = const_cast<char *>(content.data());
+	auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
+
+	{
+		const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
+		internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
+		                          cache_read_chunk.aligned_start_offset);
+	}
+
+	// Copy to destination buffer.
+	cache_read_chunk.CopyBufferToRequestedMemory(content);
+
+	InMemoryCacheReader::InMemCacheEntry new_cache_entry {
+	    .data = std::move(content),
+	    .version_tag = version_tag,
+	};
+	cache->Put(std::move(block_key), make_shared_ptr<InMemoryCacheReader::InMemCacheEntry>(std::move(new_cache_entry)));
 }
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
@@ -77,7 +125,10 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	idx_t already_read_bytes = 0;
 
 	// Threads to parallelly perform IO.
-	ThreadPool io_threads(GetThreadCountForSubrequests(alignment_info.subrequest_count));
+	const auto task_count = GetThreadCountForSubrequests(alignment_info.subrequest_count);
+	ThreadPool io_threads(task_count);
+	vector<std::future<void>> io_task_futures;
+	io_task_futures.reserve(task_count);
 	// Get file-level metadata once before processing chunks.
 	string version_tag = config.enable_cache_validation ? handle.Cast<CacheFileSystemHandle>().GetVersionTag() : "";
 
@@ -135,56 +186,17 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
-		io_threads.Push(
-		    [this, &handle, version_tag = std::cref(version_tag), cache_read_chunk = cache_read_chunk]() mutable {
-			    SetThreadName("RdCachRdThd");
-
-			    // Check local cache first, see if we could do a cached read.
-			    InMemCacheBlock block_key;
-			    block_key.fname = handle.GetPath();
-			    block_key.start_off = cache_read_chunk.aligned_start_offset;
-			    block_key.blk_size = cache_read_chunk.chunk_size;
-			    auto cache_entry = cache->Get(block_key);
-
-			    // Check cache entry validity and clear if necessary.
-			    if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag.get())) {
-				    cache->Delete(block_key);
-				    cache_entry = nullptr;
-			    }
-
-			    if (cache_entry != nullptr) {
-				    profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
-				    DUCKDB_LOG_OPEN_CACHE_HIT((handle));
-				    cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
-				    return;
-			    }
-
-			    // We suffer a cache loss, fallback to remote access then local filesystem write.
-			    profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
-			    DUCKDB_LOG_OPEN_CACHE_MISS((handle));
-			    auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
-			    void *addr = const_cast<char *>(content.data());
-			    auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
-			    auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
-
-			    {
-				    const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
-				    internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, addr,
-				                              cache_read_chunk.chunk_size, cache_read_chunk.aligned_start_offset);
-			    }
-
-			    // Copy to destination buffer.
-			    cache_read_chunk.CopyBufferToRequestedMemory(content);
-
-			    InMemoryCacheReader::InMemCacheEntry new_cache_entry {
-			        .data = std::move(content),
-			        .version_tag = version_tag.get(),
-			    };
-			    cache->Put(std::move(block_key),
-			               make_shared_ptr<InMemoryCacheReader::InMemCacheEntry>(std::move(new_cache_entry)));
-		    });
+		auto cur_task_future = io_threads.Push([this, &handle, &version_tag, cache_read_chunk]() {
+			ProcessCacheReadChunk(handle, version_tag, cache_read_chunk);
+		});
+		io_task_futures.emplace_back(std::move(cur_task_future));
 	}
+
+	// Block wait for all IO operations to complete.
 	io_threads.Wait();
+	for (auto &cur_task_future : io_task_futures) {
+		cur_task_future.get();
+	}
 
 	// Record "bytes to read" and "bytes to cache".
 	profile_collector->RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
