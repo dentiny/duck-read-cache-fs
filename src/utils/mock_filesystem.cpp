@@ -1,5 +1,7 @@
 #include "mock_filesystem.hpp"
 
+#include "duckdb/common/exception.hpp"
+
 #include <algorithm>
 #include <cstring>
 
@@ -40,6 +42,9 @@ unique_ptr<FileHandle> MockFileSystem::OpenFile(const string &path, FileOpenFlag
 }
 void MockFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
 	const std::lock_guard<std::mutex> lck(mtx);
+	if (throw_exception_on_read) {
+		throw IOException("Mock filesystem: Read operation failed at location %llu, bytes %lld", location, nr_bytes);
+	}
 	std::memset(buffer, 'a', nr_bytes);
 	read_operations.emplace_back(ReadOper {
 	    .start_offset = location,

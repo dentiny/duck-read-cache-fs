@@ -111,6 +111,10 @@ public:
 	void ClearReadOperations() {
 		read_operations.clear();
 	}
+	// Enable throwing exceptions on Read operations.
+	void SetThrowExceptionOnRead(bool throw_on_read) {
+		throw_exception_on_read = throw_on_read;
+	}
 
 private:
 	int64_t file_size = 0;
@@ -128,6 +132,7 @@ private:
 	uint64_t get_version_tag_invocation = 0;   // Number of `GetVersionTag` called.
 	vector<ReadOper> read_operations;
 	std::mutex mtx;
+	bool throw_exception_on_read = false; // Whether to throw exception on Read operations.
 };
 
 bool operator<(const MockFileSystem::ReadOper &lhs, const MockFileSystem::ReadOper &rhs);

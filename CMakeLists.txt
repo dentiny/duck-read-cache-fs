@@ -127,6 +127,10 @@ target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
 add_executable(test_disk_cache_validation unit/test_disk_cache_validation.cpp)
 target_link_libraries(test_disk_cache_validation ${EXTENSION_NAME})
 
+add_executable(test_read_exception_propagation
+               unit/test_read_exception_propagation.cpp)
+target_link_libraries(test_read_exception_propagation ${EXTENSION_NAME})
+
 add_executable(test_large_file_disk_reader unit/test_large_file_disk_reader.cpp)
 target_link_libraries(test_large_file_disk_reader ${EXTENSION_NAME})
 

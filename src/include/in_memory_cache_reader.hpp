@@ -10,8 +10,10 @@
 
 namespace duckdb {
 
-// Forward declaration.
+// Forward declarations.
 struct CacheHttpfsInstanceState;
+struct CacheReadChunk;
+struct InMemoryCacheReaderConfig;
 
 class InMemoryCacheReader final : public BaseCacheReader {
 public:
@@ -43,6 +45,9 @@ private:
 
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
+
+	// Process a single cache read chunk in a worker thread.
+	void ProcessCacheReadChunk(FileHandle &handle, const string &version_tag, CacheReadChunk cache_read_chunk);
 
 	// Instance state for config lookup.
 	weak_ptr<CacheHttpfsInstanceState> instance_state;
