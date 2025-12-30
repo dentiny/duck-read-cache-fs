@@ -3,6 +3,7 @@
 #pragma once
 
 #include "base_cache_reader.hpp"
+#include "cache_read_chunk.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
@@ -12,8 +13,6 @@ namespace duckdb {
 
 // Forward declarations.
 struct CacheHttpfsInstanceState;
-struct CacheReadChunk;
-struct InMemoryCacheReaderConfig;
 
 class InMemoryCacheReader final : public BaseCacheReader {
 public:

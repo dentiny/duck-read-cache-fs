@@ -6,6 +6,7 @@
 
 #include "base_cache_reader.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_read_chunk.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/map.hpp"
 #include "duckdb/common/shared_ptr.hpp"
@@ -20,7 +21,6 @@ namespace duckdb {
 // Forward declarations.
 struct CacheHttpfsInstanceState;
 struct InstanceConfig;
-struct CacheReadChunk;
 
 class DiskCacheReader final : public BaseCacheReader {
 public:
