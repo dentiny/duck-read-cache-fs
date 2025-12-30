@@ -1,0 +1,55 @@
+# name: test/sql/compressed_file.test
+# description: test read and cache compressed parquet file
+# group: [sql]
+
+require parquet
+
+require cache_httpfs
+
+statement ok
+COPY (
+    SELECT *
+    FROM range(1000) t(i)
+) TO '/tmp/cache_httpfs_fake_filesystem/data.parquet'
+(
+    FORMAT PARQUET,
+    COMPRESSION ZSTD
+);
+
+# Test in-memory cache filesystem.
+statement ok
+SET cache_httpfs_type='in_mem';
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+query III
+SELECT MIN(i), MAX(i), COUNT(*) FROM read_parquet('/tmp/cache_httpfs_fake_filesystem/data.parquet');
+----
+0	999	1000
+
+query I
+SELECT COUNT(*)
+FROM cache_httpfs_cache_status_query()
+WHERE remote_filename = '/tmp/cache_httpfs_fake_filesystem/data.parquet';
+----
+1
+
+# Test on-disk cache filesystem.
+statement ok
+SET cache_httpfs_type='on_disk';
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+query III
+SELECT MIN(i), MAX(i), COUNT(*) FROM read_parquet('/tmp/cache_httpfs_fake_filesystem/data.parquet');
+----
+0	999	1000
+
+query I
+SELECT COUNT(*)
+FROM cache_httpfs_cache_status_query()
+WHERE remote_filename = '/tmp/cache_httpfs_fake_filesystem/data.parquet';
+----
+1
