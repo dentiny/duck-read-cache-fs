@@ -199,8 +199,8 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 			if (!total_bytes_to_read.IsNull()) {
 				read_value = total_bytes_to_read.GetValue<uint64_t>();
 			}
-			total_bytes_to_read =
-			    Value::UBIGINT(read_value + cur_cache_access_info.total_bytes_to_read.GetValue<uint64_t>());
+			uint64_t cur_read_value = cur_cache_access_info.total_bytes_to_read.GetValue<uint64_t>();
+			total_bytes_to_read = Value::UBIGINT(read_value + cur_read_value);
 
 			// Handle number of bytes to cache.
 			auto &total_bytes_to_cache = aggregated_cache_access_infos[idx].total_bytes_to_cache;
@@ -208,8 +208,8 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 			if (!total_bytes_to_cache.IsNull()) {
 				cache_value = total_bytes_to_cache.GetValue<uint64_t>();
 			}
-			total_bytes_to_cache =
-			    Value::UBIGINT(cache_value + cur_cache_access_info.total_bytes_to_cache.GetValue<uint64_t>());
+			uint64_t cur_cache_value = cur_cache_access_info.total_bytes_to_cache.GetValue<uint64_t>();
+			total_bytes_to_cache = Value::UBIGINT(cache_value + cur_cache_value);
 		}
 	}
 
