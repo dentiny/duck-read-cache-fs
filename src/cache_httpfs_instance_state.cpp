@@ -154,12 +154,12 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context) {
 	return GetInstanceStateOrThrow(*context.db.get());
 }
 
-InstanceConfig &GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state) {
+shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state) {
 	auto instance_state_locked = instance_state.lock();
 	if (instance_state_locked == nullptr) {
 		throw InternalException("cache_httpfs instance state is no longer valid");
 	}
-	return instance_state_locked->config;
+	return instance_state_locked;
 }
 
 } // namespace duckdb

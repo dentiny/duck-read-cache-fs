@@ -66,7 +66,7 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
 	const string fname = StringUtil::GetFileName(remote_file);
 
 	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
-	for (int idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
+	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
 		hash_value ^= static_cast<uint64_t>(remote_file_sha256_val[idx]);
 		hash_value *= 0x100000001b3; // FNV prime
 	}
@@ -145,7 +145,8 @@ string DiskCacheReader::EvictCacheBlockLru() {
 	// Initialize file creation timestamp map, which should be called only once.
 	// IO operation is performed inside of critical section intentionally, since it's required for all threads.
 	if (cache_file_creation_timestamp_map.empty()) {
-		const auto &cache_directories = GetInstanceConfig(instance_state).on_disk_cache_directories;
+		auto instance_state_locked = GetInstanceConfig(instance_state);
+		const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
 		cache_file_creation_timestamp_map = GetOnDiskFilesUnder(cache_directories);
 	}
 	D_ASSERT(!cache_file_creation_timestamp_map.empty());
@@ -179,7 +180,8 @@ bool DiskCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const str
 
 void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_directory,
                                  const string &local_cache_file, const string &content, const string &version_tag) {
-	const auto config = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &config = instance_state_locked->config;
 
 	// Skip local cache if insufficient disk space.
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
@@ -235,7 +237,8 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	}
 
 	// Fill in on disk cache entries.
-	const auto &cache_directories = GetInstanceConfig(instance_state).on_disk_cache_directories;
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
 	for (const auto &cur_cache_dir : cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir,
 		                            [&cache_entries_info, cur_cache_dir](const string &fname, bool /*unused*/) {
@@ -371,7 +374,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		return;
 	}
 
-	const auto config = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &config = instance_state_locked->config;
 	std::call_once(cache_init_flag, [this, &config]() {
 		if (config.enable_disk_reader_mem_cache) {
 			in_mem_cache_blocks = make_uniq<InMemCache>(config.disk_reader_max_mem_cache_timeout_millisec,
@@ -472,7 +476,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 }
 
 void DiskCacheReader::ClearCache() {
-	const auto &config = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &config = instance_state_locked->config;
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		// Create an empty directory, otherwise later read access errors.
@@ -485,7 +490,8 @@ void DiskCacheReader::ClearCache() {
 
 void DiskCacheReader::ClearCache(const string &fname) {
 	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
-	const auto &config = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &config = instance_state_locked->config;
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir, [&](const string &cur_file, bool /*unused*/) {
 			if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {
