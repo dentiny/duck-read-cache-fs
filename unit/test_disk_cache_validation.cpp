@@ -75,6 +75,7 @@ struct ValidationTestHelper {
 
 		// Register state with instance
 		SetInstanceState(*db.instance.get(), instance_state);
+		InitializeCacheReaderForTest(instance_state, config);
 
 		// Create cache filesystem wrapping version tag filesystem
 		auto version_tag_fs = make_uniq<VersionTagFileSystem>();

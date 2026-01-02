@@ -36,10 +36,8 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(const TestCacheConfig &conf
 		local_fs->CreateDirectory(dir);
 	}
 
-	// Register state with instance
 	SetInstanceState(*db.instance.get(), instance_state);
-
-	// Create cache filesystem wrapping local filesystem
+	InitializeCacheReaderForTest(instance_state, inst_config);
 	cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal(), instance_state);
 }
 
@@ -54,6 +52,10 @@ CacheHttpfsInstanceState &TestCacheFileSystemHelper::GetInstanceStateOrThrow() {
 
 InstanceConfig &TestCacheFileSystemHelper::GetConfig() {
 	return instance_state->config;
+}
+
+void InitializeCacheReaderForTest(shared_ptr<CacheHttpfsInstanceState> &instance_state, const InstanceConfig &config) {
+	instance_state->cache_reader_manager.SetCacheReader(config, instance_state);
 }
 
 } // namespace duckdb

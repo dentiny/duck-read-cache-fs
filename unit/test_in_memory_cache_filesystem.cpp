@@ -44,6 +44,7 @@ struct CustomFsHelper {
 
 		// Register state with instance
 		SetInstanceState(*db.instance.get(), instance_state);
+		InitializeCacheReaderForTest(instance_state, inst_config);
 
 		// Create cache filesystem wrapping the provided filesystem
 		cache_fs = make_uniq<CacheFileSystem>(std::move(internal_fs), instance_state);
@@ -73,6 +74,7 @@ struct MockFsHelper {
 
 		// Register state with instance
 		SetInstanceState(*db.instance.get(), instance_state);
+		InitializeCacheReaderForTest(instance_state, inst_config);
 
 		// Create cache filesystem wrapping the provided filesystem
 		mock_fs_ptr = mock_fs.get();

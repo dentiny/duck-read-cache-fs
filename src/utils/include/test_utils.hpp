@@ -62,4 +62,9 @@ private:
 	unique_ptr<CacheFileSystem> cache_fs;
 };
 
+// Helper function to initialize cache reader for test instance state.
+// This should be called after configuring the instance state and before creating CacheFileSystem.
+void InitializeCacheReaderForTest(shared_ptr<CacheHttpfsInstanceState> &instance_state,
+                                   const InstanceConfig &config);
+
 } // namespace duckdb
