@@ -56,7 +56,6 @@ struct InstanceConfig;
 
 class InstanceCacheReaderManager {
 public:
-	// Initialize with profile collector manager reference
 	void SetProfileCollectorManager(ProfileCollectorManager &profile_collector_manager_p);
 	void SetCacheReader(const InstanceConfig &config, weak_ptr<CacheHttpfsInstanceState> instance_state_p);
 	BaseCacheReader *GetCacheReader() const;

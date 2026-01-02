@@ -13,14 +13,14 @@ namespace duckdb {
 
 class ProfileCollectorManager {
 public:
-	ProfileCollectorManager() = default;
+	ProfileCollectorManager();
 	~ProfileCollectorManager() = default;
 
 	// Set the current profile collector (thread-safe).
-	void SetProfileCollector(BaseProfileCollector *profile_collector_p, const string &cache_reader_type);
+	void SetProfileCollector(BaseProfileCollector &profile_collector_p, const string &cache_reader_type);
 
-	// Get the current profile collector.
-	BaseProfileCollector *GetProfileCollector() const;
+	// Get the current profile collector (thread-safe).
+	BaseProfileCollector &GetProfileCollector() const;
 
 	// Thread-safe wrapper for RecordOperationStart.
 	LatencyGuard RecordOperationStart(IoOperation io_oper);
@@ -37,6 +37,8 @@ public:
 private:
 	mutable std::mutex mutex;
 	BaseProfileCollector *profile_collector = nullptr;
+	// Default no-op collector used when no profile collector is set
+	NoopProfileCollector noop_collector;
 };
 
 } // namespace duckdb

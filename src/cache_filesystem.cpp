@@ -356,7 +356,7 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 
 	D_ASSERT(profile_collector != nullptr);
 	instance_state_locked->profile_collector_manager.SetProfileCollector(
-	    profile_collector.get(), instance_state_locked->cache_reader_manager.GetCacheReader()->GetName());
+	    *profile_collector, instance_state_locked->cache_reader_manager.GetCacheReader()->GetName());
 }
 
 unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenFileInfo &file, FileOpenFlags flags,
