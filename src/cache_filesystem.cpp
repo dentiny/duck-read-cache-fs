@@ -327,10 +327,6 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	auto &config = instance_state_locked->config;	
 	instance_state_locked->cache_reader_manager.SetCacheReader(config, instance_state);
 
-	// Set the profile collector type based on configuration
-	instance_state_locked->profile_collector_manager.SetProfileCollectorType(
-	    config.profile_type, instance_state_locked->cache_reader_manager.GetCacheReader()->GetName());
-
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();

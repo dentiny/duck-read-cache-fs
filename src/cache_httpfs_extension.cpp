@@ -264,6 +264,12 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 		                            StringUtil::Join(valid_types, ", "));
 	}
 	inst_state.config.profile_type = std::move(profile_type_str);
+	
+	// Update the profile collector type in the profile collector manager
+	// Get the cache reader name for proper labeling
+	auto *cache_reader = inst_state.cache_reader_manager.GetCacheReader();
+	const string cache_reader_name = cache_reader ? cache_reader->GetName() : "none";
+	inst_state.profile_collector_manager.SetProfileCollectorType(inst_state.config.profile_type, cache_reader_name);
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
