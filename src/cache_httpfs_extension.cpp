@@ -235,13 +235,13 @@ bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
 // Extension option callbacks - update instance state config when settings change
 //===--------------------------------------------------------------------===//
 
-void SetCacheType(DatabaseInstance& duckdb_instance, string cache_type_str) {
+void SetCacheType(DatabaseInstance &duckdb_instance, string cache_type_str) {
 	if (ALL_CACHE_TYPES->find(cache_type_str) == ALL_CACHE_TYPES->end()) {
 		vector<string> valid_types(ALL_CACHE_TYPES->begin(), ALL_CACHE_TYPES->end());
 		throw InvalidInputException("Invalid cache_httpfs_type '%s'. Valid options are: %s", cache_type_str,
 		                            StringUtil::Join(valid_types, ", "));
 	}
-	auto& instance_state = GetInstanceStateOrThrow(duckdb_instance);
+	auto &instance_state = GetInstanceStateOrThrow(duckdb_instance);
 	instance_state.config.cache_type = std::move(cache_type_str);
 	auto state = GetInstanceStateShared(duckdb_instance);
 	instance_state.cache_reader_manager.SetCacheReader(instance_state.config, state);

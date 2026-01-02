@@ -87,6 +87,7 @@ TEST_CASE("Test clear cache", "[cache filesystem test]") {
 
 int main(int argc, char **argv) {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
+	local_filesystem->RemoveDirectory(TEST_DIRECTORY);
 	local_filesystem->CreateDirectory(TEST_DIRECTORY);
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
 	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
