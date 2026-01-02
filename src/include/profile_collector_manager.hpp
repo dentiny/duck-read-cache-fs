@@ -36,9 +36,10 @@ public:
 
 private:
 	mutable std::mutex mutex;
-	BaseProfileCollector *profile_collector = nullptr;
 	// Default no-op collector used when no profile collector is set
 	NoopProfileCollector noop_collector;
+	// Reference to current profile collector (always valid, defaults to noop_collector)
+	BaseProfileCollector &profile_collector;
 };
 
 } // namespace duckdb
