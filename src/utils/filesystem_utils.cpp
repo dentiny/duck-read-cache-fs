@@ -20,6 +20,7 @@
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/numeric_utils.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "no_destructor.hpp"
@@ -47,7 +48,7 @@ vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &
 		}
 
 		const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
-		const int64_t diff_in_microsec = now.value - last_mod_time.value;
+		const idx_t diff_in_microsec = NumericCast<idx_t>(now.value - last_mod_time.value);
 		if (diff_in_microsec >= CACHE_FILE_STALENESS_MICROSEC) {
 			if (std::remove(full_name.data()) < -1 && errno != EEXIST) {
 				throw IOException("Fails to delete stale cache file %s", full_name);

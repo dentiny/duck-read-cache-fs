@@ -34,7 +34,6 @@ TEST_CASE("Test exception propagation on file read - disk cache", "[read excepti
 	mock_filesystem->SetFileSize(TEST_FILE_SIZE);
 	// Enable exception throwing on read operations
 	mock_filesystem->SetThrowExceptionOnRead(true);
-	auto *mock_filesystem_ptr = mock_filesystem.get();
 
 	// Create test helper which sets up the instance state
 	TestCacheConfig config;
@@ -122,7 +121,6 @@ TEST_CASE("Test exception propagation on file read - in-memory cache", "[read ex
 	mock_filesystem->SetFileSize(TEST_FILE_SIZE);
 	// Enable exception throwing on read operations
 	mock_filesystem->SetThrowExceptionOnRead(true);
-	auto *mock_filesystem_ptr = mock_filesystem.get();
 
 	TestCacheConfig config;
 	config.cache_type = "in_mem";

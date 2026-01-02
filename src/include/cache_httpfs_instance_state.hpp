@@ -159,7 +159,8 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance);
 // Get instance state from ClientContext, throwing if not found
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context);
 
-// Get instance config from the instance state.
-InstanceConfig &GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
+// Get instance state as shared_ptr (returns nullptr if instance state is no longer valid).
+// Use this to access config safely: auto state = GetInstanceConfig(instance_state); const auto &config = state->config;
+shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
 
 } // namespace duckdb
