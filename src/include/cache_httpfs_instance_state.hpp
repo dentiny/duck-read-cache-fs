@@ -56,7 +56,7 @@ struct InstanceConfig;
 
 class InstanceCacheReaderManager {
 public:
-	void SetProfileCollectorManager(ProfileCollectorManager &profile_collector_manager_p);
+	explicit InstanceCacheReaderManager(ProfileCollectorManager &profile_collector_manager_p);
 	void SetCacheReader(const InstanceConfig &config, weak_ptr<CacheHttpfsInstanceState> instance_state_p);
 	BaseCacheReader *GetCacheReader() const;
 	vector<BaseCacheReader *> GetCacheReaders() const;
@@ -68,7 +68,7 @@ public:
 
 private:
 	mutable std::mutex mutex;
-	ProfileCollectorManager *profile_collector_manager = nullptr;
+	ProfileCollectorManager &profile_collector_manager;
 	unique_ptr<BaseCacheReader> noop_cache_reader;
 	unique_ptr<BaseCacheReader> in_mem_cache_reader;
 	unique_ptr<BaseCacheReader> on_disk_cache_reader;
@@ -131,12 +131,13 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	InstanceConfig config;
 	// Cache filesystem registry.
 	InstanceCacheFsRegistry registry;
-	// Profile collector manager (shared across all cache filesystems in this instance).
+	// Profile collector manager, which is shared among all cache filesystem instances
 	ProfileCollectorManager profile_collector_manager;
 	InstanceCacheReaderManager cache_reader_manager;
 	CacheExclusionManager exclusion_manager;
 
-	CacheHttpfsInstanceState() = default;
+	CacheHttpfsInstanceState() : cache_reader_manager(profile_collector_manager) {
+	}
 
 	// ObjectCacheEntry interface
 	string GetObjectType() override {

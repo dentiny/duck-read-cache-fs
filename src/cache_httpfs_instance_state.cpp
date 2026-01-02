@@ -39,19 +39,17 @@ void InstanceCacheFsRegistry::Reset() {
 // InstanceCacheReaderManager implementation
 //===--------------------------------------------------------------------===//
 
-void InstanceCacheReaderManager::SetProfileCollectorManager(ProfileCollectorManager &profile_collector_manager_p) {
-	const std::lock_guard<std::mutex> lock(mutex);
-	profile_collector_manager = &profile_collector_manager_p;
+InstanceCacheReaderManager::InstanceCacheReaderManager(ProfileCollectorManager &profile_collector_manager_p)
+    : profile_collector_manager(profile_collector_manager_p) {
 }
 
 void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
                                                 weak_ptr<CacheHttpfsInstanceState> instance_state_p) {
 	const std::lock_guard<std::mutex> lock(mutex);
-	D_ASSERT(profile_collector_manager != nullptr);
 
 	if (config.cache_type == *ON_DISK_CACHE_TYPE) {
 		if (on_disk_cache_reader == nullptr) {
-			on_disk_cache_reader = make_uniq<DiskCacheReader>(*profile_collector_manager, std::move(instance_state_p));
+			on_disk_cache_reader = make_uniq<DiskCacheReader>(profile_collector_manager, std::move(instance_state_p));
 		}
 		internal_cache_reader = on_disk_cache_reader.get();
 		return;
@@ -60,7 +58,7 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 	if (config.cache_type == *IN_MEM_CACHE_TYPE) {
 		if (in_mem_cache_reader == nullptr) {
 			in_mem_cache_reader =
-			    make_uniq<InMemoryCacheReader>(*profile_collector_manager, std::move(instance_state_p));
+			    make_uniq<InMemoryCacheReader>(profile_collector_manager, std::move(instance_state_p));
 		}
 		internal_cache_reader = in_mem_cache_reader.get();
 		return;
@@ -68,7 +66,7 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 
 	// Fallback to NoopCacheReader.
 	if (noop_cache_reader == nullptr) {
-		noop_cache_reader = make_uniq<NoopCacheReader>(*profile_collector_manager);
+		noop_cache_reader = make_uniq<NoopCacheReader>(profile_collector_manager);
 	}
 
 	internal_cache_reader = noop_cache_reader.get();
