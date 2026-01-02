@@ -269,7 +269,8 @@ shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &han
 vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *opener) {
 	vector<OpenFileInfo> open_file_info;
 	{
-		const auto latency_guard = profile_collector_manager.RecordOperationStart(IoOperation::kGlob);
+		auto inst_state = instance_state.lock();
+		const auto latency_guard = inst_state->profile_collector_manager.RecordOperationStart(IoOperation::kGlob);
 		open_file_info = internal_filesystem->Glob(path, opener);
 	}
 
@@ -330,7 +331,8 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 		return make_shared_ptr<vector<OpenFileInfo>>(std::move(glob_res));
 	});
 	const CacheAccess cache_access = glob_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	profile_collector_manager.RecordCacheAccess(CacheEntity::kGlob, cache_access);
+	auto inst_state = instance_state.lock();
+	inst_state->profile_collector_manager.RecordCacheAccess(CacheEntity::kGlob, cache_access);
 	return *res;
 }
 
@@ -343,15 +345,18 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 
 	auto &config = instance_state_locked->config;
 	SetProfileCollector();
-	instance_state_locked->cache_reader_manager.SetCacheReader(config, profile_collector_manager, instance_state);
+	
+	// Initialize the profile collector manager reference in cache reader manager
+	instance_state_locked->cache_reader_manager.SetProfileCollectorManager(instance_state_locked->profile_collector_manager);
+	instance_state_locked->cache_reader_manager.SetCacheReader(config, instance_state);
 
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();
 
 	D_ASSERT(profile_collector != nullptr);
-	profile_collector_manager.SetProfileCollector(profile_collector.get(),
-	                                              instance_state_locked->cache_reader_manager.GetCacheReader()->GetName());
+	instance_state_locked->profile_collector_manager.SetProfileCollector(
+	    profile_collector.get(), instance_state_locked->cache_reader_manager.GetCacheReader()->GetName());
 }
 
 unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenFileInfo &file, FileOpenFlags flags,
@@ -368,24 +373,28 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 			cur_val->Close();
 		}
 		if (get_and_pop_res.target_item != nullptr) {
-			profile_collector_manager.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit);
+			auto inst_state = instance_state.lock();
+			inst_state->profile_collector_manager.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit);
 			DUCKDB_LOG_OPEN_CACHE_HIT((*get_and_pop_res.target_item));
 			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item));
 		}
 
 		// Record stats on cache miss.
-		profile_collector_manager.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
+		auto inst_state = instance_state.lock();
+		inst_state->profile_collector_manager.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
 
 		// Record cache miss caused by exclusive resource in use.
 		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
 		if (in_use_count > 0) {
-			profile_collector_manager.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
+			inst_state->profile_collector_manager.RecordCacheAccess(CacheEntity::kFileHandle,
+			                                                        CacheAccess::kCacheEntryInUse);
 		}
 	}
 
 	unique_ptr<FileHandle> file_handle = nullptr;
 	{
-		const auto latency_guard = profile_collector_manager.RecordOperationStart(IoOperation::kOpen);
+		auto inst_state = instance_state.lock();
+		const auto latency_guard = inst_state->profile_collector_manager.RecordOperationStart(IoOperation::kOpen);
 		file_handle = internal_filesystem->OpenFile(file, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	}
 	DUCKDB_LOG_OPEN_CACHE_MISS_PTR((file_handle));
@@ -442,7 +451,8 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 		                                return Stats(*disk_cache_handle.internal_file_handle);
 	                                });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	profile_collector_manager.RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	auto inst_state = instance_state.lock();
+	inst_state->profile_collector_manager.RecordCacheAccess(CacheEntity::kMetadata, cache_access);
 	return metadata->last_modification_time;
 }
 int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
@@ -462,7 +472,8 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 		                                return Stats(*disk_cache_handle.internal_file_handle);
 	                                });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	profile_collector_manager.RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	auto inst_state = instance_state.lock();
+	inst_state->profile_collector_manager.RecordCacheAccess(CacheEntity::kMetadata, cache_access);
 	return metadata->file_size;
 }
 int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {

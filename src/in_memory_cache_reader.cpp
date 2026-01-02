@@ -68,7 +68,7 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	}
 
 	if (cache_entry != nullptr) {
-		profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+		profile_collector_manager.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 		DUCKDB_LOG_OPEN_CACHE_HIT((handle));
 		cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
 		return;

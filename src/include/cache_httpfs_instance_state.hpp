@@ -17,6 +17,7 @@
 #include "duckdb/common/vector.hpp"
 #include "duckdb/storage/object_cache.hpp"
 #include "filesystem_utils.hpp"
+#include "profile_collector_manager.hpp"
 
 namespace duckdb {
 
@@ -49,14 +50,15 @@ private:
 // Per-instance cache reader manager
 //===--------------------------------------------------------------------===//
 
-// Forward declaration
-struct InstanceConfig;
+// Forward declarations
 class ProfileCollectorManager;
+struct InstanceConfig;
 
 class InstanceCacheReaderManager {
 public:
-	void SetCacheReader(const InstanceConfig &config, ProfileCollectorManager &profile_collector_manager_p,
-	                    weak_ptr<CacheHttpfsInstanceState> instance_state_p);
+	// Initialize with profile collector manager reference
+	void SetProfileCollectorManager(ProfileCollectorManager &profile_collector_manager_p);
+	void SetCacheReader(const InstanceConfig &config, weak_ptr<CacheHttpfsInstanceState> instance_state_p);
 	BaseCacheReader *GetCacheReader() const;
 	vector<BaseCacheReader *> GetCacheReaders() const;
 	void InitializeDiskCacheReader(const vector<string> &cache_directories,
@@ -67,6 +69,7 @@ public:
 
 private:
 	mutable std::mutex mutex;
+	ProfileCollectorManager *profile_collector_manager = nullptr;
 	unique_ptr<BaseCacheReader> noop_cache_reader;
 	unique_ptr<BaseCacheReader> in_mem_cache_reader;
 	unique_ptr<BaseCacheReader> on_disk_cache_reader;
@@ -129,7 +132,8 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	InstanceConfig config;
 	// Cache filesystem registry.
 	InstanceCacheFsRegistry registry;
-
+	// Profile collector manager (shared across all cache filesystems in this instance).
+	ProfileCollectorManager profile_collector_manager;
 	InstanceCacheReaderManager cache_reader_manager;
 	CacheExclusionManager exclusion_manager;
 
