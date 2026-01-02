@@ -52,6 +52,7 @@ TEST_CASE("Test exception propagation on file read - disk cache", "[read excepti
 	inst_config.on_disk_cache_directories = config.cache_directories;
 	inst_config.enable_glob_cache = config.enable_glob_cache;
 	SetInstanceState(*db.instance, instance_state);
+	InitializeCacheReaderForTest(instance_state, inst_config);
 
 	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(mock_filesystem), std::move(instance_state));
 
@@ -94,6 +95,7 @@ TEST_CASE("Test exception propagation in parallel reads - disk cache", "[read ex
 	inst_config.on_disk_cache_directories = config.cache_directories;
 	inst_config.enable_glob_cache = config.enable_glob_cache;
 	SetInstanceState(*db.instance, instance_state);
+	InitializeCacheReaderForTest(instance_state, inst_config);
 
 	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(mock_filesystem), std::move(instance_state));
 
@@ -135,6 +137,7 @@ TEST_CASE("Test exception propagation on file read - in-memory cache", "[read ex
 	inst_config.max_file_handle_cache_entry = config.max_file_handle_cache_entry;
 	inst_config.enable_glob_cache = config.enable_glob_cache;
 	SetInstanceState(*db.instance, instance_state);
+	InitializeCacheReaderForTest(instance_state, inst_config);
 
 	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(mock_filesystem), std::move(instance_state));
 
@@ -174,6 +177,7 @@ TEST_CASE("Test exception propagation in parallel reads - in-memory cache", "[re
 	inst_config.max_file_handle_cache_entry = config.max_file_handle_cache_entry;
 	inst_config.enable_glob_cache = config.enable_glob_cache;
 	SetInstanceState(*db.instance, instance_state);
+	InitializeCacheReaderForTest(instance_state, inst_config);
 
 	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(mock_filesystem), std::move(instance_state));
 
