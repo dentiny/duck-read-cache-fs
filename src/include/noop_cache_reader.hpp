@@ -10,9 +10,13 @@
 
 namespace duckdb {
 
+class ProfileCollectorManager;
+
 class NoopCacheReader : public BaseCacheReader {
 public:
-	NoopCacheReader() = default;
+	explicit NoopCacheReader(ProfileCollectorManager &profile_collector_manager_p)
+	    : BaseCacheReader(profile_collector_manager_p) {
+	}
 	virtual ~NoopCacheReader() = default;
 
 	void ClearCache() override {

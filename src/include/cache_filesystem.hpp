@@ -12,6 +12,7 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "exclusive_multi_lru_cache.hpp"
+#include "profile_collector_manager.hpp"
 #include "shared_lru_cache.hpp"
 
 #include <functional>
@@ -316,6 +317,8 @@ private:
 	std::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
+	// Thread-safe manager for profile collector operations.
+	ProfileCollectorManager profile_collector_manager;
 	// Used to profile operations.
 	unique_ptr<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.

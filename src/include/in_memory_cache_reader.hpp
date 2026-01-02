@@ -13,12 +13,14 @@ namespace duckdb {
 
 // Forward declarations.
 struct CacheHttpfsInstanceState;
+class ProfileCollectorManager;
 
 class InMemoryCacheReader final : public BaseCacheReader {
 public:
 	// Constructor: config values are read from instance state at runtime (with defaults as fallback).
-	explicit InMemoryCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-	    : instance_state(std::move(instance_state_p)) {
+	InMemoryCacheReader(ProfileCollectorManager &profile_collector_manager_p,
+	                    weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+	    : BaseCacheReader(profile_collector_manager_p), instance_state(std::move(instance_state_p)) {
 	}
 	~InMemoryCacheReader() override = default;
 

@@ -40,12 +40,13 @@ void InstanceCacheFsRegistry::Reset() {
 //===--------------------------------------------------------------------===//
 
 void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
+                                                ProfileCollectorManager &profile_collector_manager_p,
                                                 weak_ptr<CacheHttpfsInstanceState> instance_state_p) {
 	const std::lock_guard<std::mutex> lock(mutex);
 
 	if (config.cache_type == *ON_DISK_CACHE_TYPE) {
 		if (on_disk_cache_reader == nullptr) {
-			on_disk_cache_reader = make_uniq<DiskCacheReader>(std::move(instance_state_p));
+			on_disk_cache_reader = make_uniq<DiskCacheReader>(profile_collector_manager_p, std::move(instance_state_p));
 		}
 		internal_cache_reader = on_disk_cache_reader.get();
 		return;
@@ -53,7 +54,8 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 
 	if (config.cache_type == *IN_MEM_CACHE_TYPE) {
 		if (in_mem_cache_reader == nullptr) {
-			in_mem_cache_reader = make_uniq<InMemoryCacheReader>(std::move(instance_state_p));
+			in_mem_cache_reader =
+			    make_uniq<InMemoryCacheReader>(profile_collector_manager_p, std::move(instance_state_p));
 		}
 		internal_cache_reader = in_mem_cache_reader.get();
 		return;
@@ -61,7 +63,7 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 
 	// Fallback to NoopCacheReader.
 	if (noop_cache_reader == nullptr) {
-		noop_cache_reader = make_uniq<NoopCacheReader>();
+		noop_cache_reader = make_uniq<NoopCacheReader>(profile_collector_manager_p);
 	}
 
 	internal_cache_reader = noop_cache_reader.get();

@@ -51,10 +51,12 @@ private:
 
 // Forward declaration
 struct InstanceConfig;
+class ProfileCollectorManager;
 
 class InstanceCacheReaderManager {
 public:
-	void SetCacheReader(const InstanceConfig &config, weak_ptr<CacheHttpfsInstanceState> instance_state_p);
+	void SetCacheReader(const InstanceConfig &config, ProfileCollectorManager &profile_collector_manager_p,
+	                    weak_ptr<CacheHttpfsInstanceState> instance_state_p);
 	BaseCacheReader *GetCacheReader() const;
 	vector<BaseCacheReader *> GetCacheReaders() const;
 	void InitializeDiskCacheReader(const vector<string> &cache_directories,

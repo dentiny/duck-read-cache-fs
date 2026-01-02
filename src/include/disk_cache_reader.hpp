@@ -21,11 +21,13 @@ namespace duckdb {
 // Forward declarations.
 struct CacheHttpfsInstanceState;
 struct InstanceConfig;
+class ProfileCollectorManager;
 
 class DiskCacheReader final : public BaseCacheReader {
 public:
 	// Constructor: cache_directories defines where cache files are stored.
-	explicit DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p);
+	DiskCacheReader(ProfileCollectorManager &profile_collector_manager_p,
+	                weak_ptr<CacheHttpfsInstanceState> instance_state_p);
 	~DiskCacheReader() override = default;
 
 	string GetName() const override {

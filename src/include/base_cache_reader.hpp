@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "base_cache_reader.hpp"
 #include "base_profile_collector.hpp"
 #include "cache_entry_info.hpp"
 #include "duckdb/common/exception.hpp"
@@ -14,9 +13,14 @@
 
 namespace duckdb {
 
+// Forward declaration.
+class ProfileCollectorManager;
+
 class BaseCacheReader {
 public:
-	BaseCacheReader() = default;
+	explicit BaseCacheReader(ProfileCollectorManager &profile_collector_manager_p)
+	    : profile_collector_manager(profile_collector_manager_p) {
+	}
 	virtual ~BaseCacheReader() = default;
 	BaseCacheReader(const BaseCacheReader &) = delete;
 	BaseCacheReader &operator=(const BaseCacheReader &) = delete;
@@ -41,15 +45,6 @@ public:
 		throw NotImplementedException("Base cache reader doesn't implement GetName.");
 	}
 
-	void SetProfileCollector(BaseProfileCollector *profile_collector_p) {
-		profile_collector = profile_collector_p;
-		profile_collector->SetCacheReaderType(GetName());
-	}
-
-	BaseProfileCollector *GetProfileCollector() const {
-		return profile_collector;
-	}
-
 	template <class TARGET>
 	TARGET &Cast() {
 		DynamicCastCheck<TARGET>(this);
@@ -62,8 +57,8 @@ public:
 	}
 
 protected:
-	// Ownership lies in cache filesystem.
-	BaseProfileCollector *profile_collector = nullptr;
+	// Reference to profile collector manager, which is owned by CacheFileSystem.
+	ProfileCollectorManager &profile_collector_manager;
 };
 
 } // namespace duckdb

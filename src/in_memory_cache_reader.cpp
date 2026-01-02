@@ -75,7 +75,7 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	}
 
 	// We suffer a cache loss, fallback to remote access then local filesystem write.
-	profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
+		profile_collector_manager.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 	DUCKDB_LOG_OPEN_CACHE_MISS((handle));
 	auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 	void *addr = const_cast<char *>(content.data());
@@ -83,7 +83,7 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
 
 	{
-		const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
+		const auto latency_guard = profile_collector_manager.RecordOperationStart(IoOperation::kRead);
 		internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
 		                          cache_read_chunk.aligned_start_offset);
 	}
@@ -199,8 +199,8 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	}
 
 	// Record "bytes to read" and "bytes to cache".
-	profile_collector->RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
-	                                         /*actual_bytes=*/requested_bytes_to_read);
+	profile_collector_manager.RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
+	                                                /*actual_bytes=*/requested_bytes_to_read);
 }
 
 vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
