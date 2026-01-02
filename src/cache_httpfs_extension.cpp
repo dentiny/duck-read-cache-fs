@@ -235,15 +235,22 @@ bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
 // Extension option callbacks - update instance state config when settings change
 //===--------------------------------------------------------------------===//
 
-void UpdateCacheType(ClientContext &context, SetScope scope, Value &parameter) {
-	auto &inst_state = GetInstanceStateOrThrow(context);
-	auto cache_type_str = parameter.ToString();
+void SetCacheType(DatabaseInstance& duckdb_instance, string cache_type_str) {
 	if (ALL_CACHE_TYPES->find(cache_type_str) == ALL_CACHE_TYPES->end()) {
 		vector<string> valid_types(ALL_CACHE_TYPES->begin(), ALL_CACHE_TYPES->end());
 		throw InvalidInputException("Invalid cache_httpfs_type '%s'. Valid options are: %s", cache_type_str,
 		                            StringUtil::Join(valid_types, ", "));
 	}
-	inst_state.config.cache_type = std::move(cache_type_str);
+	auto& instance_state = GetInstanceStateOrThrow(duckdb_instance);
+	instance_state.config.cache_type = std::move(cache_type_str);
+	auto state = GetInstanceStateShared(duckdb_instance);
+	instance_state.cache_reader_manager.SetCacheReader(instance_state.config, state);
+}
+
+void UpdateCacheType(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	auto cache_type_str = parameter.ToString();
+	SetCacheType(*context.db, std::move(cache_type_str));
 }
 
 void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &parameter) {
@@ -529,6 +536,9 @@ void LoadInternal(ExtensionLoader &loader) {
 	auto cache_s3_filesystem = make_uniq<CacheFileSystem>(std::move(s3_fs), state);
 	vfs.RegisterSubSystem(std::move(cache_s3_filesystem));
 	DUCKDB_LOG_DEBUG(instance, "Wrap S3FileSystem with cache filesystem.");
+
+	// Set initial cache reader.
+	SetCacheType(instance, *DEFAULT_CACHE_TYPE);
 
 	// Register extension configuration.
 	auto &config = DBConfig::GetConfig(instance);
