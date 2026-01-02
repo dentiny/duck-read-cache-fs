@@ -96,9 +96,6 @@ public:
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags,
 	                                optional_ptr<FileOpener> opener = nullptr) override;
 	string GetName() const override;
-	BaseProfileCollector *GetProfileCollector() const {
-		return profile_collector.get();
-	}
 	// Get file size, which attempts to get metadata cache if possible.
 	int64_t GetFileSize(FileHandle &handle) override;
 	// Get last modification timestamp, which attempts to get metadata cache if possible.
@@ -290,9 +287,6 @@ private:
 	// Initialize cache reader data member, and set to [internal_cache_reader].
 	void SetAndGetCacheReader();
 
-	// Initialize profile collector data member.
-	void SetProfileCollector();
-
 	// Initialize metadata cache.
 	void SetMetadataCache();
 
@@ -317,8 +311,6 @@ private:
 	std::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
-	// Used to profile operations.
-	unique_ptr<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.
 	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;
 	unique_ptr<MetadataCache> metadata_cache;

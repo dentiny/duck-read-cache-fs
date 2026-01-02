@@ -4,6 +4,7 @@
 
 #include "base_profile_collector.hpp"
 #include "cache_entry_info.hpp"
+#include "duckdb/common/unique_ptr.hpp"
 #include "io_operations.hpp"
 
 #include <mutex>
@@ -15,11 +16,10 @@ public:
 	ProfileCollectorManager();
 	~ProfileCollectorManager() = default;
 
-	// Set the current profile collector
-	void SetProfileCollector(BaseProfileCollector &profile_collector_p, const string &cache_reader_type);
+	// Set the profile collector type based on configuration.
+	void SetProfileCollectorType(const string &profile_type, const string &cache_reader_type);
 
-	// Get the current profile collector
-	// WARNING: this function returns current profiler reference, so not expected to call concurrently with set function.
+	// Get the current profile collector (thread-safe).
 	BaseProfileCollector &GetProfileCollector() const;
 
 	// Thread-safe wrapper for profiler collector functions.
@@ -30,10 +30,8 @@ public:
 
 private:
 	mutable std::mutex mutex;
-	// Default no-op collector used when no profile collector is set
-	NoopProfileCollector noop_collector;
-	// Reference to current profile collector
-	BaseProfileCollector &profile_collector;
+	// Owned profile collector (defaults to noop)
+	unique_ptr<BaseProfileCollector> profile_collector;
 };
 
 } // namespace duckdb

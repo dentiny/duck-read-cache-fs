@@ -132,25 +132,6 @@ void CacheFileSystem::SetFileHandleCache() {
 	}
 }
 
-void CacheFileSystem::SetProfileCollector() {
-	const auto &profile_type = instance_state.lock()->config.profile_type;
-	if (profile_type == *NOOP_PROFILE_TYPE) {
-		if (profile_collector == nullptr || profile_collector->GetProfilerType() != *NOOP_PROFILE_TYPE) {
-			profile_collector = make_uniq<NoopProfileCollector>();
-		}
-		return;
-	}
-	if (profile_type == *TEMP_PROFILE_TYPE) {
-		if (profile_collector == nullptr || profile_collector->GetProfilerType() != *TEMP_PROFILE_TYPE) {
-			profile_collector = make_uniq<TempProfileCollector>();
-		}
-		return;
-	}
-	// Default to noop if unknown type
-	if (profile_collector == nullptr) {
-		profile_collector = make_uniq<NoopProfileCollector>();
-	}
-}
 
 void CacheFileSystem::ClearCache() {
 	if (metadata_cache != nullptr) {
@@ -343,18 +324,16 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	auto instance_state_locked = instance_state.lock();
 	const std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
 
-	auto &config = instance_state_locked->config;
-	SetProfileCollector();
-	
+	auto &config = instance_state_locked->config;	
 	instance_state_locked->cache_reader_manager.SetCacheReader(config, instance_state);
+
+	// Set the profile collector type based on configuration
+	instance_state_locked->profile_collector_manager.SetProfileCollectorType(
+	    config.profile_type, instance_state_locked->cache_reader_manager.GetCacheReader()->GetName());
 
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();
-
-	D_ASSERT(profile_collector != nullptr);
-	instance_state_locked->profile_collector_manager.SetProfileCollector(
-	    *profile_collector, instance_state_locked->cache_reader_manager.GetCacheReader()->GetName());
 }
 
 unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenFileInfo &file, FileOpenFlags flags,
