@@ -45,6 +45,7 @@ TEST_CASE("PutAndGetSameKey", "[exclusive multi-lru test]") {
 
 	res = cache.GetAndPop("1");
 	REQUIRE(res.evicted_items.empty());
+	REQUIRE(res.target_item != nullptr);
 	REQUIRE(*res.target_item == "1");
 	REQUIRE(cache.Verify());
 
@@ -59,6 +60,7 @@ TEST_CASE("PutAndGetSameKey", "[exclusive multi-lru test]") {
 
 	res = cache.GetAndPop("2");
 	REQUIRE(res.evicted_items.empty());
+	REQUIRE(res.target_item != nullptr);
 	REQUIRE(*res.target_item == "2");
 	REQUIRE(cache.Verify());
 }
@@ -78,6 +80,7 @@ TEST_CASE("CustomizedStruct", "[exclusive multi-lru test]") {
 	lookup_key.off = key.off;
 	auto val = cache.GetAndPop(lookup_key);
 	REQUIRE(val.evicted_items.empty());
+	REQUIRE(val.target_item != nullptr);
 	REQUIRE(*val.target_item == "world");
 	REQUIRE(cache.Verify());
 }
@@ -107,11 +110,13 @@ TEST_CASE("Put items with the same key", "[exclusive multi-lru test]") {
 	// Check key eviction.
 	res = cache.GetAndPop("key");
 	REQUIRE(res.evicted_items.empty());
+	REQUIRE(res.target_item != nullptr);
 	REQUIRE(*res.target_item == "val2");
 	REQUIRE(cache.Verify());
 
 	res = cache.GetAndPop("key");
 	REQUIRE(res.evicted_items.empty());
+	REQUIRE(res.target_item != nullptr);
 	REQUIRE(*res.target_item == "val3");
 	REQUIRE(cache.Verify());
 
@@ -137,11 +142,13 @@ TEST_CASE("Put items with the same key", "[exclusive multi-lru test]") {
 
 	res = cache.GetAndPop("new-key");
 	REQUIRE(res.evicted_items.empty());
+	REQUIRE(res.target_item != nullptr);
 	REQUIRE(*res.target_item == "new-val");
 	REQUIRE(cache.Verify());
 
 	res = cache.GetAndPop("key");
 	REQUIRE(res.evicted_items.empty());
+	REQUIRE(res.target_item != nullptr);
 	REQUIRE(*res.target_item == "val4");
 	REQUIRE(cache.Verify());
 }
@@ -173,11 +180,13 @@ TEST_CASE("Put and get with timeout test", "[exclusive multi-lru test]") {
 	REQUIRE(res.evicted_items.size() == 2);
 	REQUIRE(*res.evicted_items[0] == "val1");
 	REQUIRE(*res.evicted_items[1] == "val2");
+	REQUIRE(res.target_item != nullptr);
 	REQUIRE(*res.target_item == "val3");
 	REQUIRE(cache.Verify());
 
 	res = cache.GetAndPop("key");
 	REQUIRE(res.evicted_items.empty());
+	REQUIRE(res.target_item != nullptr);
 	REQUIRE(*res.target_item == "val4");
 	REQUIRE(cache.Verify());
 }
