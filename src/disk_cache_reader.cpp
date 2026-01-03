@@ -138,7 +138,8 @@ void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, cons
 
 DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p,
                                  BaseProfileCollector &profile_collector_p)
-    : BaseCacheReader(profile_collector_p, "on_disk_cache_reader"), local_filesystem(LocalFileSystem::CreateLocal()),
+    : BaseCacheReader(profile_collector_p, *ON_DISK_CACHE_READER_NAME),
+      local_filesystem(LocalFileSystem::CreateLocal()),
       instance_state(std::move(instance_state_p)) {
 }
 

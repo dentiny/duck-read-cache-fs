@@ -149,6 +149,8 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 
 	// Get profile collector reference
 	BaseProfileCollector &GetProfileCollector();
+	// Reset profile collector.
+	void ResetProfileCollector();
 };
 
 //===--------------------------------------------------------------------===//

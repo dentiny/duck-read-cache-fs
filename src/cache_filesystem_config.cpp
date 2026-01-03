@@ -18,6 +18,11 @@ const NoDestructor<string> ON_DISK_CACHE_TYPE {"on_disk"};
 const NoDestructor<string> IN_MEM_CACHE_TYPE {"in_mem"};
 const NoDestructor<unordered_set<string>> ALL_CACHE_TYPES {{*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE, *IN_MEM_CACHE_TYPE}};
 
+// Cache reader names.
+const NoDestructor<string> NOOP_CACHE_READER_NAME {"noop_cache_reader"};
+const NoDestructor<string> ON_DISK_CACHE_READER_NAME {"on_disk_cache_reader"};
+const NoDestructor<string> IN_MEM_CACHE_READER_NAME {"in_mem_cache_reader"};
+
 // Creation timestamp-based on-disk eviction policy.
 const NoDestructor<string> ON_DISK_CREATION_TIMESTAMP_EVICTION {"creation_timestamp"};
 // On-disk LRU eviction policy made for single-process usage.

@@ -16,8 +16,8 @@ namespace duckdb {
 
 class BaseCacheReader {
 public:
-	BaseCacheReader(BaseProfileCollector &profile_collector_p, const string &name)
-	    : profile_collector(&profile_collector_p), cache_reader_name(name) {
+	BaseCacheReader(BaseProfileCollector &profile_collector_p, string cache_reader_name_p)
+	    : profile_collector(&profile_collector_p), cache_reader_name(std::move(cache_reader_name_p)) {
 		profile_collector->SetCacheReaderType(cache_reader_name);
 	}
 	virtual ~BaseCacheReader() = default;

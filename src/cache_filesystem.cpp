@@ -313,15 +313,10 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 	return *res;
 }
 
+// TODO(hjiang): remove the function and switch to extension setting callback.
 void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
-	// Initialize cache reader with mutex guard against concurrent access.
-	// For duckdb, read operation happens after successful file open, at which point we won't have new configs and read
-	// operation happening concurrently.
 	auto instance_state_locked = instance_state.lock();
 	const std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
-
-	auto &config = instance_state_locked->config;
-
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();

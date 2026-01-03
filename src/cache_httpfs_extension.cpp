@@ -34,6 +34,8 @@ namespace {
 
 // "httpfs" extension name.
 constexpr const char *HTTPFS_EXTENSION = "httpfs";
+// Query execution success.
+constexpr bool SUCCESS = true;
 
 // Get database instance from expression state.
 // Returned instance ownership lies in the given [`state`].
@@ -57,8 +59,6 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 
 	// Clear data block cache for all initialized cache readers.
 	inst_state.cache_reader_manager.ClearCache();
-	D_ASSERT(inst_state.profile_collector != nullptr);
-	inst_state.profile_collector->Reset();
 
 	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
 	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
@@ -66,7 +66,10 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 		cur_cache_fs->ClearCache();
 	}
 
-	constexpr bool SUCCESS = true;
+	// Clear profile collection.
+	D_ASSERT(inst_state.profile_collector != nullptr);
+	inst_state.profile_collector->Reset();
+
 	result.Reference(Value(SUCCESS));
 }
 
@@ -86,7 +89,6 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 		cur_cache_fs->ClearCache(filepath);
 	}
 
-	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
 
@@ -143,14 +145,7 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
-
-	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
-	for (auto *cur_filesystem : cache_file_systems) {
-		auto &profile_collector = cur_filesystem->GetProfileCollector();
-		profile_collector.Reset();
-	}
-
-	constexpr bool SUCCESS = true;
+	inst_state.ResetProfileCollector();
 	result.Reference(Value(SUCCESS));
 }
 
@@ -174,7 +169,6 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 	vfs.RegisterSubSystem(std::move(cache_filesystem));
 	DUCKDB_LOG_DEBUG(duckdb_instance, StringUtil::Format("Wrap filesystem %s with cache filesystem.", filesystem_name));
 
-	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
 
@@ -485,11 +479,10 @@ void LoadInternal(ExtensionLoader &loader) {
 
 	// Create per-instance state for this extension
 	auto state = make_shared_ptr<CacheHttpfsInstanceState>();
-
-	// Initialize profile collector based on default profile type
-	SetProfileCollector(*state, state->config.profile_type);
-
+	// Register instance state with duckdb database instance.
 	SetInstanceState(instance, state);
+	// Initialize profile collector based on default profile type.
+	SetProfileCollector(*state, state->config.profile_type);
 
 	// Ensure cache directory exists
 	auto local_fs = LocalFileSystem::CreateLocal();

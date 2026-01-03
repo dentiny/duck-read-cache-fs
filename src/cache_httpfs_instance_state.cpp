@@ -46,7 +46,6 @@ void InstanceCacheFsRegistry::Reset() {
 void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
                                                 weak_ptr<CacheHttpfsInstanceState> instance_state_p) {
 	const std::lock_guard<std::mutex> lock(mutex);
-
 	auto instance_state_locked = instance_state_p.lock();
 	if (!instance_state_locked) {
 		throw InternalException("Instance state is no longer valid when setting cache reader");
@@ -215,12 +214,17 @@ BaseProfileCollector &CacheHttpfsInstanceState::GetProfileCollector() {
 	return *profile_collector;
 }
 
+void CacheHttpfsInstanceState::ResetProfileCollector() {
+	D_ASSERT(profile_collector != nullptr);
+	profile_collector = make_uniq<NoopProfileCollector>();
+}
+
 //===--------------------------------------------------------------------===//
 // Helper function to initialize profile collector based on profile type
 //===--------------------------------------------------------------------===//
 
 void SetProfileCollector(CacheHttpfsInstanceState &inst_state, const string &profiler_type) {
-	// Skip if already set to the same type (but only check if profile_collector exists)
+	// Skip if already set to the same type
 	if (inst_state.profile_collector != nullptr && inst_state.profile_collector->GetProfilerType() == profiler_type) {
 		return;
 	}

@@ -6,6 +6,7 @@
 
 #include "base_cache_reader.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_filesystem_config.hpp"
 #include "cache_read_chunk.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/map.hpp"
@@ -29,7 +30,7 @@ public:
 	~DiskCacheReader() override = default;
 
 	string GetName() const override {
-		return "on_disk_cache_reader";
+		return *ON_DISK_CACHE_READER_NAME;
 	}
 
 	void ClearCache() override;
