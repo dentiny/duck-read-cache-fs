@@ -70,16 +70,15 @@ public:
 
 class CacheFileSystem : public FileSystem {
 public:
-	CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p,
-	                         weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+	CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p, weak_ptr<CacheHttpfsInstanceState> instance_state_p)
 	    : internal_filesystem(std::move(internal_filesystem_p)), instance_state(std::move(instance_state_p)),
-	      profile_collector([&instance_state_p]() -> BaseProfileCollector& {
-		auto state = instance_state_p.lock();
-		if (!state) {
-			throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
-		}
-		return *state->profile_collector;
-	}()) {
+	      profile_collector([&instance_state_p]() -> BaseProfileCollector & {
+		      auto state = instance_state_p.lock();
+		      if (!state) {
+			      throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
+		      }
+		      return *state->profile_collector;
+	      }()) {
 		// Register with per-instance registry
 		auto state = instance_state.lock();
 		if (!state) {

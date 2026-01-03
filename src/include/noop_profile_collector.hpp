@@ -34,4 +34,4 @@ private:
 	std::atomic<uint64_t> latest_timestamp {0};
 };
 
-}  // namespace duckdb
+} // namespace duckdb

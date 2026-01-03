@@ -270,7 +270,7 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 		                            StringUtil::Join(valid_types, ", "));
 	}
 	inst_state.config.profile_type = std::move(profile_type_str);
-	
+
 	// Initialize the profile collector based on the new profile type
 	SetProfileCollector(inst_state, inst_state.config.profile_type);
 	// Update all cache readers to use the new collector
@@ -485,10 +485,10 @@ void LoadInternal(ExtensionLoader &loader) {
 
 	// Create per-instance state for this extension
 	auto state = make_shared_ptr<CacheHttpfsInstanceState>();
-	
+
 	// Initialize profile collector based on default profile type
 	SetProfileCollector(*state, state->config.profile_type);
-	
+
 	SetInstanceState(instance, state);
 
 	// Ensure cache directory exists

@@ -200,7 +200,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 
 	// Record "bytes to read" and "bytes to cache".
 	GetProfileCollector().RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
-	                                         /*actual_bytes=*/requested_bytes_to_read);
+	                                            /*actual_bytes=*/requested_bytes_to_read);
 }
 
 vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {

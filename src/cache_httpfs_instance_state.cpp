@@ -46,7 +46,7 @@ void InstanceCacheFsRegistry::Reset() {
 void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
                                                 weak_ptr<CacheHttpfsInstanceState> instance_state_p) {
 	const std::lock_guard<std::mutex> lock(mutex);
-	
+
 	auto instance_state_locked = instance_state_p.lock();
 	if (!instance_state_locked) {
 		throw InternalException("Instance state is no longer valid when setting cache reader");
@@ -54,8 +54,8 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 
 	if (config.cache_type == *ON_DISK_CACHE_TYPE) {
 		if (on_disk_cache_reader == nullptr) {
-			on_disk_cache_reader = make_uniq<DiskCacheReader>(std::move(instance_state_p),
-			                                                    *instance_state_locked->profile_collector);
+			on_disk_cache_reader =
+			    make_uniq<DiskCacheReader>(std::move(instance_state_p), *instance_state_locked->profile_collector);
 		} else {
 			on_disk_cache_reader->SetProfileCollector(*instance_state_locked->profile_collector);
 		}
@@ -65,8 +65,8 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 
 	if (config.cache_type == *IN_MEM_CACHE_TYPE) {
 		if (in_mem_cache_reader == nullptr) {
-			in_mem_cache_reader = make_uniq<InMemoryCacheReader>(std::move(instance_state_p),
-			                                                       *instance_state_locked->profile_collector);
+			in_mem_cache_reader =
+			    make_uniq<InMemoryCacheReader>(std::move(instance_state_p), *instance_state_locked->profile_collector);
 		} else {
 			in_mem_cache_reader->SetProfileCollector(*instance_state_locked->profile_collector);
 		}
@@ -104,15 +104,15 @@ vector<BaseCacheReader *> InstanceCacheReaderManager::GetCacheReaders() const {
 void InstanceCacheReaderManager::InitializeDiskCacheReader(const vector<string> &cache_directories,
                                                            weak_ptr<CacheHttpfsInstanceState> instance_state_p) {
 	const std::lock_guard<std::mutex> lock(mutex);
-	
+
 	auto instance_state_locked = instance_state_p.lock();
 	if (!instance_state_locked) {
 		throw InternalException("Instance state is no longer valid when initializing disk cache reader");
 	}
-	
+
 	if (on_disk_cache_reader == nullptr) {
-		on_disk_cache_reader = make_uniq<DiskCacheReader>(std::move(instance_state_p),
-		                                                    *instance_state_locked->profile_collector);
+		on_disk_cache_reader =
+		    make_uniq<DiskCacheReader>(std::move(instance_state_p), *instance_state_locked->profile_collector);
 	} else {
 		on_disk_cache_reader->SetProfileCollector(*instance_state_locked->profile_collector);
 	}
@@ -169,8 +169,8 @@ void InstanceCacheReaderManager::Reset() {
 // CacheHttpfsInstanceState implementation
 //===--------------------------------------------------------------------===//
 
-CacheHttpfsInstanceState::CacheHttpfsInstanceState() 
-	: profile_collector(make_uniq<NoopProfileCollector>()) {}
+CacheHttpfsInstanceState::CacheHttpfsInstanceState() : profile_collector(make_uniq<NoopProfileCollector>()) {
+}
 
 //===--------------------------------------------------------------------===//
 // Instance state storage/retrieval using DuckDB's ObjectCache
@@ -221,8 +221,7 @@ BaseProfileCollector &CacheHttpfsInstanceState::GetProfileCollector() {
 
 void SetProfileCollector(CacheHttpfsInstanceState &inst_state, const string &profiler_type) {
 	// Skip if already set to the same type (but only check if profile_collector exists)
-	if (inst_state.profile_collector != nullptr && 
-	    inst_state.profile_collector->GetProfilerType() == profiler_type) {
+	if (inst_state.profile_collector != nullptr && inst_state.profile_collector->GetProfilerType() == profiler_type) {
 		return;
 	}
 
@@ -235,7 +234,7 @@ void SetProfileCollector(CacheHttpfsInstanceState &inst_state, const string &pro
 		// Default to noop if unknown type
 		inst_state.profile_collector = make_uniq<NoopProfileCollector>();
 	}
-	
+
 	// Ensure we always have a valid profile collector after this function
 	D_ASSERT(inst_state.profile_collector != nullptr);
 }
