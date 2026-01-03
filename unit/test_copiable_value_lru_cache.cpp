@@ -34,27 +34,27 @@ TEST_CASE("PutAndGetSameKey", "[shared lru test]") {
 
 	// No value initially.
 	auto val = cache.Get("1");
-	REQUIRE(val.empty());
+	REQUIRE_FALSE(val);
 
 	// Check put and get.
 	cache.Put("1", std::string("1"));
 	val = cache.Get("1");
-	REQUIRE(!val.empty());
-	REQUIRE(val == "1");
+	REQUIRE(val);
+	REQUIRE(*val == "1");
 
 	// Check key eviction.
 	cache.Put("2", std::string("2"));
 	val = cache.Get("1");
-	REQUIRE(val.empty());
+	REQUIRE_FALSE(val);
 	val = cache.Get("2");
-	REQUIRE(!val.empty());
-	REQUIRE(val == "2");
+	REQUIRE(val);
+	REQUIRE(*val == "2");
 
 	// Check deletion.
 	REQUIRE(!cache.Delete("1"));
 	REQUIRE(cache.Delete("2"));
 	val = cache.Get("2");
-	REQUIRE(val.empty());
+	REQUIRE_FALSE(val);
 }
 
 TEST_CASE("CustomizedStruct", "[shared lru test]") {
@@ -69,8 +69,8 @@ TEST_CASE("CustomizedStruct", "[shared lru test]") {
 	lookup_key.fname = key.fname;
 	lookup_key.off = key.off;
 	auto val = cache.Get(lookup_key);
-	REQUIRE(!val.empty());
-	REQUIRE(val == "world");
+	REQUIRE(val);
+	REQUIRE(*val == "world");
 }
 
 TEST_CASE("Clear with filter test", "[shared lru test]") {
@@ -82,14 +82,14 @@ TEST_CASE("Clear with filter test", "[shared lru test]") {
 
 	// Still valid keys.
 	auto val = cache.Get("key1");
-	REQUIRE(!val.empty());
-	REQUIRE(val == "val1");
+	REQUIRE(val);
+	REQUIRE(*val == "val1");
 
 	// Non-existent keys.
 	val = cache.Get("key2");
-	REQUIRE(val.empty());
+	REQUIRE_FALSE(val);
 	val = cache.Get("key3");
-	REQUIRE(val.empty());
+	REQUIRE_FALSE(val);
 }
 
 TEST_CASE("GetOrCreate test", "[shared lru test]") {
@@ -132,13 +132,13 @@ TEST_CASE("Put and get with timeout test", "[shared lru test]") {
 
 	// Getting key-value pair right afterwards is able to get the value.
 	auto val = cache.Get("key");
-	REQUIRE(!val.empty());
-	REQUIRE(val == "val");
+	REQUIRE(val);
+	REQUIRE(*val == "val");
 
 	// Sleep for a while which exceeds timeout, re-fetch key-value pair fails to get value.
 	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 	val = cache.Get("key");
-	REQUIRE(val.empty());
+	REQUIRE_FALSE(val);
 }
 
 int main(int argc, char **argv) {

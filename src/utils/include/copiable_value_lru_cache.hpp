@@ -3,8 +3,7 @@
 // Value is stored in natively (aka, without shared pointer wrapper as `CopiableValueLruCache`). It's made for values
 // which are cheap to copy, which happens when internal data structure resizes and key-value pair gets requested.
 //
-// TODO(hjiang): The extension is compiled and linked with C++14 so we don't have `std::optional`;
-// as a workaround we return default value if the requested key doesn't exist in cache.
+// Returns optional values so callers can distinguish between cached misses and default-constructed results.
 
 #pragma once
 
@@ -22,6 +21,7 @@
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 #include "map_utils.hpp"
+#include "optional.hpp"
 #include "time_utils.hpp"
 
 namespace duckdb {
@@ -77,11 +77,11 @@ public:
 	}
 
 	// Look up the entry with key `key`.
-	// Return the default value (with `empty() == true`) if `key` doesn't exist in cache.
-	Val Get(const Key &key) {
+	// Return empty optional if `key` doesn't exist in cache.
+	optional<Val> Get(const Key &key) {
 		const auto entry_map_iter = entry_map.find(key);
 		if (entry_map_iter == entry_map.end()) {
-			return Val {};
+			return nullopt;
 		}
 
 		// Check whether found cache entry is expired or not.
@@ -89,7 +89,7 @@ public:
 			const auto now = GetSteadyNowMilliSecSinceEpoch();
 			if (now - entry_map_iter->second.timestamp > timeout_millisec) {
 				DeleteImpl(entry_map_iter);
-				return Val {};
+				return nullopt;
 			}
 		}
 
@@ -211,8 +211,8 @@ public:
 	}
 
 	// Look up the entry with key `key`.
-	// Return a default value (with `empty() == true`) if `key` doesn't exist in cache.
-	Val Get(const Key &key) {
+	// Return empty optional if `key` doesn't exist in cache.
+	optional<Val> Get(const Key &key) {
 		std::unique_lock<std::mutex> lock(mu);
 		return internal_cache.Get(key);
 	}
@@ -251,8 +251,8 @@ public:
 		{
 			std::unique_lock<std::mutex> lck(mu);
 			auto cached_val = internal_cache.Get(key);
-			if (!cached_val.empty()) {
-				return cached_val;
+			if (cached_val) {
+				return *cached_val;
 			}
 
 			auto creation_iter = ongoing_creation.find(key);
