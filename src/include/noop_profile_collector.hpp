@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "base_profile_collector.hpp"
 
 namespace duckdb {
@@ -9,10 +11,7 @@ public:
 	NoopProfileCollector() = default;
 	~NoopProfileCollector() override = default;
 
-	LatencyGuard RecordOperationStart(IoOperation io_oper) override {
-		latest_timestamp = GetSteadyNowMilliSecSinceEpoch();
-		return LatencyGuard {*this, std::move(io_oper)};
-	}
+	LatencyGuard RecordOperationStart(IoOperation io_oper) override;
 	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override {
 	}
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {

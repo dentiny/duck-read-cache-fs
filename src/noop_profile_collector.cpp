@@ -1,6 +1,13 @@
 #include "noop_profile_collector.hpp"
 
+#include "time_utils.hpp"
+
 namespace duckdb {
+
+LatencyGuard NoopProfileCollector::RecordOperationStart(IoOperation io_oper) {
+    latest_timestamp = GetSteadyNowMilliSecSinceEpoch();
+    return LatencyGuard {*this, std::move(io_oper)};
+}
 
 vector<CacheAccessInfo> NoopProfileCollector::GetCacheAccessInfo() const {
 	vector<CacheAccessInfo> cache_access_info;
