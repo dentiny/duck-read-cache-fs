@@ -17,8 +17,8 @@ namespace duckdb {
 class BaseCacheReader {
 public:
 	BaseCacheReader(BaseProfileCollector &profile_collector_p, string cache_reader_name_p)
-	    : profile_collector(&profile_collector_p), cache_reader_name(std::move(cache_reader_name_p)) {
-		profile_collector->SetCacheReaderType(cache_reader_name);
+	    : profile_collector(profile_collector_p), cache_reader_name(std::move(cache_reader_name_p)) {
+		profile_collector.get().SetCacheReaderType(cache_reader_name);
 	}
 	virtual ~BaseCacheReader() = default;
 	BaseCacheReader(const BaseCacheReader &) = delete;
@@ -45,13 +45,12 @@ public:
 	}
 
 	BaseProfileCollector &GetProfileCollector() const {
-		CACHE_HTTPFS_ALWAYS_ASSERT(profile_collector != nullptr);
-		return *profile_collector;
+		return profile_collector.get();
 	}
 
 	void SetProfileCollector(BaseProfileCollector &profile_collector_p) {
-		profile_collector = &profile_collector_p;
-		profile_collector->SetCacheReaderType(cache_reader_name);
+		profile_collector = profile_collector_p;
+		profile_collector.get().SetCacheReaderType(cache_reader_name);
 	}
 
 	template <class TARGET>
@@ -66,8 +65,8 @@ public:
 	}
 
 protected:
-	// Pointer to profile collector owned by CacheHttpfsInstanceState. Updated when profile type changes.
-	BaseProfileCollector *profile_collector = nullptr;
+	// Ownership lies in cache httpfs instance state, which gets updated at extension setting update callback.
+	std::reference_wrapper<BaseProfileCollector> profile_collector;
 	// Cached name used when updating profile collector.
 	string cache_reader_name;
 };

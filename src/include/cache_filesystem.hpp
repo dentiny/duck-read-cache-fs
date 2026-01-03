@@ -324,8 +324,7 @@ private:
 	std::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
-	// Reference to profile collector owned by CacheHttpfsInstanceState.
-	// Updated when profile type setting changes. Using reference_wrapper to allow reassignment.
+	// Ownership lies in cache httpfs instance state, which gets updated at setting update callback.
 	std::reference_wrapper<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.
 	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;

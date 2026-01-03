@@ -5,8 +5,8 @@
 namespace duckdb {
 
 LatencyGuard NoopProfileCollector::RecordOperationStart(IoOperation io_oper) {
-    latest_timestamp = GetSteadyNowMilliSecSinceEpoch();
-    return LatencyGuard {*this, std::move(io_oper)};
+	latest_timestamp = GetSteadyNowMilliSecSinceEpoch();
+	return LatencyGuard {*this, std::move(io_oper)};
 }
 
 vector<CacheAccessInfo> NoopProfileCollector::GetCacheAccessInfo() const {
