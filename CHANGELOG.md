@@ -1,3 +1,17 @@
+# 0.12.1
+
+## Fixed
+
+- Fix a potential data race for profile collector access, which is complaint by TSAN ([#371])
+
+[#371]: https://github.com/dentiny/duck-read-cache-fs/pull/371
+
+## Improved
+
+- Similar to the fixed item, use extension setting callback to actively "push" cache type change, instead of passively "pull" on IO operation ([#369])
+
+[#369]: https://github.com/dentiny/duck-read-cache-fs/pull/369
+
 # 0.12.0
 
 ## Fixed
