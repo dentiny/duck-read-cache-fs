@@ -1,5 +1,6 @@
 #include "test_utils.hpp"
 
+#include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/local_file_system.hpp"
 
 namespace duckdb {
@@ -29,6 +30,9 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(const TestCacheConfig &conf
 	inst_config.max_in_mem_cache_block_count = config.max_in_mem_cache_block_count;
 	inst_config.disk_reader_max_mem_cache_block_count = config.max_disk_reader_mem_cache_block_count;
 	inst_config.min_disk_bytes_for_cache = config.min_disk_bytes_for_cache;
+
+	// Initialize profile collector
+	instance_state->SetProfileCollector(inst_config.profile_type);
 
 	// Ensure cache directories exist
 	auto local_fs = LocalFileSystem::CreateLocal();

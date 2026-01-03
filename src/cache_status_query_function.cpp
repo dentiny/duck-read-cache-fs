@@ -184,11 +184,8 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 	auto &inst_state = GetInstanceStateOrThrow(*context.db);
 	const auto cache_readers = inst_state.cache_reader_manager.GetCacheReaders();
 	for (auto *cur_cache_reader : cache_readers) {
-		auto *profiler_collector = cur_cache_reader->GetProfileCollector();
-		if (profiler_collector == nullptr) {
-			continue;
-		}
-		auto cache_access_info = profiler_collector->GetCacheAccessInfo();
+		auto &profiler_collector = cur_cache_reader->GetProfileCollector();
+		auto cache_access_info = profiler_collector.GetCacheAccessInfo();
 		D_ASSERT(cache_access_info.size() == kCacheEntityCount);
 		for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
 			auto &cur_cache_access_info = cache_access_info[idx];

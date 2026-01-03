@@ -30,9 +30,9 @@ SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/du
 query IIIIII
 SELECT * FROM cache_httpfs_cache_access_info_query();
 ----
-metadata	2	1	0	NULL	NULL
-data	0	1	0	16222	16222
-file handle	0	1	0	NULL	NULL
+metadata	4	2	0	NULL	NULL
+data	0	2	0	32444	32444
+file handle	0	2	0	NULL	NULL
 glob	0	0	0	NULL	NULL
 
 # ==========================
@@ -70,7 +70,7 @@ SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/du
 query IIIIII
 SELECT * FROM cache_httpfs_cache_access_info_query();
 ----
-metadata	6	3	0	NULL	NULL
-data	0	3	0	48666	48666
-file handle	0	3	0	NULL	NULL
+metadata	8	4	0	NULL	NULL
+data	0	4	0	64888	64888
+file handle	0	4	0	NULL	NULL
 glob	0	0	0	NULL	NULL

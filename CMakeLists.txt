@@ -39,6 +39,7 @@ set(EXTENSION_SOURCES
     src/filesystem_status_query_function.cpp
     src/io_operations.cpp
     src/noop_cache_reader.cpp
+    src/noop_profile_collector.cpp
     src/temp_profile_collector.cpp
     src/utils/chunk_utils.cpp
     src/utils/fake_filesystem.cpp

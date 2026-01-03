@@ -6,6 +6,7 @@
 
 #include "base_cache_reader.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_filesystem_config.hpp"
 #include "cache_read_chunk.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/map.hpp"
@@ -25,11 +26,11 @@ struct InstanceConfig;
 class DiskCacheReader final : public BaseCacheReader {
 public:
 	// Constructor: cache_directories defines where cache files are stored.
-	explicit DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p);
+	DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p, BaseProfileCollector &profile_collector_p);
 	~DiskCacheReader() override = default;
 
 	string GetName() const override {
-		return "on_disk_cache_reader";
+		return *ON_DISK_CACHE_READER_NAME;
 	}
 
 	void ClearCache() override;

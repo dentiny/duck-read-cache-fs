@@ -21,6 +21,11 @@ extern const NoDestructor<string> ON_DISK_CACHE_TYPE;
 extern const NoDestructor<string> IN_MEM_CACHE_TYPE;
 extern const NoDestructor<unordered_set<string>> ALL_CACHE_TYPES;
 
+// Cache reader names.
+extern const NoDestructor<string> NOOP_CACHE_READER_NAME;
+extern const NoDestructor<string> ON_DISK_CACHE_READER_NAME;
+extern const NoDestructor<string> IN_MEM_CACHE_READER_NAME;
+
 // Creation timestamp-based on-disk eviction policy.
 extern const NoDestructor<string> ON_DISK_CREATION_TIMESTAMP_EVICTION;
 // On-disk LRU eviction policy made for single-process usage.

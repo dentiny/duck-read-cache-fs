@@ -21,6 +21,7 @@
 namespace duckdb {
 
 // Forward declarations
+class BaseProfileCollector;
 class CacheFileSystem;
 class ClientContext;
 class DatabaseInstance;
@@ -59,6 +60,8 @@ public:
 	vector<BaseCacheReader *> GetCacheReaders() const;
 	void InitializeDiskCacheReader(const vector<string> &cache_directories,
 	                               weak_ptr<CacheHttpfsInstanceState> instance_state_p);
+	// Update existing readers to use a new profile collector (when profile type changes).
+	void UpdateProfileCollector(BaseProfileCollector &profile_collector);
 	void ClearCache();
 	void ClearCache(const string &fname);
 	void Reset();
@@ -130,8 +133,17 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 
 	InstanceCacheReaderManager cache_reader_manager;
 	CacheExclusionManager exclusion_manager;
+	// Per-database profile collector, which is shared by all cache filesystems and cache readers.
+	//
+	// Thread-safety and ownership guarantee:
+	// - Profile collector is a "singleton" owned by per-database cache httpfs instance state
+	// - Both cache filesystems and cache readers make IO operation, so they hold a reference for profile collector to
+	// record metrics
+	// - Profile collector could be updated at extension setting update callback, which doesn't hold lock intentionally,
+	// based on the assumption that setting update doesn't run concurrently with IO operation
+	unique_ptr<BaseProfileCollector> profile_collector;
 
-	CacheHttpfsInstanceState() = default;
+	CacheHttpfsInstanceState();
 
 	// ObjectCacheEntry interface
 	string GetObjectType() override {
@@ -141,6 +153,13 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	static string ObjectType() {
 		return OBJECT_TYPE;
 	}
+
+	// Get profile collector reference
+	BaseProfileCollector &GetProfileCollector();
+	// Reset profile collector.
+	void ResetProfileCollector();
+	// Set the profile collector.
+	void SetProfileCollector(string profile_type);
 };
 
 //===--------------------------------------------------------------------===//

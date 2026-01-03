@@ -70,14 +70,21 @@ public:
 
 class CacheFileSystem : public FileSystem {
 public:
-	explicit CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p,
-	                         weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-	    : internal_filesystem(std::move(internal_filesystem_p)), instance_state(std::move(instance_state_p)) {
+	CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p, weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+	    : internal_filesystem(std::move(internal_filesystem_p)), instance_state(std::move(instance_state_p)),
+	      profile_collector([&instance_state_p]() -> BaseProfileCollector & {
+		      auto state = instance_state_p.lock();
+		      if (!state) {
+			      throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
+		      }
+		      return *state->profile_collector;
+	      }()) {
 		// Register with per-instance registry
 		auto state = instance_state.lock();
-		if (state) {
-			state->registry.Register(this);
+		if (!state) {
+			throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
 		}
+		state->registry.Register(this);
 	}
 	~CacheFileSystem() override {
 		// Unregister from per-instance registry before destruction
@@ -95,8 +102,12 @@ public:
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags,
 	                                optional_ptr<FileOpener> opener = nullptr) override;
 	string GetName() const override;
-	BaseProfileCollector *GetProfileCollector() const {
+	BaseProfileCollector &GetProfileCollector() const {
 		return profile_collector.get();
+	}
+	// Update the profile collector reference (called when profile type setting changes)
+	void SetProfileCollector(BaseProfileCollector &profile_collector_p) {
+		profile_collector = profile_collector_p;
 	}
 	// Get file size, which attempts to get metadata cache if possible.
 	int64_t GetFileSize(FileHandle &handle) override;
@@ -289,9 +300,6 @@ private:
 	// Initialize cache reader data member, and set to [internal_cache_reader].
 	void SetAndGetCacheReader();
 
-	// Initialize profile collector data member.
-	void SetProfileCollector();
-
 	// Initialize metadata cache.
 	void SetMetadataCache();
 
@@ -316,8 +324,9 @@ private:
 	std::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
-	// Used to profile operations.
-	unique_ptr<BaseProfileCollector> profile_collector;
+	// Ownership lies in cache httpfs instance state, which gets updated at setting update callback.
+	// Refer to [CacheHttpfsInstanceState] for thread-safety guarentee.
+	std::reference_wrapper<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.
 	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;
 	unique_ptr<MetadataCache> metadata_cache;

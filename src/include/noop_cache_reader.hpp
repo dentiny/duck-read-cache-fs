@@ -6,14 +6,17 @@
 
 #include "base_cache_reader.hpp"
 #include "base_profile_collector.hpp"
+#include "cache_filesystem_config.hpp"
 #include "duckdb/common/file_system.hpp"
 
 namespace duckdb {
 
 class NoopCacheReader : public BaseCacheReader {
 public:
-	NoopCacheReader() = default;
-	virtual ~NoopCacheReader() = default;
+	explicit NoopCacheReader(BaseProfileCollector &profile_collector_p)
+	    : BaseCacheReader(profile_collector_p, *NOOP_CACHE_READER_NAME) {
+	}
+	~NoopCacheReader() override = default;
 
 	void ClearCache() override {
 	}
@@ -27,7 +30,7 @@ public:
 	}
 
 	string GetName() const override {
-		return "noop_cache_reader";
+		return *NOOP_CACHE_READER_NAME;
 	}
 };
 

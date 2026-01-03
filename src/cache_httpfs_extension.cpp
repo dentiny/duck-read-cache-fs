@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <csignal>
 
+#include "assert_utils.hpp"
+#include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -23,6 +25,7 @@
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
+#include "temp_profile_collector.hpp"
 
 #include <algorithm>
 
@@ -32,6 +35,8 @@ namespace {
 
 // "httpfs" extension name.
 constexpr const char *HTTPFS_EXTENSION = "httpfs";
+// Query execution success.
+constexpr bool SUCCESS = true;
 
 // Get database instance from expression state.
 // Returned instance ownership lies in the given [`state`].
@@ -62,7 +67,10 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 		cur_cache_fs->ClearCache();
 	}
 
-	constexpr bool SUCCESS = true;
+	// Clear profile collection.
+	CACHE_HTTPFS_ALWAYS_ASSERT(inst_state.profile_collector != nullptr);
+	inst_state.profile_collector->Reset();
+
 	result.Reference(Value(SUCCESS));
 }
 
@@ -82,7 +90,6 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 		cur_cache_fs->ClearCache(filepath);
 	}
 
-	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
 
@@ -112,15 +119,14 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 	uint64_t latest_timestamp = 0;
 	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
-		auto *profile_collector = cur_filesystem->GetProfileCollector();
-		// Profile collector is only initialized after cache filesystem access.
-		if (profile_collector == nullptr) {
-			continue;
-		}
-
-		auto stats_pair = profile_collector->GetHumanReadableStats();
+		auto &profile_collector = cur_filesystem->GetProfileCollector();
+		auto stats_pair = profile_collector.GetHumanReadableStats();
 		const auto &cur_profile_stat = stats_pair.first;
 		const auto &cur_timestamp = stats_pair.second;
+		// Skip collectors that have never been accessed.
+		if (cur_timestamp == 0) {
+			continue;
+		}
 		if (cur_timestamp > latest_timestamp) {
 			latest_timestamp = cur_timestamp;
 			latest_stat = std::move(stats_pair.first);
@@ -140,18 +146,7 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
-
-	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
-	for (auto *cur_filesystem : cache_file_systems) {
-		auto *profile_collector = cur_filesystem->GetProfileCollector();
-		// Profile collector is only initialized after cache filesystem access.
-		if (profile_collector == nullptr) {
-			continue;
-		}
-		profile_collector->Reset();
-	}
-
-	constexpr bool SUCCESS = true;
+	inst_state.ResetProfileCollector();
 	result.Reference(Value(SUCCESS));
 }
 
@@ -175,7 +170,6 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 	vfs.RegisterSubSystem(std::move(cache_filesystem));
 	DUCKDB_LOG_DEBUG(duckdb_instance, StringUtil::Format("Wrap filesystem %s with cache filesystem.", filesystem_name));
 
-	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
 
@@ -190,7 +184,7 @@ unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
 		return make_uniq<HTTPFileSystem>();
 	}
 	auto httpfs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(httpfs != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(httpfs != nullptr);
 	return httpfs;
 }
 
@@ -205,7 +199,7 @@ unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
 		return make_uniq<HuggingFaceFileSystem>();
 	}
 	auto hf_fs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(hf_fs != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(hf_fs != nullptr);
 	return hf_fs;
 }
 
@@ -220,7 +214,7 @@ unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &in
 		return make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
 	}
 	auto s3_fs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(s3_fs != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(s3_fs != nullptr);
 	return s3_fs;
 }
 
@@ -265,12 +259,7 @@ void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &paramet
 void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	auto profile_type_str = parameter.ToString();
-	if (ALL_PROFILE_TYPES->find(profile_type_str) == ALL_PROFILE_TYPES->end()) {
-		const vector<string> valid_types(ALL_PROFILE_TYPES->begin(), ALL_PROFILE_TYPES->end());
-		throw InvalidInputException("Invalid cache_httpfs_profile_type '%s'. Valid options are: %s", profile_type_str,
-		                            StringUtil::Join(valid_types, ", "));
-	}
-	inst_state.config.profile_type = std::move(profile_type_str);
+	inst_state.SetProfileCollector(std::move(profile_type_str));
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
@@ -476,6 +465,7 @@ void LoadInternal(ExtensionLoader &loader) {
 
 	// Create per-instance state for this extension
 	auto state = make_shared_ptr<CacheHttpfsInstanceState>();
+	// Register instance state with duckdb database instance.
 	SetInstanceState(instance, state);
 
 	// Ensure cache directory exists
