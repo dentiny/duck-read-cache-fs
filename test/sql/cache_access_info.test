@@ -29,7 +29,7 @@ SELECT * FROM cache_httpfs_cache_status_query();
 query I
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
 ----
-1
+251
 
 query IIIIII
 SELECT * FROM cache_httpfs_cache_access_info_query();
@@ -43,7 +43,7 @@ glob	0	0	0	NULL	NULL
 query I
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
 ----
-1
+251
 
 query IIIIII
 SELECT * FROM cache_httpfs_cache_access_info_query();

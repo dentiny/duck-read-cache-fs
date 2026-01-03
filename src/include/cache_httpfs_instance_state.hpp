@@ -151,6 +151,8 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	BaseProfileCollector &GetProfileCollector();
 	// Reset profile collector.
 	void ResetProfileCollector();
+	// Set the profile collector.
+	void SetProfileCollector(string profile_type);
 };
 
 //===--------------------------------------------------------------------===//
@@ -171,8 +173,5 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context);
 
 // Get instance state as shared_ptr, throw exception if already unreferenced.
 shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
-
-// Initialize profile collector based on profile type
-void SetProfileCollector(CacheHttpfsInstanceState &inst_state, const string &profiler_type);
 
 } // namespace duckdb

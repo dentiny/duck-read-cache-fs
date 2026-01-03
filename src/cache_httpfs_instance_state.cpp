@@ -166,13 +166,6 @@ void InstanceCacheReaderManager::Reset() {
 }
 
 //===--------------------------------------------------------------------===//
-// CacheHttpfsInstanceState implementation
-//===--------------------------------------------------------------------===//
-
-CacheHttpfsInstanceState::CacheHttpfsInstanceState() : profile_collector(make_uniq<NoopProfileCollector>()) {
-}
-
-//===--------------------------------------------------------------------===//
 // Instance state storage/retrieval using DuckDB's ObjectCache
 //===--------------------------------------------------------------------===//
 
@@ -208,38 +201,49 @@ shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(weak_ptr<CacheHttpfsInsta
 // CacheHttpfsInstanceState implementation
 //===--------------------------------------------------------------------===//
 
+CacheHttpfsInstanceState::CacheHttpfsInstanceState() : profile_collector(make_uniq<NoopProfileCollector>()) {
+}
+
 BaseProfileCollector &CacheHttpfsInstanceState::GetProfileCollector() {
 	CACHE_HTTPFS_ALWAYS_ASSERT(profile_collector != nullptr);
 	return *profile_collector;
 }
 
 void CacheHttpfsInstanceState::ResetProfileCollector() {
-	CACHE_HTTPFS_ALWAYS_ASSERT(profile_collector != nullptr);
-	profile_collector = make_uniq<NoopProfileCollector>();
+	SetProfileCollector(*NOOP_PROFILE_TYPE);
 }
 
-//===--------------------------------------------------------------------===//
-// Helper function to initialize profile collector based on profile type
-//===--------------------------------------------------------------------===//
+void CacheHttpfsInstanceState::SetProfileCollector(string profile_type) {
+	if (ALL_PROFILE_TYPES->find(profile_type) == ALL_PROFILE_TYPES->end()) {
+		const vector<string> valid_types(ALL_PROFILE_TYPES->begin(), ALL_PROFILE_TYPES->end());
+		throw InvalidInputException("Invalid cache_httpfs_profile_type '%s'. Valid options are: %s", profile_type,
+		                            StringUtil::Join(valid_types, ", "));
+	}
+	config.profile_type = std::move(profile_type);
 
-void SetProfileCollector(CacheHttpfsInstanceState &inst_state, const string &profiler_type) {
-	// Skip if already set to the same type
-	if (inst_state.profile_collector != nullptr && inst_state.profile_collector->GetProfilerType() == profiler_type) {
+	// Initialize the profile collector based on the new profile type
+	CACHE_HTTPFS_ALWAYS_ASSERT(profile_collector != nullptr);
+	if (profile_collector->GetProfilerType() == config.profile_type) {
 		return;
 	}
 
-	// Create new profile collector for the requested type
-	if (profiler_type == *NOOP_PROFILE_TYPE) {
-		inst_state.profile_collector = make_uniq<NoopProfileCollector>();
-	} else if (profiler_type == *TEMP_PROFILE_TYPE) {
-		inst_state.profile_collector = make_uniq<TempProfileCollector>();
+	// Update the profile collector.
+	if (config.profile_type == *NOOP_PROFILE_TYPE) {
+		profile_collector = make_uniq<NoopProfileCollector>();
+	} else if (config.profile_type == *TEMP_PROFILE_TYPE) {
+		profile_collector = make_uniq<TempProfileCollector>();
 	} else {
-		// Default to noop if unknown type
-		inst_state.profile_collector = make_uniq<NoopProfileCollector>();
+		profile_collector = make_uniq<NoopProfileCollector>();
 	}
 
-	// Ensure we always have a valid profile collector after this function
-	CACHE_HTTPFS_ALWAYS_ASSERT(inst_state.profile_collector != nullptr);
+	// Update all cache readers to use the new collector
+	cache_reader_manager.UpdateProfileCollector(*profile_collector);
+
+	// Update all registered cache filesystems to use the new profile collector
+	auto cache_filesystems = registry.GetAllCacheFs();
+	for (auto *cache_fs : cache_filesystems) {
+		cache_fs->SetProfileCollector(*profile_collector);
+	}
 }
 
 } // namespace duckdb

@@ -19,8 +19,7 @@ class InMemoryCacheReader final : public BaseCacheReader {
 public:
 	// Constructor: config values are read from instance state at runtime (with defaults as fallback).
 	InMemoryCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p, BaseProfileCollector &profile_collector_p)
-	    : BaseCacheReader(profile_collector_p, *IN_MEM_CACHE_READER_NAME),
-	      instance_state(std::move(instance_state_p)) {
+	    : BaseCacheReader(profile_collector_p, *IN_MEM_CACHE_READER_NAME), instance_state(std::move(instance_state_p)) {
 	}
 	~InMemoryCacheReader() override = default;
 

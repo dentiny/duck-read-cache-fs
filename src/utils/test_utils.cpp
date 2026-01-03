@@ -32,7 +32,7 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(const TestCacheConfig &conf
 	inst_config.min_disk_bytes_for_cache = config.min_disk_bytes_for_cache;
 
 	// Initialize profile collector
-	SetProfileCollector(*instance_state, inst_config.profile_type);
+	instance_state->SetProfileCollector(inst_config.profile_type);
 
 	// Ensure cache directories exist
 	auto local_fs = LocalFileSystem::CreateLocal();

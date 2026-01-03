@@ -259,22 +259,7 @@ void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &paramet
 void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	auto profile_type_str = parameter.ToString();
-	if (ALL_PROFILE_TYPES->find(profile_type_str) == ALL_PROFILE_TYPES->end()) {
-		const vector<string> valid_types(ALL_PROFILE_TYPES->begin(), ALL_PROFILE_TYPES->end());
-		throw InvalidInputException("Invalid cache_httpfs_profile_type '%s'. Valid options are: %s", profile_type_str,
-		                            StringUtil::Join(valid_types, ", "));
-	}
-	inst_state.config.profile_type = std::move(profile_type_str);
-
-	// Initialize the profile collector based on the new profile type
-	SetProfileCollector(inst_state, inst_state.config.profile_type);
-	// Update all cache readers to use the new collector
-	inst_state.cache_reader_manager.UpdateProfileCollector(*inst_state.profile_collector);
-	// Update all registered cache filesystems to use the new profile collector
-	auto cache_filesystems = inst_state.registry.GetAllCacheFs();
-	for (auto *cache_fs : cache_filesystems) {
-		cache_fs->SetProfileCollector(*inst_state.profile_collector);
-	}
+	inst_state.SetProfileCollector(std::move(profile_type_str));
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
@@ -482,8 +467,6 @@ void LoadInternal(ExtensionLoader &loader) {
 	auto state = make_shared_ptr<CacheHttpfsInstanceState>();
 	// Register instance state with duckdb database instance.
 	SetInstanceState(instance, state);
-	// Initialize profile collector based on default profile type.
-	SetProfileCollector(*state, state->config.profile_type);
 
 	// Ensure cache directory exists
 	auto local_fs = LocalFileSystem::CreateLocal();
