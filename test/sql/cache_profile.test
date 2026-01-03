@@ -4,7 +4,7 @@
 
 require cache_httpfs
 
-# Before enabling profiling, no stats emitted.
+# Before enabling profiling, noop profile collector is active (initialized at extension load).
 query I
 SELECT cache_httpfs_get_profile();
 ----
@@ -13,6 +13,7 @@ No valid access to cache filesystem
 statement ok
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
 
+# After access, noop profile collector still returns its identifier (no actual stats).
 query I
 SELECT cache_httpfs_get_profile();
 ----

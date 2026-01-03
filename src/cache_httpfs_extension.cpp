@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <csignal>
 
+#include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -23,6 +24,7 @@
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
+#include "temp_profile_collector.hpp"
 
 #include <algorithm>
 
@@ -55,6 +57,8 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 
 	// Clear data block cache for all initialized cache readers.
 	inst_state.cache_reader_manager.ClearCache();
+	D_ASSERT(inst_state.profile_collector != nullptr);
+	inst_state.profile_collector->Reset();
 
 	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
 	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
@@ -112,15 +116,14 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 	uint64_t latest_timestamp = 0;
 	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
-		auto *profile_collector = cur_filesystem->GetProfileCollector();
-		// Profile collector is only initialized after cache filesystem access.
-		if (profile_collector == nullptr) {
-			continue;
-		}
-
-		auto stats_pair = profile_collector->GetHumanReadableStats();
+		auto &profile_collector = cur_filesystem->GetProfileCollector();
+		auto stats_pair = profile_collector.GetHumanReadableStats();
 		const auto &cur_profile_stat = stats_pair.first;
 		const auto &cur_timestamp = stats_pair.second;
+		// Skip collectors that have never been accessed.
+		if (cur_timestamp == 0) {
+			continue;
+		}
 		if (cur_timestamp > latest_timestamp) {
 			latest_timestamp = cur_timestamp;
 			latest_stat = std::move(stats_pair.first);
@@ -143,12 +146,8 @@ void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &re
 
 	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
-		auto *profile_collector = cur_filesystem->GetProfileCollector();
-		// Profile collector is only initialized after cache filesystem access.
-		if (profile_collector == nullptr) {
-			continue;
-		}
-		profile_collector->Reset();
+		auto &profile_collector = cur_filesystem->GetProfileCollector();
+		profile_collector.Reset();
 	}
 
 	constexpr bool SUCCESS = true;
@@ -271,6 +270,16 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 		                            StringUtil::Join(valid_types, ", "));
 	}
 	inst_state.config.profile_type = std::move(profile_type_str);
+	
+	// Initialize the profile collector based on the new profile type
+	SetProfileCollector(inst_state, inst_state.config.profile_type);
+	// Update all cache readers to use the new collector
+	inst_state.cache_reader_manager.UpdateProfileCollector(*inst_state.profile_collector);
+	// Update all registered cache filesystems to use the new profile collector
+	auto cache_filesystems = inst_state.registry.GetAllCacheFs();
+	for (auto *cache_fs : cache_filesystems) {
+		cache_fs->SetProfileCollector(*inst_state.profile_collector);
+	}
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
@@ -476,6 +485,10 @@ void LoadInternal(ExtensionLoader &loader) {
 
 	// Create per-instance state for this extension
 	auto state = make_shared_ptr<CacheHttpfsInstanceState>();
+	
+	// Initialize profile collector based on default profile type
+	SetProfileCollector(*state, state->config.profile_type);
+	
 	SetInstanceState(instance, state);
 
 	// Ensure cache directory exists

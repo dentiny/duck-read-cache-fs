@@ -17,8 +17,8 @@ struct CacheHttpfsInstanceState;
 class InMemoryCacheReader final : public BaseCacheReader {
 public:
 	// Constructor: config values are read from instance state at runtime (with defaults as fallback).
-	explicit InMemoryCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-	    : instance_state(std::move(instance_state_p)) {
+	InMemoryCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p, BaseProfileCollector &profile_collector_p)
+	    : BaseCacheReader(profile_collector_p, "in_mem_cache_reader"), instance_state(std::move(instance_state_p)) {
 	}
 	~InMemoryCacheReader() override = default;
 

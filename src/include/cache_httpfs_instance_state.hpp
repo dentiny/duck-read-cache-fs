@@ -21,6 +21,7 @@
 namespace duckdb {
 
 // Forward declarations
+class BaseProfileCollector;
 class CacheFileSystem;
 class ClientContext;
 class DatabaseInstance;
@@ -59,6 +60,8 @@ public:
 	vector<BaseCacheReader *> GetCacheReaders() const;
 	void InitializeDiskCacheReader(const vector<string> &cache_directories,
 	                               weak_ptr<CacheHttpfsInstanceState> instance_state_p);
+	// Update existing readers to use a new profile collector (when profile type changes).
+	void UpdateProfileCollector(BaseProfileCollector &profile_collector);
 	void ClearCache();
 	void ClearCache(const string &fname);
 	void Reset();
@@ -130,6 +133,8 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 
 	InstanceCacheReaderManager cache_reader_manager;
 	CacheExclusionManager exclusion_manager;
+	// Per-database profile collector, which is shared by all cache filesystems and cache readers.
+	unique_ptr<BaseProfileCollector> profile_collector;
 
 	CacheHttpfsInstanceState() = default;
 
@@ -141,6 +146,9 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	static string ObjectType() {
 		return OBJECT_TYPE;
 	}
+
+	// Get profile collector reference
+	BaseProfileCollector &GetProfileCollector();
 };
 
 //===--------------------------------------------------------------------===//
@@ -161,5 +169,8 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context);
 
 // Get instance state as shared_ptr, throw exception if already unreferenced.
 shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
+
+// Initialize profile collector based on profile type
+void SetProfileCollector(CacheHttpfsInstanceState &inst_state, const string &profiler_type);
 
 } // namespace duckdb

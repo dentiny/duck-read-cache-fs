@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <utility>
 
 #include "cache_entry_info.hpp"
@@ -7,6 +8,7 @@
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/vector.hpp"
 #include "io_operations.hpp"
+#include "time_utils.hpp"
 
 namespace duckdb {
 
@@ -87,6 +89,7 @@ public:
 	~NoopProfileCollector() override = default;
 
 	LatencyGuard RecordOperationStart(IoOperation io_oper) override {
+		latest_timestamp = GetSteadyNowMilliSecSinceEpoch();
 		return LatencyGuard {*this, std::move(io_oper)};
 	}
 	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override {
@@ -106,10 +109,15 @@ public:
 		}
 		return cache_access_info;
 	}
-	void Reset() override {};
+	void Reset() override {
+		latest_timestamp = 0;
+	};
 	std::pair<string, uint64_t> GetHumanReadableStats() override {
-		return std::make_pair("(noop profile collector)", /*timestamp=*/0);
+		return std::make_pair("(noop profile collector)", static_cast<uint64_t>(latest_timestamp.load()));
 	}
+
+private:
+	std::atomic<uint64_t> latest_timestamp {0};
 };
 
 } // namespace duckdb

@@ -136,8 +136,11 @@ void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, cons
 
 } // namespace
 
-DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-    : local_filesystem(LocalFileSystem::CreateLocal()), instance_state(std::move(instance_state_p)) {
+DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p,
+                                 BaseProfileCollector &profile_collector_p)
+    : BaseCacheReader(profile_collector_p, "on_disk_cache_reader"),
+      local_filesystem(LocalFileSystem::CreateLocal()),
+      instance_state(std::move(instance_state_p)) {
 }
 
 string DiskCacheReader::EvictCacheBlockLru() {
@@ -277,7 +280,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 			local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
 		}
 		if (cache_entry != nullptr) {
-			profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+			GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
 			cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
 			return;
@@ -308,10 +311,10 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	}
 
 	if (file_handle != nullptr) {
-		profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+		GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
 		DUCKDB_LOG_READ_CACHE_HIT((handle));
 		{
-			const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kDiskCacheRead);
+			const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kDiskCacheRead);
 			local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
 		}
 		cache_read_chunk.CopyBufferToRequestedMemory(content);
@@ -335,13 +338,13 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	}
 
 	// We suffer a cache loss, fallback to remote access then local filesystem write.
-	profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
+	GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
 	DUCKDB_LOG_READ_CACHE_MISS((handle));
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
 
 	{
-		const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
+		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kRead);
 		internal_filesystem->Read(*disk_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
 		                          cache_read_chunk.aligned_start_offset);
 	}
@@ -471,7 +474,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	}
 
 	// Record "bytes to read" and "bytes to cache".
-	profile_collector->RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
+	GetProfileCollector().RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
 	                                         /*actual_bytes=*/requested_bytes_to_read);
 }
 
