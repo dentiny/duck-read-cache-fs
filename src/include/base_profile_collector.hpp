@@ -1,6 +1,5 @@
 #pragma once
 
-#include <atomic>
 #include <utility>
 
 #include "cache_entry_info.hpp"
@@ -8,7 +7,6 @@
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/vector.hpp"
 #include "io_operations.hpp"
-#include "time_utils.hpp"
 
 namespace duckdb {
 
