@@ -83,41 +83,4 @@ protected:
 	string cache_reader_type = "";
 };
 
-class NoopProfileCollector final : public BaseProfileCollector {
-public:
-	NoopProfileCollector() = default;
-	~NoopProfileCollector() override = default;
-
-	LatencyGuard RecordOperationStart(IoOperation io_oper) override {
-		latest_timestamp = GetSteadyNowMilliSecSinceEpoch();
-		return LatencyGuard {*this, std::move(io_oper)};
-	}
-	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override {
-	}
-	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {
-	}
-	void RecordActualCacheRead(idx_t cache_size, idx_t actual_bytes) override {
-	}
-	string GetProfilerType() override {
-		return *NOOP_PROFILE_TYPE;
-	}
-	vector<CacheAccessInfo> GetCacheAccessInfo() const override {
-		vector<CacheAccessInfo> cache_access_info;
-		cache_access_info.resize(kCacheEntityCount);
-		for (size_t idx = 0; idx < kCacheEntityCount; ++idx) {
-			cache_access_info[idx].cache_type = CACHE_ENTITY_NAMES[idx];
-		}
-		return cache_access_info;
-	}
-	void Reset() override {
-		latest_timestamp = 0;
-	};
-	std::pair<string, uint64_t> GetHumanReadableStats() override {
-		return std::make_pair("(noop profile collector)", static_cast<uint64_t>(latest_timestamp.load()));
-	}
-
-private:
-	std::atomic<uint64_t> latest_timestamp {0};
-};
-
 } // namespace duckdb

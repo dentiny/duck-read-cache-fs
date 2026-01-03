@@ -10,7 +10,7 @@ query IIIIII
 SELECT * FROM cache_httpfs_cache_access_info_query();
 ----
 metadata	0	0	0	NULL	NULL
-data	0	0	0	NULL	NULL
+data	0	0	0	0	0
 file handle	0	0	0	NULL	NULL
 glob	0	0	0	NULL	NULL
 

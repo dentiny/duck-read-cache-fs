@@ -9,6 +9,7 @@
 #include "duckdb/main/database.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "noop_cache_reader.hpp"
+#include "noop_profile_collector.hpp"
 #include "temp_profile_collector.hpp"
 
 namespace duckdb {
