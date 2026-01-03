@@ -325,6 +325,7 @@ private:
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
 	// Ownership lies in cache httpfs instance state, which gets updated at setting update callback.
+	// Refer to [CacheHttpfsInstanceState] for thread-safety guarentee.
 	std::reference_wrapper<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.
 	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;

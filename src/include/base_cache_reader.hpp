@@ -66,6 +66,7 @@ public:
 
 protected:
 	// Ownership lies in cache httpfs instance state, which gets updated at extension setting update callback.
+	// Refer to [CacheHttpfsInstanceState] for thread-safety guarentee.
 	std::reference_wrapper<BaseProfileCollector> profile_collector;
 	// Cached name used when updating profile collector.
 	string cache_reader_name;

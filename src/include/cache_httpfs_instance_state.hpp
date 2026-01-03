@@ -134,6 +134,13 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	InstanceCacheReaderManager cache_reader_manager;
 	CacheExclusionManager exclusion_manager;
 	// Per-database profile collector, which is shared by all cache filesystems and cache readers.
+	//
+	// Thread-safety and ownership guarantee:
+	// - Profile collector is a "singleton" owned by per-database cache httpfs instance state
+	// - Both cache filesystems and cache readers make IO operation, so they hold a reference for profile collector to
+	// record metrics
+	// - Profile collector could be updated at extension setting update callback, which doesn't hold lock intentionally,
+	// based on the assumption that setting update doesn't run concurrently with IO operation
 	unique_ptr<BaseProfileCollector> profile_collector;
 
 	CacheHttpfsInstanceState();
