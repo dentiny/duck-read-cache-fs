@@ -136,7 +136,7 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	// Per-database profile collector, which is shared by all cache filesystems and cache readers.
 	unique_ptr<BaseProfileCollector> profile_collector;
 
-	CacheHttpfsInstanceState() = default;
+	CacheHttpfsInstanceState();
 
 	// ObjectCacheEntry interface
 	string GetObjectType() override {

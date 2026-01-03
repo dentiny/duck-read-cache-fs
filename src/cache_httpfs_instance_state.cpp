@@ -5,6 +5,7 @@
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/helper.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "duckdb/main/database.hpp"
 #include "in_memory_cache_reader.hpp"
@@ -165,8 +166,11 @@ void InstanceCacheReaderManager::Reset() {
 }
 
 //===--------------------------------------------------------------------===//
-// InstanceConfig implementation
+// CacheHttpfsInstanceState implementation
 //===--------------------------------------------------------------------===//
+
+CacheHttpfsInstanceState::CacheHttpfsInstanceState() 
+	: profile_collector(make_uniq<NoopProfileCollector>()) {}
 
 //===--------------------------------------------------------------------===//
 // Instance state storage/retrieval using DuckDB's ObjectCache
