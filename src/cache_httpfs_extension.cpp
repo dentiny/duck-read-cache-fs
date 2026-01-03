@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <csignal>
 
+#include "assert_utils.hpp"
 #include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
@@ -67,7 +68,7 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 	}
 
 	// Clear profile collection.
-	D_ASSERT(inst_state.profile_collector != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(inst_state.profile_collector != nullptr);
 	inst_state.profile_collector->Reset();
 
 	result.Reference(Value(SUCCESS));
@@ -183,7 +184,7 @@ unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
 		return make_uniq<HTTPFileSystem>();
 	}
 	auto httpfs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(httpfs != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(httpfs != nullptr);
 	return httpfs;
 }
 
@@ -198,7 +199,7 @@ unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
 		return make_uniq<HuggingFaceFileSystem>();
 	}
 	auto hf_fs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(hf_fs != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(hf_fs != nullptr);
 	return hf_fs;
 }
 
@@ -213,7 +214,7 @@ unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &in
 		return make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
 	}
 	auto s3_fs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(s3_fs != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(s3_fs != nullptr);
 	return s3_fs;
 }
 

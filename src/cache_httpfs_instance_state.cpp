@@ -1,5 +1,6 @@
 #include "cache_httpfs_instance_state.hpp"
 
+#include "assert_utils.hpp"
 #include "base_profile_collector.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -208,14 +209,12 @@ shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(weak_ptr<CacheHttpfsInsta
 //===--------------------------------------------------------------------===//
 
 BaseProfileCollector &CacheHttpfsInstanceState::GetProfileCollector() {
-	if (profile_collector == nullptr) {
-		throw InternalException("Profile collector not initialized in instance state");
-	}
+	CACHE_HTTPFS_ALWAYS_ASSERT(profile_collector != nullptr);
 	return *profile_collector;
 }
 
 void CacheHttpfsInstanceState::ResetProfileCollector() {
-	D_ASSERT(profile_collector != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(profile_collector != nullptr);
 	profile_collector = make_uniq<NoopProfileCollector>();
 }
 
@@ -240,7 +239,7 @@ void SetProfileCollector(CacheHttpfsInstanceState &inst_state, const string &pro
 	}
 
 	// Ensure we always have a valid profile collector after this function
-	D_ASSERT(inst_state.profile_collector != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(inst_state.profile_collector != nullptr);
 }
 
 } // namespace duckdb

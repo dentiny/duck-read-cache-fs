@@ -1,5 +1,6 @@
 #include "cache_filesystem.hpp"
 
+#include "assert_utils.hpp"
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
@@ -218,7 +219,7 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 		// Reset file handle state (i.e. file offset) before placing into cache.
 		file_handle.internal_file_handle->Reset();
 		if (file_handle_cache == nullptr) {
-			D_ASSERT(in_use_file_handle_counter == nullptr);
+			CACHE_HTTPFS_ALWAYS_ASSERT(in_use_file_handle_counter == nullptr);
 			return;
 		}
 

@@ -26,8 +26,10 @@ query IIIII
 SELECT * FROM cache_httpfs_cache_status_query();
 ----
 
-statement ok
+query I
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+1
 
 query IIIIII
 SELECT * FROM cache_httpfs_cache_access_info_query();
@@ -38,8 +40,10 @@ file handle	0	1	0	NULL	NULL
 glob	0	0	0	NULL	NULL
 
 # Query second time should show cache hit.
-statement ok
+query I
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+1
 
 query IIIIII
 SELECT * FROM cache_httpfs_cache_access_info_query();

@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "base_cache_reader.hpp"
+#include "assert_utils.hpp"
 #include "base_profile_collector.hpp"
 #include "cache_entry_info.hpp"
 #include "duckdb/common/exception.hpp"
@@ -45,7 +45,7 @@ public:
 	}
 
 	BaseProfileCollector &GetProfileCollector() const {
-		D_ASSERT(profile_collector != nullptr);
+		CACHE_HTTPFS_ALWAYS_ASSERT(profile_collector != nullptr);
 		return *profile_collector;
 	}
 
