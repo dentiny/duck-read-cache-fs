@@ -14,7 +14,6 @@
 #include <functional>
 #include <list>
 #include <memory>
-#include <mutex>
 #include <utility>
 #include <type_traits>
 
@@ -23,6 +22,8 @@
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 #include "map_utils.hpp"
+#include "mutex.hpp"
+#include "thread_annotation.hpp"
 #include "time_utils.hpp"
 
 namespace duckdb {
@@ -217,40 +218,40 @@ public:
 
 	// Insert `value` with key `key`. This will replace any previous entry with the same key.
 	unique_ptr<Val> Put(Key key, unique_ptr<Val> value) {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		return internal_cache.Put(std::move(key), std::move(value));
 	}
 
 	// Delete the entry with key `key`. Return true if the entry was found for `key`, false if the entry was not found.
 	// In both cases, there is no entry with key `key` existed after the call.
 	bool Delete(const Key &key) {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		return internal_cache.Delete(key);
 	}
 
 	// Look up the entry with key `key` and remove from cache.
 	// Return nullptr if `key` doesn't exist in cache.
 	unique_ptr<Val> GetAndPop(const Key &key) {
-		std::unique_lock<std::mutex> lock(mu);
+		concurrency::unique_lock<concurrency::mutex> lock(mu);
 		return internal_cache.GetAndPop(key);
 	}
 
 	// Clear the cache and get all values, application could perform their processing logic upon these values.
 	vector<unique_ptr<Val>> ClearAndGetValues() {
-		std::unique_lock<std::mutex> lock(mu);
+		concurrency::unique_lock<concurrency::mutex> lock(mu);
 		return internal_cache.ClearAndGetValues();
 	}
 
 	// Clear the cache.
 	void Clear() {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		internal_cache.Clear();
 	}
 
 	// Clear cache entry by its key functor.
 	template <typename KeyFilter>
 	void Clear(KeyFilter &&key_filter) {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		internal_cache.Clear(std::forward<KeyFilter>(key_filter));
 	}
 
@@ -260,8 +261,8 @@ public:
 	}
 
 private:
-	std::mutex mu;
-	ExclusiveLruCache<Key, Val, KeyHash, KeyEqual> internal_cache;
+	concurrency::mutex mu;
+	ExclusiveLruCache<Key, Val, KeyHash, KeyEqual> internal_cache DUCKDB_GUARDED_BY(mu);
 };
 
 // Same interfaces as `ExclusiveLruCache`, but all cached values are `const` specified to avoid concurrent updates.

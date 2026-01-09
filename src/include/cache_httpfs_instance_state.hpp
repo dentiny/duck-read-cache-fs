@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <mutex>
-
 #include "base_cache_reader.hpp"
 #include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_config.hpp"
@@ -17,6 +15,8 @@
 #include "duckdb/common/vector.hpp"
 #include "duckdb/storage/object_cache.hpp"
 #include "filesystem_utils.hpp"
+#include "mutex.hpp"
+#include "thread_annotation.hpp"
 
 namespace duckdb {
 
@@ -42,8 +42,8 @@ public:
 	void Reset();
 
 private:
-	mutable std::mutex mutex;
-	unordered_set<CacheFileSystem *> cache_filesystems;
+	mutable concurrency::mutex mutex;
+	unordered_set<CacheFileSystem *> cache_filesystems DUCKDB_GUARDED_BY(mutex);
 };
 
 //===--------------------------------------------------------------------===//
@@ -67,11 +67,11 @@ public:
 	void Reset();
 
 private:
-	mutable std::mutex mutex;
-	unique_ptr<BaseCacheReader> noop_cache_reader;
-	unique_ptr<BaseCacheReader> in_mem_cache_reader;
-	unique_ptr<BaseCacheReader> on_disk_cache_reader;
-	BaseCacheReader *internal_cache_reader = nullptr;
+	mutable concurrency::mutex mutex;
+	unique_ptr<BaseCacheReader> noop_cache_reader DUCKDB_GUARDED_BY(mutex);
+	unique_ptr<BaseCacheReader> in_mem_cache_reader DUCKDB_GUARDED_BY(mutex);
+	unique_ptr<BaseCacheReader> on_disk_cache_reader DUCKDB_GUARDED_BY(mutex);
+	BaseCacheReader *internal_cache_reader DUCKDB_GUARDED_BY(mutex) = nullptr;
 };
 
 //===--------------------------------------------------------------------===//

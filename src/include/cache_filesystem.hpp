@@ -12,10 +12,11 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "exclusive_multi_lru_cache.hpp"
+#include "mutex.hpp"
 #include "shared_lru_cache.hpp"
+#include "thread_annotation.hpp"
 
 #include <functional>
-#include <mutex>
 #include <tuple>
 
 namespace duckdb {
@@ -321,7 +322,7 @@ private:
 	                                                    optional_ptr<FileOpener> opener);
 
 	// Mutex to protect concurrent access.
-	std::mutex cache_reader_mutex;
+	concurrency::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
 	// Ownership lies in cache httpfs instance state, which gets updated at setting update callback.

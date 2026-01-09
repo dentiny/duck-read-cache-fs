@@ -21,22 +21,22 @@ namespace duckdb {
 //===--------------------------------------------------------------------===//
 
 void InstanceCacheFsRegistry::Register(CacheFileSystem *fs) {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	cache_filesystems.insert(fs);
 }
 
 void InstanceCacheFsRegistry::Unregister(CacheFileSystem *fs) {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	cache_filesystems.erase(fs);
 }
 
 unordered_set<CacheFileSystem *> InstanceCacheFsRegistry::GetAllCacheFs() const {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	return cache_filesystems;
 }
 
 void InstanceCacheFsRegistry::Reset() {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	cache_filesystems.clear();
 }
 
@@ -46,7 +46,7 @@ void InstanceCacheFsRegistry::Reset() {
 
 void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
                                                 weak_ptr<CacheHttpfsInstanceState> instance_state_p) {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	auto instance_state_locked = instance_state_p.lock();
 	if (!instance_state_locked) {
 		throw InternalException("Instance state is no longer valid when setting cache reader");
@@ -85,12 +85,12 @@ void InstanceCacheReaderManager::SetCacheReader(const InstanceConfig &config,
 }
 
 BaseCacheReader *InstanceCacheReaderManager::GetCacheReader() const {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	return internal_cache_reader;
 }
 
 vector<BaseCacheReader *> InstanceCacheReaderManager::GetCacheReaders() const {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	vector<BaseCacheReader *> result;
 	if (in_mem_cache_reader != nullptr) {
 		result.emplace_back(in_mem_cache_reader.get());
@@ -103,7 +103,7 @@ vector<BaseCacheReader *> InstanceCacheReaderManager::GetCacheReaders() const {
 
 void InstanceCacheReaderManager::InitializeDiskCacheReader(const vector<string> &cache_directories,
                                                            weak_ptr<CacheHttpfsInstanceState> instance_state_p) {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 
 	auto instance_state_locked = instance_state_p.lock();
 	if (!instance_state_locked) {
@@ -119,7 +119,7 @@ void InstanceCacheReaderManager::InitializeDiskCacheReader(const vector<string> 
 }
 
 void InstanceCacheReaderManager::UpdateProfileCollector(BaseProfileCollector &profile_collector) {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	if (noop_cache_reader != nullptr) {
 		noop_cache_reader->SetProfileCollector(profile_collector);
 	}
@@ -132,7 +132,7 @@ void InstanceCacheReaderManager::UpdateProfileCollector(BaseProfileCollector &pr
 }
 
 void InstanceCacheReaderManager::ClearCache() {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	if (noop_cache_reader != nullptr) {
 		noop_cache_reader->ClearCache();
 	}
@@ -145,7 +145,7 @@ void InstanceCacheReaderManager::ClearCache() {
 }
 
 void InstanceCacheReaderManager::ClearCache(const string &fname) {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	if (noop_cache_reader != nullptr) {
 		noop_cache_reader->ClearCache(fname);
 	}
@@ -158,7 +158,7 @@ void InstanceCacheReaderManager::ClearCache(const string &fname) {
 }
 
 void InstanceCacheReaderManager::Reset() {
-	const std::lock_guard<std::mutex> lock(mutex);
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	noop_cache_reader.reset();
 	in_mem_cache_reader.reset();
 	on_disk_cache_reader.reset();
