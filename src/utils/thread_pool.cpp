@@ -18,7 +18,7 @@ ThreadPool::ThreadPool(size_t thread_num) : idle_num_(thread_num) {
 				Job cur_job;
 				{
 					concurrency::unique_lock<concurrency::mutex> lck(mutex_);
-					new_job_cv_.wait(lck, [this]() DUCKDB_REQUIRES(mutex_)  { return !jobs_.empty() || stopped_; });
+					new_job_cv_.wait(lck, [this]() DUCKDB_REQUIRES(mutex_) { return !jobs_.empty() || stopped_; });
 					if (stopped_) {
 						return;
 					}
