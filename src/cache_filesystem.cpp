@@ -122,16 +122,8 @@ void CacheFileSystem::ClearFileHandleCache(const string &filepath) {
 
 void CacheFileSystem::SetFileHandleCache() {
 	const auto &config = instance_state.lock()->config;
-	const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
 	if (!config.enable_file_handle_cache) {
-		if (file_handle_cache != nullptr) {
-			auto file_handles = file_handle_cache->ClearAndGetValues();
-			for (auto &cur_file_handle : file_handles) {
-				cur_file_handle->Close();
-			}
-			file_handle_cache = nullptr;
-			in_use_file_handle_counter = nullptr;
-		}
+		ClearFileHandleCache();
 		return;
 	}
 	if (file_handle_cache == nullptr) {
@@ -328,6 +320,7 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 // TODO(hjiang): remove the function and switch to extension setting callback.
 void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	auto instance_state_locked = instance_state.lock();
+	const std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();

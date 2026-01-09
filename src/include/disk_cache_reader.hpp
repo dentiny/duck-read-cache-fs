@@ -74,7 +74,8 @@ private:
 	// Used for on-disk cache block LRU-based eviction.
 	concurrency::mutex cache_file_creation_timestamp_map_mutex;
 	// Maps from last access timestamp to filepath.
-	map<timestamp_t, string> cache_file_creation_timestamp_map DUCKDB_GUARDED_BY(cache_file_creation_timestamp_map_mutex);
+	map<timestamp_t, string>
+	    cache_file_creation_timestamp_map DUCKDB_GUARDED_BY(cache_file_creation_timestamp_map_mutex);
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
 	// LRU cache to store blocks; late initialized after first access.

@@ -12,16 +12,21 @@
 namespace duckdb {
 namespace concurrency {
 
-class DUCKDB_CAPABILITY("mutex") mutex
-  : public internal::mutex_impl_t<mutex> {
- private:
-  using Impl = internal::mutex_impl_t<mutex>;
+class DUCKDB_CAPABILITY("mutex") mutex : public internal::mutex_impl_t<mutex> {
+private:
+	using Impl = internal::mutex_impl_t<mutex>;
 
- public:
-  void lock() DUCKDB_ACQUIRE() { Impl::lock(); }
-  void unlock() DUCKDB_RELEASE() { Impl::unlock(); }
-  bool try_lock() DUCKDB_TRY_ACQUIRE(true) { return Impl::try_lock(); }
+public:
+	void lock() DUCKDB_ACQUIRE() {
+		Impl::lock();
+	}
+	void unlock() DUCKDB_RELEASE() {
+		Impl::unlock();
+	}
+	bool try_lock() DUCKDB_TRY_ACQUIRE(true) {
+		return Impl::try_lock();
+	}
 };
 
-}  // namespace concurrency
-}  // namespace duckdb
+} // namespace concurrency
+} // namespace duckdb
