@@ -63,6 +63,7 @@ bool CacheFileSystem::ListFilesExtended(const string &directory,
 
 void CacheFileSystem::SetMetadataCache() {
 	const auto &config = instance_state.lock()->config;
+	const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
 	if (!config.enable_metadata_cache) {
 		metadata_cache = nullptr;
 		return;
@@ -85,6 +86,7 @@ void CacheFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener
 
 void CacheFileSystem::SetGlobCache() {
 	const auto &config = instance_state.lock()->config;
+	const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
 	if (!config.enable_glob_cache) {
 		glob_cache = nullptr;
 		return;
@@ -95,6 +97,7 @@ void CacheFileSystem::SetGlobCache() {
 }
 
 void CacheFileSystem::ClearFileHandleCache() {
+	const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
 	if (file_handle_cache == nullptr) {
 		return;
 	}
@@ -119,8 +122,16 @@ void CacheFileSystem::ClearFileHandleCache(const string &filepath) {
 
 void CacheFileSystem::SetFileHandleCache() {
 	const auto &config = instance_state.lock()->config;
+	const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
 	if (!config.enable_file_handle_cache) {
-		ClearFileHandleCache();
+		if (file_handle_cache != nullptr) {
+			auto file_handles = file_handle_cache->ClearAndGetValues();
+			for (auto &cur_file_handle : file_handles) {
+				cur_file_handle->Close();
+			}
+			file_handle_cache = nullptr;
+			in_use_file_handle_counter = nullptr;
+		}
 		return;
 	}
 	if (file_handle_cache == nullptr) {
@@ -317,7 +328,6 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 // TODO(hjiang): remove the function and switch to extension setting callback.
 void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	auto instance_state_locked = instance_state.lock();
-	const concurrency::lock_guard<concurrency::mutex> cache_reader_lck(cache_reader_mutex);
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();

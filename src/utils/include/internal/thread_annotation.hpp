@@ -14,14 +14,6 @@
 #endif
 #endif
 
-// Compile-time verification that annotations are enabled (only with Clang)
-#if DUCKDB_THREAD_ANNOTATION_ENABLED
-// This pragma message will be printed during compilation when annotations are enabled
-#pragma message("thread safety annotations are enabled (compiling with clang)")
-#else
-#pragma message("thread safety annotations are disabled (not compiling with clang or swig is defined)")
-#endif
-
 // CAPABILITY is an attribute on classes, which specifies that objects of the
 // class can be used as a capability. The string argument specifies the kind of
 // capability in error messages, e.g. "mutex".

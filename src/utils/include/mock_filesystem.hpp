@@ -14,11 +14,6 @@
 #include "mutex.hpp"
 #include "thread_annotation.hpp"
 
-// Verify thread annotations are enabled at compile time
-#if !DUCKDB_THREAD_ANNOTATION_ENABLED
-#warning "thread safety annotations are disabled - thread safety checks will not work!"
-#endif
-
 #include <cstdint>
 #include <functional>
 

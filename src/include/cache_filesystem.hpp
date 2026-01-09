@@ -330,20 +330,20 @@ private:
 	std::reference_wrapper<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.
 	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;
-	unique_ptr<MetadataCache> metadata_cache DUCKDB_GUARDED_BY(cache_reader_mutex);
+	unique_ptr<MetadataCache> metadata_cache;
 	// File handle cache, which maps from file path to uncached file handle.
 	// Cache is used here to avoid HEAD HTTP request on read operations.
 	using FileHandleCache = ThreadSafeExclusiveMultiLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyHash,
 	                                                         FileHandleCacheKeyEqual>;
-	shared_ptr<FileHandleCache> file_handle_cache DUCKDB_GUARDED_BY(cache_reader_mutex);
+	shared_ptr<FileHandleCache> file_handle_cache;
 	// In-use file handle counter, which is used to provide observability on cache miss: whether it's caused by low
 	// cache hit rate, or small cache size.
 	using InUseFileHandleCounter =
 	    ThreadSafeCounter<FileHandleCacheKey, FileHandleCacheKeyHash, FileHandleCacheKeyEqual>;
-	shared_ptr<InUseFileHandleCounter> in_use_file_handle_counter DUCKDB_GUARDED_BY(cache_reader_mutex);
+	shared_ptr<InUseFileHandleCounter> in_use_file_handle_counter;
 	// Glob cache, which maps from path to filenames.
 	using GlobCache = ThreadSafeSharedLruConstCache<string, vector<OpenFileInfo>>;
-	unique_ptr<GlobCache> glob_cache DUCKDB_GUARDED_BY(cache_reader_mutex);
+	unique_ptr<GlobCache> glob_cache;
 	// Per-instance state (shared ownership keeps state alive until all CacheFileSystems are destroyed)
 	weak_ptr<CacheHttpfsInstanceState> instance_state;
 };
