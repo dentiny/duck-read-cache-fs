@@ -37,8 +37,8 @@ private:
 	size_t idle_num_ DUCKDB_GUARDED_BY(mutex_) = 0;
 	bool stopped_ DUCKDB_GUARDED_BY(mutex_) = false;
 	concurrency::mutex mutex_;
-	std::condition_variable new_job_cv_;
-	std::condition_variable job_completion_cv_;
+	std::condition_variable new_job_cv_ DUCKDB_GUARDED_BY(mutex_);
+	std::condition_variable job_completion_cv_ DUCKDB_GUARDED_BY(mutex_);
 	queue<Job> jobs_ DUCKDB_GUARDED_BY(mutex_);
 	vector<std::thread> workers_ DUCKDB_GUARDED_BY(mutex_);
 };
