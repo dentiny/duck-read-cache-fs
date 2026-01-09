@@ -133,7 +133,7 @@ private:
 	uint64_t get_version_tag_invocation DUCKDB_GUARDED_BY(mtx) = 0;   // Number of `GetVersionTag` called.
 	vector<ReadOper> read_operations DUCKDB_GUARDED_BY(mtx);
 	mutable concurrency::mutex mtx;
-	bool throw_exception_on_read DUCKDB_GUARDED_BY(mtx) = false; // Whether to throw exception on Read operations.
+	bool throw_exception_on_read = false; // Whether to throw exception on Read operations.
 };
 
 bool operator<(const MockFileSystem::ReadOper &lhs, const MockFileSystem::ReadOper &rhs);

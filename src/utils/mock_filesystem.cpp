@@ -65,6 +65,7 @@ vector<OpenFileInfo> MockFileSystem::Glob(const string &path, FileOpener *opener
 }
 
 vector<MockFileSystem::ReadOper> MockFileSystem::GetSortedReadOperations() {
+	const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 	std::sort(read_operations.begin(), read_operations.end(),
 	          [](const auto &lhs, const auto &rhs) { return lhs < rhs; });
 	return read_operations;
