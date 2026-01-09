@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 # TODO(hjiang): Upgrade to higher version.
 set(CMAKE_CXX_STANDARD 14)
@@ -224,13 +224,13 @@ add_executable(test_optional
                unit/test_optional.cpp)
 target_link_libraries(test_optional ${EXTENSION_NAME})
 
-# # Benchmark
-# add_executable(read_s3_object benchmark/read_s3_object.cpp)
-# target_link_libraries(read_s3_object ${EXTENSION_NAME})
+# Benchmark
+add_executable(read_s3_object benchmark/read_s3_object.cpp)
+target_link_libraries(read_s3_object ${EXTENSION_NAME})
 
-# add_executable(sequential_read_benchmark
-#                benchmark/sequential_read_benchmark.cpp)
-# target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
+add_executable(sequential_read_benchmark
+               benchmark/sequential_read_benchmark.cpp)
+target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
 
-# add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
-# target_link_libraries(random_read_benchmark ${EXTENSION_NAME})
+add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
+target_link_libraries(random_read_benchmark ${EXTENSION_NAME})
