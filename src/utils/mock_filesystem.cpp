@@ -36,12 +36,12 @@ MockFileHandle::MockFileHandle(FileSystem &file_system, string path, FileOpenFla
 
 unique_ptr<FileHandle> MockFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                 optional_ptr<FileOpener> opener) {
-	const std::lock_guard<std::mutex> lck(mtx);
+	// const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 	++file_open_invocation;
 	return make_uniq<MockFileHandle>(*this, path, flags, close_callback, dtor_callback);
 }
 void MockFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
-	const std::lock_guard<std::mutex> lck(mtx);
+	const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 	if (throw_exception_on_read) {
 		throw IOException("Mock filesystem: Read operation failed at location %llu, bytes %lld", location, nr_bytes);
 	}

@@ -12,10 +12,11 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "exclusive_multi_lru_cache.hpp"
+#include "mutex.hpp"
 #include "shared_lru_cache.hpp"
+#include "thread_annotation.hpp"
 
 #include <functional>
-#include <mutex>
 #include <tuple>
 
 namespace duckdb {
@@ -321,7 +322,7 @@ private:
 	                                                    optional_ptr<FileOpener> opener);
 
 	// Mutex to protect concurrent access.
-	std::mutex cache_reader_mutex;
+	concurrency::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
 	// Ownership lies in cache httpfs instance state, which gets updated at setting update callback.
@@ -329,20 +330,20 @@ private:
 	std::reference_wrapper<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.
 	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;
-	unique_ptr<MetadataCache> metadata_cache;
+	unique_ptr<MetadataCache> metadata_cache DUCKDB_GUARDED_BY(cache_reader_mutex);
 	// File handle cache, which maps from file path to uncached file handle.
 	// Cache is used here to avoid HEAD HTTP request on read operations.
 	using FileHandleCache = ThreadSafeExclusiveMultiLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyHash,
 	                                                         FileHandleCacheKeyEqual>;
-	shared_ptr<FileHandleCache> file_handle_cache;
+	shared_ptr<FileHandleCache> file_handle_cache DUCKDB_GUARDED_BY(cache_reader_mutex);
 	// In-use file handle counter, which is used to provide observability on cache miss: whether it's caused by low
 	// cache hit rate, or small cache size.
 	using InUseFileHandleCounter =
 	    ThreadSafeCounter<FileHandleCacheKey, FileHandleCacheKeyHash, FileHandleCacheKeyEqual>;
-	shared_ptr<InUseFileHandleCounter> in_use_file_handle_counter;
+	shared_ptr<InUseFileHandleCounter> in_use_file_handle_counter DUCKDB_GUARDED_BY(cache_reader_mutex);
 	// Glob cache, which maps from path to filenames.
 	using GlobCache = ThreadSafeSharedLruConstCache<string, vector<OpenFileInfo>>;
-	unique_ptr<GlobCache> glob_cache;
+	unique_ptr<GlobCache> glob_cache DUCKDB_GUARDED_BY(cache_reader_mutex);
 	// Per-instance state (shared ownership keeps state alive until all CacheFileSystems are destroyed)
 	weak_ptr<CacheHttpfsInstanceState> instance_state;
 };

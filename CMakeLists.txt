@@ -10,6 +10,13 @@ if(UNIX OR APPLE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-c++17-extensions -Wno-c++20-extensions")
 endif()
 
+# Check if compiler is Clang (case-insensitive check)
+string(TOLOWER "${CMAKE_CXX_COMPILER_ID}" CMAKE_CXX_COMPILER_ID_LOWER)
+string(TOLOWER "${CMAKE_CXX_COMPILER}" CMAKE_CXX_COMPILER_LOWER)
+if(CMAKE_CXX_COMPILER_ID_LOWER MATCHES "clang" OR CMAKE_CXX_COMPILER_LOWER MATCHES "clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wthread-safety")
+endif()
+
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
 
@@ -217,13 +224,13 @@ add_executable(test_optional
                unit/test_optional.cpp)
 target_link_libraries(test_optional ${EXTENSION_NAME})
 
-# Benchmark
-add_executable(read_s3_object benchmark/read_s3_object.cpp)
-target_link_libraries(read_s3_object ${EXTENSION_NAME})
+# # Benchmark
+# add_executable(read_s3_object benchmark/read_s3_object.cpp)
+# target_link_libraries(read_s3_object ${EXTENSION_NAME})
 
-add_executable(sequential_read_benchmark
-               benchmark/sequential_read_benchmark.cpp)
-target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
+# add_executable(sequential_read_benchmark
+#                benchmark/sequential_read_benchmark.cpp)
+# target_link_libraries(sequential_read_benchmark ${EXTENSION_NAME})
 
-add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
-target_link_libraries(random_read_benchmark ${EXTENSION_NAME})
+# add_executable(random_read_benchmark benchmark/random_read_benchmark.cpp)
+# target_link_libraries(random_read_benchmark ${EXTENSION_NAME})

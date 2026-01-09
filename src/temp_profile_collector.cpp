@@ -39,33 +39,33 @@ TempProfileCollector::TempProfileCollector() {
 }
 
 LatencyGuard TempProfileCollector::RecordOperationStart(IoOperation io_oper) {
+	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
 	return LatencyGuard {*this, std::move(io_oper)};
-	const std::lock_guard<std::mutex> lck(stats_mutex);
 }
 
 void TempProfileCollector::RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) {
 	const auto now = GetSteadyNowMilliSecSinceEpoch();
 
-	const std::lock_guard<std::mutex> lck(stats_mutex);
+	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
 	auto &cur_histogram = histograms[static_cast<idx_t>(io_oper)];
 	cur_histogram->Add(latency_millisec);
 	latest_timestamp = now;
 }
 
 void TempProfileCollector::RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) {
-	const std::lock_guard<std::mutex> lck(stats_mutex);
+	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
 	const size_t arr_idx = static_cast<size_t>(cache_entity) * kCacheAccessCount + static_cast<size_t>(cache_access);
 	++cache_access_count[arr_idx];
 }
 
 void TempProfileCollector::RecordActualCacheRead(idx_t cache_bytes, idx_t actual_bytes) {
-	const std::lock_guard<std::mutex> lck(stats_mutex);
+	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
 	total_bytes_to_read += actual_bytes;
 	total_bytes_to_cache += cache_bytes;
 }
 
 void TempProfileCollector::Reset() {
-	const std::lock_guard<std::mutex> lck(stats_mutex);
+	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
 	for (auto &cur_histogram : histograms) {
 		cur_histogram->Reset();
 	}
@@ -76,7 +76,7 @@ void TempProfileCollector::Reset() {
 }
 
 vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
-	const std::lock_guard<std::mutex> lck(stats_mutex);
+	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
 	vector<CacheAccessInfo> cache_access_info;
 	cache_access_info.reserve(kCacheEntityCount);
 	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
@@ -97,7 +97,7 @@ vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
 }
 
 std::pair<string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
-	const std::lock_guard<std::mutex> lck(stats_mutex);
+	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
 
 	string stats =
 	    StringUtil::Format("For temp profile collector and stats for %s (unit in milliseconds)\n", cache_reader_type);

@@ -11,10 +11,16 @@
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/vector.hpp"
+#include "mutex.hpp"
+#include "thread_annotation.hpp"
+
+// Verify thread annotations are enabled at compile time
+#if !DUCKDB_THREAD_ANNOTATION_ENABLED
+#warning "thread safety annotations are disabled - thread safety checks will not work!"
+#endif
 
 #include <cstdint>
 #include <functional>
-#include <mutex>
 
 namespace duckdb {
 
@@ -125,14 +131,14 @@ private:
 	std::function<void()> close_callback;
 	std::function<void()> dtor_callback;
 
-	uint64_t file_open_invocation = 0;         // Number of `FileOpen` gets called.
-	uint64_t glob_invocation = 0;              // Number of `Glob` gets called.
-	uint64_t get_file_size_invocation = 0;     // Number of `GetFileSize` get called.
-	uint64_t get_last_mod_time_invocation = 0; // Number of `GetLastModificationTime` called.
-	uint64_t get_version_tag_invocation = 0;   // Number of `GetVersionTag` called.
-	vector<ReadOper> read_operations;
-	std::mutex mtx;
-	bool throw_exception_on_read = false; // Whether to throw exception on Read operations.
+	uint64_t file_open_invocation DUCKDB_GUARDED_BY(mtx) = 0;         // Number of `FileOpen` gets called.
+	uint64_t glob_invocation DUCKDB_GUARDED_BY(mtx) = 0;              // Number of `Glob` gets called.
+	uint64_t get_file_size_invocation DUCKDB_GUARDED_BY(mtx) = 0;     // Number of `GetFileSize` get called.
+	uint64_t get_last_mod_time_invocation DUCKDB_GUARDED_BY(mtx) = 0; // Number of `GetLastModificationTime` called.
+	uint64_t get_version_tag_invocation DUCKDB_GUARDED_BY(mtx) = 0;   // Number of `GetVersionTag` called.
+	vector<ReadOper> read_operations DUCKDB_GUARDED_BY(mtx);
+	concurrency::mutex mtx;
+	bool throw_exception_on_read DUCKDB_GUARDED_BY(mtx) = false; // Whether to throw exception on Read operations.
 };
 
 bool operator<(const MockFileSystem::ReadOper &lhs, const MockFileSystem::ReadOper &rhs);

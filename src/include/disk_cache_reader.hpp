@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include <mutex>
-
 #include "base_cache_reader.hpp"
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_config.hpp"
@@ -16,6 +14,7 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
 #include "shared_lru_cache.hpp"
+#include "thread_annotation.hpp"
 
 namespace duckdb {
 
@@ -73,9 +72,9 @@ private:
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
 	// Used for on-disk cache block LRU-based eviction.
-	std::mutex cache_file_creation_timestamp_map_mutex;
+	concurrency::mutex cache_file_creation_timestamp_map_mutex;
 	// Maps from last access timestamp to filepath.
-	map<timestamp_t, string> cache_file_creation_timestamp_map;
+	map<timestamp_t, string> cache_file_creation_timestamp_map DUCKDB_GUARDED_BY(cache_file_creation_timestamp_map_mutex);
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
 	// LRU cache to store blocks; late initialized after first access.

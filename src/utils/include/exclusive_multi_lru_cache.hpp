@@ -16,7 +16,6 @@
 #include <functional>
 #include <list>
 #include <memory>
-#include <mutex>
 #include <utility>
 #include <type_traits>
 
@@ -25,6 +24,8 @@
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
+#include "mutex.hpp"
+#include "thread_annotation.hpp"
 #include "time_utils.hpp"
 
 namespace duckdb {
@@ -268,39 +269,39 @@ public:
 	// Insert `value` with key `key`, the values with the same key will be kept and evicted first.
 	// Return evicted value if any.
 	unique_ptr<Val> Put(Key key, unique_ptr<Val> value) {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		return internal_cache.Put(std::move(key), std::move(value));
 	}
 
 	// Look up the entry with key `key` and remove from cache.
 	// If there're multiple values corresponds to the given [key]. the oldest value will be returned.
 	GetAndPopResult GetAndPop(const Key &key) {
-		std::unique_lock<std::mutex> lock(mu);
+		concurrency::unique_lock<concurrency::mutex> lock(mu);
 		return internal_cache.GetAndPop(key);
 	}
 
 	// Clear the cache and get all values, application could perform their processing logic upon these values.
 	vector<unique_ptr<Val>> ClearAndGetValues() {
-		std::unique_lock<std::mutex> lock(mu);
+		concurrency::unique_lock<concurrency::mutex> lock(mu);
 		return internal_cache.ClearAndGetValues();
 	}
 
 	// Clear the cache entries which matches the given [key_pred] and return all the deleted values.
 	template <typename KeyPred>
 	vector<unique_ptr<Val>> ClearAndGetValues(KeyPred &&key_pred) {
-		std::unique_lock<std::mutex> lock(mu);
+		concurrency::unique_lock<concurrency::mutex> lock(mu);
 		return internal_cache.ClearAndGetValues(std::forward<KeyPred>(key_pred));
 	}
 
 	// Check invariant.
 	bool Verify() {
-		std::unique_lock<std::mutex> lock(mu);
+		concurrency::unique_lock<concurrency::mutex> lock(mu);
 		return internal_cache.Verify();
 	}
 
 private:
-	std::mutex mu;
-	ExclusiveMultiLruCache<Key, Val, KeyHash, KeyEqual> internal_cache;
+	concurrency::mutex mu;
+	ExclusiveMultiLruCache<Key, Val, KeyHash, KeyEqual> internal_cache DUCKDB_GUARDED_BY(mu);
 };
 
 // Same interfaces as `ExclusiveMultiLruCache`, but all cached values are `const` specified to avoid concurrent updates.
