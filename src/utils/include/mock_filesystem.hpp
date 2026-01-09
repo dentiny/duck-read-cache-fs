@@ -95,21 +95,27 @@ public:
 	}
 	vector<ReadOper> GetSortedReadOperations();
 	uint64_t GetFileOpenInvocation() const {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 		return file_open_invocation;
 	}
 	uint64_t GetGlobInvocation() const {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 		return glob_invocation;
 	}
 	uint64_t GetSizeInvocation() const {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 		return get_file_size_invocation;
 	}
 	uint64_t GetLastModTimeInvocation() const {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 		return get_last_mod_time_invocation;
 	}
 	uint64_t GetVersionTagInvocation() const {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 		return get_version_tag_invocation;
 	}
 	void ClearReadOperations() {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 		read_operations.clear();
 	}
 	// Enable throwing exceptions on Read operations.

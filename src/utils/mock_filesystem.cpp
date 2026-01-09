@@ -36,7 +36,7 @@ MockFileHandle::MockFileHandle(FileSystem &file_system, string path, FileOpenFla
 
 unique_ptr<FileHandle> MockFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                 optional_ptr<FileOpener> opener) {
-	// const concurrency::lock_guard<concurrency::mutex> lck(mtx);
+	const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 	++file_open_invocation;
 	return make_uniq<MockFileHandle>(*this, path, flags, close_callback, dtor_callback);
 }
