@@ -52,6 +52,18 @@ void MockFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, id
 	});
 }
 
+vector<OpenFileInfo> MockFileSystem::Glob(const string &path, FileOpener *opener) {
+	const concurrency::lock_guard<concurrency::mutex> lck(mtx);
+	++glob_invocation;
+	if (!glob_returns.empty()) {
+		vector<OpenFileInfo> cur_glob_ret;
+		cur_glob_ret.emplace_back(std::move(glob_returns.front()));
+		glob_returns.pop_front();
+		return cur_glob_ret;
+	}
+	return {};
+}
+
 vector<MockFileSystem::ReadOper> MockFileSystem::GetSortedReadOperations() {
 	std::sort(read_operations.begin(), read_operations.end(),
 	          [](const auto &lhs, const auto &rhs) { return lhs < rhs; });

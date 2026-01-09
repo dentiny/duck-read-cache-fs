@@ -51,25 +51,19 @@ public:
 
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags, optional_ptr<FileOpener> opener) override;
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
-	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override {
-		++glob_invocation;
-		if (!glob_returns.empty()) {
-			vector<OpenFileInfo> cur_glob_ret;
-			cur_glob_ret.emplace_back(std::move(glob_returns.front()));
-			glob_returns.pop_front();
-			return cur_glob_ret;
-		}
-		return {};
-	}
+	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override;
 	int64_t GetFileSize(FileHandle &handle) override {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 		++get_file_size_invocation;
 		return file_size;
 	}
 	timestamp_t GetLastModifiedTime(FileHandle &handle) override {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 		++get_last_mod_time_invocation;
 		return last_modification_time;
 	}
 	string GetVersionTag(FileHandle &handle) override {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
 		++get_version_tag_invocation;
 		return version_tag;
 	}
@@ -138,7 +132,7 @@ private:
 	uint64_t get_last_mod_time_invocation DUCKDB_GUARDED_BY(mtx) = 0; // Number of `GetLastModificationTime` called.
 	uint64_t get_version_tag_invocation DUCKDB_GUARDED_BY(mtx) = 0;   // Number of `GetVersionTag` called.
 	vector<ReadOper> read_operations DUCKDB_GUARDED_BY(mtx);
-	concurrency::mutex mtx;
+	mutable concurrency::mutex mtx;
 	bool throw_exception_on_read DUCKDB_GUARDED_BY(mtx) = false; // Whether to throw exception on Read operations.
 };
 

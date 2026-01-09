@@ -42,7 +42,7 @@ ThreadPool::ThreadPool(size_t thread_num) : idle_num_(thread_num) {
 
 void ThreadPool::Wait() {
 	concurrency::unique_lock<concurrency::mutex> lck(mutex_);
-	job_completion_cv_.wait(lck, [this]() {
+	job_completion_cv_.wait(lck, [this]() DUCKDB_REQUIRES(mutex_) {
 		if (stopped_) {
 			return true;
 		}
