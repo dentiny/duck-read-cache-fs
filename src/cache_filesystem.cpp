@@ -371,7 +371,8 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
                                                          optional_ptr<FileOpener> opener) {
 	// Now we handle uncompressed files, which should be cached.
 	InitializeGlobalConfig(opener);
-	if (flags.OpenForReading()) {
+	const bool read_only = flags.OpenForReading() && !flags.OpenForAppending() && !flags.OpenForWriting();
+	if (read_only) {
 		return GetOrCreateFileHandleForRead(file, flags, opener);
 	}
 

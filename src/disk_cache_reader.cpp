@@ -491,6 +491,7 @@ void DiskCacheReader::ClearCache() {
 }
 
 void DiskCacheReader::ClearCache(const string &fname) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFilePathCacheClear);
 	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
 	auto instance_state_locked = GetInstanceConfig(instance_state);
 	const auto &config = instance_state_locked->config;
