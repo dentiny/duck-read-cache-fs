@@ -276,6 +276,11 @@ void UpdateEnableCacheValidation(ClientContext &context, SetScope scope, Value &
 	inst_state.config.enable_cache_validation = parameter.GetValue<bool>();
 }
 
+void UpdateClearCacheOnWrite(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.clear_cache_on_write = parameter.GetValue<bool>();
+}
+
 // Implementation for check cache directories and create directories if necessary.
 void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<string> directories) {
 	std::sort(directories.begin(), directories.end());
@@ -579,6 +584,15 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          "When enabled, cache entries are validated against the current file version tag and "
 	                          "modification timestamp to ensure cache consistency. By default disabled.",
 	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_CACHE_VALIDATION, UpdateEnableCacheValidation);
+
+	// Cache invalidation on write config.
+	config.AddExtensionOption(
+	    "cache_httpfs_clear_cache_on_write",
+	    "Whether to clear cache entries on write operations. When enabled, write operations will invalidate cached "
+	    "metadata, file handles, and glob entries for the modified file, which could be expensive."
+	    "Disabling this can improve write performance when many cache entries exist, but may lead to stale cache "
+	    "reads. By default disabled.",
+	    LogicalTypeId::BOOLEAN, DEFAULT_CLEAR_CACHE_ON_WRITE, UpdateClearCacheOnWrite);
 
 	// On disk cache config.
 	// TODO(hjiang): Add a new configurable for on-disk cache staleness.

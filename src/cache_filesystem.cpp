@@ -375,9 +375,14 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
 		return GetOrCreateFileHandleForRead(file, flags, opener);
 	}
 
-	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
-	// For write handles, we still need the connection_id for consistency
 	auto file_handle = internal_filesystem->OpenFile(file, flags, opener);
+	const auto &config = instance_state.lock()->config;
+
+	// On write, when cache clarance disabled, use internal handle directly.
+	if (!config.clear_cache_on_write && flags.OpenForWriting()) {
+		return file_handle;
+	}
+
 	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
 	                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
 }

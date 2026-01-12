@@ -110,6 +110,9 @@ bool DEFAULT_ENABLE_GLOB_CACHE = true;
 // Default enable cache validation via version tag and last modification timestamp.
 bool DEFAULT_ENABLE_CACHE_VALIDATION = false;
 
+// Default enable clearing cache on write operations.
+bool DEFAULT_CLEAR_CACHE_ON_WRITE = false;
+
 // Default not ignore SIGPIPE in the extension.
 bool DEFAULT_IGNORE_SIGPIPE = false;
 

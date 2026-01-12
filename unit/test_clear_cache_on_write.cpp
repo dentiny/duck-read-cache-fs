@@ -40,7 +40,7 @@ TEST_CASE("Test cache cleared on Write with location", "[cache filesystem write 
 	// Create test file
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
-	                                                                  FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 	local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
 	                        TEST_FILE_SIZE, /*location=*/0);
 	file_handle->Sync();
@@ -63,7 +63,6 @@ TEST_CASE("Test cache cleared on Write with location", "[cache filesystem write 
 	const int64_t new_size = cache_filesystem->GetFileSize(*verify_handle);
 	REQUIRE(new_size == static_cast<int64_t>(new_content.length()));
 	verify_handle->Close();
-
 }
 
 TEST_CASE("Test cache cleared on Write without location", "[cache filesystem write test]") {
@@ -80,7 +79,7 @@ TEST_CASE("Test cache cleared on Write without location", "[cache filesystem wri
 	// Create test file
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
-	                                                                  FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 	local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
 	                        TEST_FILE_SIZE, /*location=*/0);
 	file_handle->Sync();
@@ -94,9 +93,8 @@ TEST_CASE("Test cache cleared on Write without location", "[cache filesystem wri
 	// Write to the file using Write without location parameter, this should clear cache
 	const string new_content = "different content";
 	auto write_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE);
-	const int64_t bytes_written =
-	    cache_filesystem->Write(*write_handle, const_cast<void *>(static_cast<const void *>(new_content.data())),
-	                            new_content.length());
+	const int64_t bytes_written = cache_filesystem->Write(
+	    *write_handle, const_cast<void *>(static_cast<const void *>(new_content.data())), new_content.length());
 	REQUIRE(bytes_written == static_cast<int64_t>(new_content.length()));
 	write_handle->Close();
 
