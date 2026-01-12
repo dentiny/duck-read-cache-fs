@@ -112,6 +112,9 @@ extern bool DEFAULT_ENABLE_GLOB_CACHE;
 // Default enable cache validation via version tag and last modification timestamp.
 extern bool DEFAULT_ENABLE_CACHE_VALIDATION;
 
+// Default enable clearing cache on write operations.
+extern bool DEFAULT_CLEAR_CACHE_ON_WRITE;
+
 // Default not ignore SIGPIPE in the extension.
 extern bool DEFAULT_IGNORE_SIGPIPE;
 

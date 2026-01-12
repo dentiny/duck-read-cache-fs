@@ -28,8 +28,10 @@ const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache_e
 TEST_CASE("Test exception propagation on file read - disk cache", "[read exception test]") {
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 
-	auto close_callback = []() {};
-	auto dtor_callback = []() {};
+	auto close_callback = []() {
+	};
+	auto dtor_callback = []() {
+	};
 	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_callback), std::move(dtor_callback));
 	mock_filesystem->SetFileSize(TEST_FILE_SIZE);
 	// Enable exception throwing on read operations
@@ -63,18 +65,19 @@ TEST_CASE("Test exception propagation on file read - disk cache", "[read excepti
 	string content(bytes_to_read, '\0');
 
 	// The read should throw an IOException because the mock filesystem is configured to throw
-	REQUIRE_THROWS_AS(
-		cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
-								bytes_to_read, start_offset),
-		IOException);
+	REQUIRE_THROWS_AS(cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
+	                                         bytes_to_read, start_offset),
+	                  IOException);
 }
 
 // Test that exceptions are correctly propagated in parallel read operations for disk cache.
 TEST_CASE("Test exception propagation in parallel reads - disk cache", "[read exception test]") {
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 
-	auto close_callback = []() {};
-	auto dtor_callback = []() {};
+	auto close_callback = []() {
+	};
+	auto dtor_callback = []() {
+	};
 	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_callback), std::move(dtor_callback));
 	mock_filesystem->SetFileSize(TEST_FILE_SIZE * 2); // Larger file to trigger multiple chunks
 	// Enable exception throwing on read operations
@@ -108,17 +111,18 @@ TEST_CASE("Test exception propagation in parallel reads - disk cache", "[read ex
 
 		// The read should throw an IOException because the mock filesystem is configured to throw
 		// This tests exception propagation through the parallel read mechanism
-		REQUIRE_THROWS_AS(
-		    cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
-		                           bytes_to_read, start_offset),
-		    IOException);
+		REQUIRE_THROWS_AS(cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
+		                                         bytes_to_read, start_offset),
+		                  IOException);
 	}
 }
 
 // Test that exceptions thrown during file read are correctly propagated for in-memory cache.
 TEST_CASE("Test exception propagation on file read - in-memory cache", "[read exception test]") {
-	auto close_callback = []() {};
-	auto dtor_callback = []() {};
+	auto close_callback = []() {
+	};
+	auto dtor_callback = []() {
+	};
 	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_callback), std::move(dtor_callback));
 	mock_filesystem->SetFileSize(TEST_FILE_SIZE);
 	// Enable exception throwing on read operations
@@ -148,16 +152,17 @@ TEST_CASE("Test exception propagation on file read - in-memory cache", "[read ex
 	string content(bytes_to_read, '\0');
 
 	// The read should throw an IOException because the mock filesystem is configured to throw
-	REQUIRE_THROWS_AS(
-		cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
-								bytes_to_read, start_offset),
-		IOException);
+	REQUIRE_THROWS_AS(cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
+	                                         bytes_to_read, start_offset),
+	                  IOException);
 }
 
 // Test that exceptions are correctly propagated in parallel read operations for in-memory cache.
 TEST_CASE("Test exception propagation in parallel reads - in-memory cache", "[read exception test]") {
-	auto close_callback = []() {};
-	auto dtor_callback = []() {};
+	auto close_callback = []() {
+	};
+	auto dtor_callback = []() {
+	};
 	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_callback), std::move(dtor_callback));
 	mock_filesystem->SetFileSize(TEST_FILE_SIZE * 2); // Larger file to trigger multiple chunks
 	// Enable exception throwing on read operations
@@ -189,10 +194,9 @@ TEST_CASE("Test exception propagation in parallel reads - in-memory cache", "[re
 
 	// The read should throw an IOException because the mock filesystem is configured to throw
 	// This tests exception propagation through the parallel read mechanism
-	REQUIRE_THROWS_AS(
-		cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
-								bytes_to_read, start_offset),
-		IOException);
+	REQUIRE_THROWS_AS(cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
+	                                         bytes_to_read, start_offset),
+	                  IOException);
 }
 
 int main(int argc, char **argv) {

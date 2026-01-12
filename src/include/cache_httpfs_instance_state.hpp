@@ -116,6 +116,9 @@ struct InstanceConfig {
 
 	// Cache validation config
 	bool enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
+
+	// Cache invalidation on write config
+	bool clear_cache_on_write = DEFAULT_CLEAR_CACHE_ON_WRITE;
 };
 
 //===--------------------------------------------------------------------===//
