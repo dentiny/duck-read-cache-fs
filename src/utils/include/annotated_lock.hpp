@@ -38,6 +38,8 @@ public:
 	}
 	unique_lock(M &m, std::adopt_lock_t t) DUCKDB_REQUIRES(m) : Impl(m, t) {
 	}
+	unique_lock(M &m, std::try_to_lock_t t) DUCKDB_TRY_ACQUIRE(true, m) : Impl(m, t) {
+	}
 	~unique_lock() DUCKDB_RELEASE() = default;
 
 	void lock() DUCKDB_ACQUIRE() {
