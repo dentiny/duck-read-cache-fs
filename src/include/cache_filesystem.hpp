@@ -71,30 +71,8 @@ public:
 
 class CacheFileSystem : public FileSystem {
 public:
-	CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p, weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-	    : internal_filesystem(std::move(internal_filesystem_p)), instance_state(std::move(instance_state_p)),
-	      profile_collector([&instance_state_p]() -> BaseProfileCollector & {
-		      auto state = instance_state_p.lock();
-		      if (!state) {
-			      throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
-		      }
-		      return *state->profile_collector;
-	      }()) {
-		// Register with per-instance registry
-		auto state = instance_state.lock();
-		if (!state) {
-			throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
-		}
-		state->registry.Register(this);
-	}
-	~CacheFileSystem() override {
-		// Unregister from per-instance registry before destruction
-		auto state = instance_state.lock();
-		if (state) {
-			state->registry.Unregister(this);
-		}
-		ClearFileHandleCache();
-	}
+	CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p, weak_ptr<CacheHttpfsInstanceState> instance_state_p);
+	~CacheFileSystem() override;
 
 	// Doesn't update file offset (which acts as `PRead` semantics).
 	void Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
@@ -180,6 +158,7 @@ public:
 		return internal_filesystem->IsPipe(filename, opener);
 	}
 	void FileSync(FileHandle &handle) override {
+		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFileSync);
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 		internal_filesystem->FileSync(*disk_cache_handle.internal_file_handle);
 	}

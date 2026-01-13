@@ -169,6 +169,9 @@ target_link_libraries(test_cache_filesystem ${EXTENSION_NAME})
 add_executable(test_cache_stats_collection unit/test_cache_stats_collection.cpp)
 target_link_libraries(test_cache_stats_collection ${EXTENSION_NAME})
 
+add_executable(test_io_operation_latency unit/test_io_operation_latency.cpp)
+target_link_libraries(test_io_operation_latency ${EXTENSION_NAME})
+
 add_executable(test_histogram unit/test_histogram.cpp)
 target_link_libraries(test_histogram ${EXTENSION_NAME})
 

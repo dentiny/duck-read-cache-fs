@@ -27,6 +27,9 @@ enum class CacheAccess {
 enum class IoOperation {
 	kOpen,
 	kRead,
+	kWrite,
+	kFileSync,
+	kFileRemove,
 	kGlob,
 	// Disk cache read and copy.
 	kDiskCacheRead,

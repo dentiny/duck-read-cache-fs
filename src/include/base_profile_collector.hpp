@@ -52,6 +52,8 @@ public:
 	virtual void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) = 0;
 	// Record cache size and actual bytes access.
 	virtual void RecordActualCacheRead(idx_t cache_size, idx_t actual_bytes) = 0;
+	// Record bytes written.
+	virtual void RecordBytesWritten(idx_t bytes) = 0;
 	// Get profiler type.
 	virtual string GetProfilerType() = 0;
 	// Get cache access information.

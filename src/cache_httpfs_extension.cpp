@@ -242,7 +242,6 @@ void SetCacheType(DatabaseInstance &duckdb_instance, string cache_type_str) {
 }
 
 void UpdateCacheType(ClientContext &context, SetScope scope, Value &parameter) {
-	auto &inst_state = GetInstanceStateOrThrow(context);
 	auto cache_type_str = parameter.ToString();
 	SetCacheType(*context.db, std::move(cache_type_str));
 }
