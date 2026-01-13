@@ -275,7 +275,7 @@ private:
 	};
 
 	// Initialize global configurations and global objects (i.e. metadata cache, profiler, etc) in a thread-safe manner.
-	void InitializeGlobalConfig(optional_ptr<FileOpener> opener);
+	void InitializeGlobalConfig(optional_ptr<FileOpener> opener) DUCKDB_EXCLUDES(cache_reader_mutex);
 
 	// Create cache file handle.
 	unique_ptr<FileHandle> CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle);
@@ -298,17 +298,14 @@ private:
 	// Internal implementation for glob operation.
 	vector<OpenFileInfo> GlobImpl(const string &path, FileOpener *opener);
 
-	// Initialize cache reader data member, and set to [internal_cache_reader].
-	void SetAndGetCacheReader();
-
 	// Initialize metadata cache.
-	void SetMetadataCache();
+	void SetMetadataCache() DUCKDB_REQUIRES(cache_reader_mutex);
 
 	// Initialize file handle cache.
-	void SetFileHandleCache();
+	void SetFileHandleCache() DUCKDB_REQUIRES(cache_reader_mutex);
 
 	// Initialize glob cache.
-	void SetGlobCache();
+	void SetGlobCache() DUCKDB_REQUIRES(cache_reader_mutex);
 
 	// Clear file handle cache and close all file handle resource inside.
 	void ClearFileHandleCache();
