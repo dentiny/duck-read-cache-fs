@@ -45,11 +45,12 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 	const auto TEST_DIRECTORY = StringUtil::Format("/tmp/test_io_latency_%s", UUID::ToString(UUID::GenerateRandomUUID()));
 	ScopedDirectory scoped_dir(TEST_DIRECTORY);
 
-	const auto TEST_FILENAME = StringUtil::Format("%s/test_file_1", TEST_DIRECTORY);
+	const auto TEST_FILENAME_GLOB = StringUtil::Format("%s/*", TEST_DIRECTORY);
+	const auto TEST_FILENAME_1 = StringUtil::Format("%s/test_file_1", TEST_DIRECTORY);
 	const auto TEST_FILENAME_2 = StringUtil::Format("%s/test_file_2", TEST_DIRECTORY);
 
 	// Create test files
-	CreateTestFile(TEST_FILENAME, TEST_FILE_CONTENT);
+	CreateTestFile(TEST_FILENAME_1, TEST_FILE_CONTENT);
 	CreateTestFile(TEST_FILENAME_2, TEST_FILE_CONTENT);
 
 	// Setup cache filesystem with temp profile collector
@@ -65,12 +66,12 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 
 	// Perform open operation
 	{
-		auto file_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto file_handle = cache_filesystem->OpenFile(TEST_FILENAME_1, FileOpenFlags::FILE_FLAGS_READ);
 		REQUIRE(file_handle != nullptr);
 	}
 	// Perform read operation
 	{
-		auto file_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto file_handle = cache_filesystem->OpenFile(TEST_FILENAME_1, FileOpenFlags::FILE_FLAGS_READ);
 		char buffer[256];
 		cache_filesystem->Read(*file_handle, buffer, 256, /*location=*/0);
 	}
@@ -83,12 +84,12 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
         cache_filesystem->FileSync(*file_handle);
     }
 	// Perform glob operation
-    auto open_file_info = cache_filesystem->Glob(TEST_FILENAME);
+    auto open_file_info = cache_filesystem->Glob(TEST_FILENAME_GLOB);
     REQUIRE(open_file_info.size() >= 1);
 	// Perform file remove operation
 	cache_filesystem->RemoveFile(TEST_FILENAME_2);
 	// Perform cache clear operation
-	cache_filesystem->ClearCache(TEST_FILENAME);
+	cache_filesystem->ClearCache(TEST_FILENAME_1);
 
 	// Get profile stats and verify operations are recorded
 	auto stats_pair = profiler.GetHumanReadableStats();
@@ -107,4 +108,3 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 int main(int argc, char **argv) {
 	return Catch::Session().run(argc, argv);
 }
-

@@ -46,15 +46,17 @@ void CacheFileSystemHandle::Close() {
 	}
 }
 
-CacheFileSystem::CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p, weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-	: internal_filesystem(std::move(internal_filesystem_p)), 
-		profile_collector([&instance_state_p]() -> BaseProfileCollector & {
-			auto state = instance_state_p.lock();
-			if (!state) {
-				throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
-			}
-			return *state->profile_collector;
-		}()), instance_state(std::move(instance_state_p)) {
+CacheFileSystem::CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p,
+                                 weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+    : internal_filesystem(std::move(internal_filesystem_p)),
+      profile_collector([&instance_state_p]() -> BaseProfileCollector & {
+	      auto state = instance_state_p.lock();
+	      if (!state) {
+		      throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
+	      }
+	      return *state->profile_collector;
+      }()),
+      instance_state(std::move(instance_state_p)) {
 	// Register with per-instance registry
 	auto state = instance_state.lock();
 	if (!state) {
@@ -227,7 +229,7 @@ int64_t CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_byte
 	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kWrite);
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	auto result = internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes);
-	return result;	
+	return result;
 }
 
 unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle) {
