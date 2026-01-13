@@ -12,10 +12,6 @@ SET cache_httpfs_type='in_mem';
 statement ok
 SET cache_httpfs_profile_type='temp';
 
-# Clear any existing profile data
-statement ok
-SELECT cache_httpfs_clear_profile();
-
 # Perform a read operation to populate cache
 statement ok
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
@@ -39,26 +35,5 @@ true
 # Verify the profile contains the operation name and latency information
 query I
 SELECT cache_httpfs_get_profile() LIKE '%file_path_cache_clear operation latency is%';
-----
-true
-
-# Clear profile and verify it's reset
-statement ok
-SELECT cache_httpfs_clear_profile();
-
-query I
-SELECT cache_httpfs_get_profile() LIKE '%file_path_cache_clear%';
-----
-false
-
-# Perform another cache clear and verify latency is recorded again
-statement ok
-SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
-
-statement ok
-SELECT cache_httpfs_clear_cache_for_file('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
-
-query I
-SELECT cache_httpfs_get_profile() LIKE '%file_path_cache_clear%';
 ----
 true

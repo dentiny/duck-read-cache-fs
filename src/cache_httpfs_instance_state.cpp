@@ -214,6 +214,7 @@ void CacheHttpfsInstanceState::ResetProfileCollector() {
 }
 
 void CacheHttpfsInstanceState::SetProfileCollector(string profile_type) {
+	profile_type = StringUtil::Lower(profile_type);
 	if (ALL_PROFILE_TYPES->find(profile_type) == ALL_PROFILE_TYPES->end()) {
 		const vector<string> valid_types(ALL_PROFILE_TYPES->begin(), ALL_PROFILE_TYPES->end());
 		throw InvalidInputException("Invalid cache_httpfs_profile_type '%s'. Valid options are: %s", profile_type,
@@ -233,7 +234,7 @@ void CacheHttpfsInstanceState::SetProfileCollector(string profile_type) {
 	} else if (config.profile_type == *TEMP_PROFILE_TYPE) {
 		profile_collector = make_uniq<TempProfileCollector>();
 	} else {
-		profile_collector = make_uniq<NoopProfileCollector>();
+		throw InternalException("Invalid profile collector type %s", config.profile_type);
 	}
 
 	// Update all cache readers to use the new collector
