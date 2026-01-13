@@ -18,6 +18,8 @@ public:
 	}
 	void RecordActualCacheRead(idx_t cache_size, idx_t actual_bytes) override {
 	}
+	void RecordBytesWritten(idx_t bytes) override {
+	}
 	string GetProfilerType() override {
 		return *NOOP_PROFILE_TYPE;
 	}

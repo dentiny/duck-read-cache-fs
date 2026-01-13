@@ -223,12 +223,14 @@ void CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, 
 	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kWrite);
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes, location);
+	GetProfileCollector().RecordBytesWritten(nr_bytes);
 }
 
 int64_t CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes) {
 	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kWrite);
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	auto result = internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes);
+	GetProfileCollector().RecordBytesWritten(nr_bytes);
 	return result;
 }
 

@@ -72,6 +72,11 @@ void TempProfileCollector::RecordActualCacheRead(idx_t cache_bytes, idx_t actual
 	total_bytes_to_cache += cache_bytes;
 }
 
+void TempProfileCollector::RecordBytesWritten(idx_t bytes) {
+	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
+	total_bytes_written += bytes;
+}
+
 void TempProfileCollector::Reset() {
 	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
 	for (auto &cur_histogram : histograms) {
@@ -80,6 +85,7 @@ void TempProfileCollector::Reset() {
 	cache_access_count.fill(0);
 	total_bytes_to_cache = 0;
 	total_bytes_to_read = 0;
+	total_bytes_written = 0;
 	latest_timestamp = 0;
 }
 

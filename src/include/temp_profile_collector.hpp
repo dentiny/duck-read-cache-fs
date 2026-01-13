@@ -22,6 +22,7 @@ public:
 	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override;
 	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override;
 	void RecordActualCacheRead(idx_t cache_bytes, idx_t actual_bytes) override;
+	void RecordBytesWritten(idx_t bytes) override;
 	string GetProfilerType() override {
 		return *TEMP_PROFILE_TYPE;
 	}
@@ -40,6 +41,8 @@ private:
 	uint64_t total_bytes_to_read DUCKDB_GUARDED_BY(stats_mutex) = 0;
 	// Total number of bytes to cache.
 	uint64_t total_bytes_to_cache DUCKDB_GUARDED_BY(stats_mutex) = 0;
+	// Total number of bytes written.
+	uint64_t total_bytes_written DUCKDB_GUARDED_BY(stats_mutex) = 0;
 
 	mutable concurrency::mutex stats_mutex;
 };
