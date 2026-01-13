@@ -95,7 +95,6 @@ void CacheFileSystem::SetGlobCache() {
 }
 
 void CacheFileSystem::ClearFileHandleCache() {
-	const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
 	if (file_handle_cache == nullptr) {
 		return;
 	}
