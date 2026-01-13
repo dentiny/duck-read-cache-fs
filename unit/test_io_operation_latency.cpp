@@ -27,7 +27,7 @@ const auto TEST_FILE_CONTENT = []() {
 void CreateTestFile(const string &filepath, const string &content) {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	auto file_handle = local_filesystem->OpenFile(filepath, FileOpenFlags::FILE_FLAGS_WRITE |
-	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+	                                                            FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 	local_filesystem->Write(*file_handle, const_cast<char *>(content.data()), content.length(), /*location=*/0);
 	file_handle->Sync();
 	file_handle->Close();
@@ -42,7 +42,8 @@ bool ProfileContainsOperation(const string &profile, const string &operation_nam
 } // namespace
 
 TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
-	const auto TEST_DIRECTORY = StringUtil::Format("/tmp/test_io_latency_%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	const auto TEST_DIRECTORY =
+	    StringUtil::Format("/tmp/test_io_latency_%s", UUID::ToString(UUID::GenerateRandomUUID()));
 	ScopedDirectory scoped_dir(TEST_DIRECTORY);
 
 	const auto TEST_FILENAME_GLOB = StringUtil::Format("%s/*", TEST_DIRECTORY);
@@ -81,11 +82,11 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 		const char *write_data = "test write data";
 		cache_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(write_data)),
 		                        strlen(write_data), /*location=*/0);
-        cache_filesystem->FileSync(*file_handle);
-    }
+		cache_filesystem->FileSync(*file_handle);
+	}
 	// Perform glob operation
-    auto open_file_info = cache_filesystem->Glob(TEST_FILENAME_GLOB);
-    REQUIRE(open_file_info.size() >= 1);
+	auto open_file_info = cache_filesystem->Glob(TEST_FILENAME_GLOB);
+	REQUIRE(open_file_info.size() >= 1);
 	// Perform file remove operation
 	cache_filesystem->RemoveFile(TEST_FILENAME_2);
 	// Perform cache clear operation
