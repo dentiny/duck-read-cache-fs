@@ -174,7 +174,7 @@ public:
 	// test and debug assertion.
 	bool Verify() {
 		// Count 2.
-		int entry_map_count = 0;
+		size_t entry_map_count = 0;
 		for (const auto &[_, entries] : entry_map) {
 			if (entries.empty()) {
 				return false;
