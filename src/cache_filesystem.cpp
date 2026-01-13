@@ -63,7 +63,6 @@ bool CacheFileSystem::ListFilesExtended(const string &directory,
 
 void CacheFileSystem::SetMetadataCache() {
 	const auto &config = instance_state.lock()->config;
-	const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
 	if (!config.enable_metadata_cache) {
 		metadata_cache = nullptr;
 		return;
@@ -86,7 +85,6 @@ void CacheFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener
 
 void CacheFileSystem::SetGlobCache() {
 	const auto &config = instance_state.lock()->config;
-	const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
 	if (!config.enable_glob_cache) {
 		glob_cache = nullptr;
 		return;
@@ -97,7 +95,6 @@ void CacheFileSystem::SetGlobCache() {
 }
 
 void CacheFileSystem::ClearFileHandleCache() {
-	const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
 	if (file_handle_cache == nullptr) {
 		return;
 	}

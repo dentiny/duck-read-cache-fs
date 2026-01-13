@@ -3,13 +3,6 @@
 
 #pragma once
 
-// Define enabled flag before including internal header to avoid redefinition
-#if defined(__clang__) && (!defined(SWIG))
-#define DUCKDB_THREAD_ANNOTATION_ENABLED 1
-#else
-#define DUCKDB_THREAD_ANNOTATION_ENABLED 0
-#endif
-
 #include "internal/thread_annotation.hpp"
 
 // GUARDED_BY is an attribute on data members, which declares that the data
