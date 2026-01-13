@@ -30,6 +30,8 @@ enum class IoOperation {
 	kGlob,
 	// Disk cache read and copy.
 	kDiskCacheRead,
+	// Filepath cache clarance.
+	kFilePathCacheClear,
 	kUnknown,
 };
 constexpr size_t kCacheEntityCount = static_cast<size_t>(CacheEntity::kUnknown);

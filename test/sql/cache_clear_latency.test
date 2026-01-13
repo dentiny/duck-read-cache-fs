@@ -1,0 +1,39 @@
+# name: test/sql/cache_clear_latency.test
+# description: test latency collection for cache clearance on specific path
+# group: [sql]
+
+require cache_httpfs
+
+# Use in-memory cache for this test as it supports cache clearance by filepath
+statement ok
+SET cache_httpfs_type='in_mem';
+
+# Enable profile collection to record latency
+statement ok
+SET cache_httpfs_profile_type='temp';
+
+# Perform a read operation to populate cache
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+# Verify that profile does not yet contain file_path_cache_clear operation
+query I
+SELECT cache_httpfs_get_profile() LIKE '%file_path_cache_clear%';
+----
+false
+
+# Clear cache for the specific file - this should record latency
+statement ok
+SELECT cache_httpfs_clear_cache_for_file('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+# Verify that profile now contains file_path_cache_clear operation latency
+query I
+SELECT cache_httpfs_get_profile() LIKE '%file_path_cache_clear%';
+----
+true
+
+# Verify the profile contains the operation name and latency information
+query I
+SELECT cache_httpfs_get_profile() LIKE '%file_path_cache_clear operation latency is%';
+----
+true

@@ -25,7 +25,7 @@ public:
 	LatencyGuard(const LatencyGuard &) = delete;
 	LatencyGuard &operator=(const LatencyGuard &) = delete;
 	LatencyGuard(LatencyGuard &&) = default;
-	LatencyGuard &operator=(LatencyGuard &&) = delete;
+	LatencyGuard &operator=(LatencyGuard &&) = default;
 
 private:
 	BaseProfileCollector &profile_collector;

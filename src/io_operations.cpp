@@ -25,6 +25,7 @@ const vector<const char *> OPER_NAMES = []() {
 	oper_names.emplace_back("read");
 	oper_names.emplace_back("glob");
 	oper_names.emplace_back("disk_cache_read");
+	oper_names.emplace_back("file_path_cache_clear");
 	D_ASSERT(oper_names.size() == kIoOperationCount);
 	return oper_names;
 }();

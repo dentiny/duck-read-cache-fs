@@ -15,14 +15,16 @@ struct LatencyHeuristic {
 };
 
 inline constexpr std::array<LatencyHeuristic, kIoOperationCount> kLatencyHeuristics = {{
-    // Read
-    {0, 1000, 100},
     // Open
+    {0, 1000, 100},
+    // Read
     {0, 1000, 100},
     // Glob.
     {0, 1000, 100},
     // Disk cache read
     {0, 500, 100},
+    // File path cache clear
+    {0, 100, 100},
 }};
 
 const NoDestructor<string> LATENCY_HISTOGRAM_ITEM {"latency"};

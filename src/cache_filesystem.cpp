@@ -140,10 +140,12 @@ void CacheFileSystem::ClearCache() {
 		glob_cache->Clear();
 	}
 	ClearFileHandleCache();
+	// TODO(hjiang): This seems a duplicate function call, extension statement funtion has already cleared the cache.
 	instance_state.lock()->cache_reader_manager.ClearCache();
 }
 
 void CacheFileSystem::ClearCache(const string &filepath) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFilePathCacheClear);
 	if (metadata_cache != nullptr) {
 		metadata_cache->Clear([&filepath](const string &key) { return key == filepath; });
 	}
@@ -151,6 +153,7 @@ void CacheFileSystem::ClearCache(const string &filepath) {
 		glob_cache->Clear([&filepath](const string &key) { return key == filepath; });
 	}
 	ClearFileHandleCache(filepath);
+	// TODO(hjiang): This seems a duplicate function call, extension statement funtion has already cleared the cache.
 	instance_state.lock()->cache_reader_manager.ClearCache(filepath);
 }
 
@@ -368,7 +371,8 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
                                                          optional_ptr<FileOpener> opener) {
 	// Now we handle uncompressed files, which should be cached.
 	InitializeGlobalConfig(opener);
-	if (flags.OpenForReading()) {
+	const bool read_only = flags.OpenForReading() && !flags.OpenForAppending() && !flags.OpenForWriting();
+	if (read_only) {
 		return GetOrCreateFileHandleForRead(file, flags, opener);
 	}
 
