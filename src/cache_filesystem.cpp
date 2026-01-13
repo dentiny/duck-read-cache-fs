@@ -46,6 +46,31 @@ void CacheFileSystemHandle::Close() {
 	}
 }
 
+CacheFileSystem::CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p, weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+	: internal_filesystem(std::move(internal_filesystem_p)), 
+		profile_collector([&instance_state_p]() -> BaseProfileCollector & {
+			auto state = instance_state_p.lock();
+			if (!state) {
+				throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
+			}
+			return *state->profile_collector;
+		}()), instance_state(std::move(instance_state_p)) {
+	// Register with per-instance registry
+	auto state = instance_state.lock();
+	if (!state) {
+		throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
+	}
+	state->registry.Register(this);
+}
+CacheFileSystem::~CacheFileSystem() {
+	// Unregister from per-instance registry before destruction
+	auto state = instance_state.lock();
+	if (state) {
+		state->registry.Unregister(this);
+	}
+	ClearFileHandleCache();
+}
+
 bool CacheFileSystem::ListFiles(const string &directory, const std::function<void(const string &, bool)> &callback,
                                 FileOpener *opener) {
 	auto wrapped_callback = [this, &callback](OpenFileInfo &info) {
@@ -74,11 +99,13 @@ void CacheFileSystem::SetMetadataCache() {
 }
 
 bool CacheFileSystem::TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFileRemove);
 	ClearCache(filename);
 	return internal_filesystem->TryRemoveFile(filename, opener);
 }
 
 void CacheFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFileRemove);
 	ClearCache(filename);
 	internal_filesystem->RemoveFile(filename, opener);
 }
@@ -191,15 +218,16 @@ string CacheFileSystem::GetName() const {
 }
 
 void CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kWrite);
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes, location);
-	ClearCache(handle.GetPath());
 }
+
 int64_t CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kWrite);
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	auto result = internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes);
-	ClearCache(handle.GetPath());
-	return result;
+	return result;	
 }
 
 unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle) {
@@ -371,19 +399,18 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
                                                          optional_ptr<FileOpener> opener) {
 	// Now we handle uncompressed files, which should be cached.
 	InitializeGlobalConfig(opener);
-	const bool read_only = flags.OpenForReading() && !flags.OpenForAppending() && !flags.OpenForWriting();
-	if (read_only) {
+	if (flags.OpenForReading()) {
 		return GetOrCreateFileHandleForRead(file, flags, opener);
 	}
 
-	auto file_handle = internal_filesystem->OpenFile(file, flags, opener);
-	const auto &config = instance_state.lock()->config;
-
-	// On write, when cache clarance disabled, use internal handle directly.
-	if (!config.clear_cache_on_write && flags.OpenForWriting()) {
-		return file_handle;
+	// If setting has already been specified to clear cache, we clear it only once at file open.
+	if (instance_state.lock()->config.clear_cache_on_write) {
+		ClearCache(file.path);
 	}
 
+	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
+	// For write handles, we still need the connection_id for consistency
+	auto file_handle = internal_filesystem->OpenFile(file, flags, opener);
 	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
 	                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
 }

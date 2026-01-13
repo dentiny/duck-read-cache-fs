@@ -23,6 +23,9 @@ const vector<const char *> OPER_NAMES = []() {
 	oper_names.reserve(kIoOperationCount);
 	oper_names.emplace_back("open");
 	oper_names.emplace_back("read");
+	oper_names.emplace_back("write");
+	oper_names.emplace_back("file_sync");
+	oper_names.emplace_back("file_remove");
 	oper_names.emplace_back("glob");
 	oper_names.emplace_back("disk_cache_read");
 	oper_names.emplace_back("file_path_cache_clear");

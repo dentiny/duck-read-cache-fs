@@ -19,6 +19,12 @@ inline constexpr std::array<LatencyHeuristic, kIoOperationCount> kLatencyHeurist
     {0, 1000, 100},
     // Read
     {0, 1000, 100},
+    // Write
+    {0, 1000, 100},
+    // File sync
+    {0, 1000, 100},
+    // File remove
+    {0, 1000, 100},
     // Glob.
     {0, 1000, 100},
     // Disk cache read
