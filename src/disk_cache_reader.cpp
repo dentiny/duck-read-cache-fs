@@ -491,17 +491,36 @@ void DiskCacheReader::ClearCache() {
 }
 
 void DiskCacheReader::ClearCache(const string &fname) {
+	// Delete on-disk files.
+	vector<string> cache_files_to_remove;
 	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
 	auto instance_state_locked = GetInstanceConfig(instance_state);
 	const auto &config = instance_state_locked->config;
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir, [&](const string &cur_file, bool /*unused*/) {
 			if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {
-				const string filepath = StringUtil::Format("%s/%s", cur_cache_dir, cur_file);
-				local_filesystem->TryRemoveFile(filepath);
+				string filepath = StringUtil::Format("%s/%s", cur_cache_dir, cur_file);
+				cache_files_to_remove.emplace_back(std::move(filepath));
 			}
 		});
 	}
+
+	const auto thread_num = std::min<size_t>(GetCpuCoreCount(), cache_files_to_remove.size());
+	ThreadPool tp{thread_num};
+	vector<std::future<void>> file_remove_futures;
+	file_remove_futures.reserve(cache_files_to_remove.size());
+	for (auto cur_cache_file : cache_files_to_remove) {
+		auto fut = tp.Push([this, cur = std::move(cur_cache_file)]() {
+			local_filesystem->TryRemoveFile(cur);
+		});
+		file_remove_futures.emplace_back(std::move(fut));
+	}
+	tp.Wait();
+	for (auto& cur_fut : file_remove_futures) {
+		cur_fut.get();
+	}
+
+	// Delete in-memory cache for on-disk cache files.
 	if (in_mem_cache_blocks != nullptr) {
 		in_mem_cache_blocks->Clear([&fname](const InMemCacheBlock &block) { return block.fname == fname; });
 	}
