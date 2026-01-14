@@ -10,12 +10,6 @@ namespace duckdb {
 
 // Standard test file constants used across multiple unit tests
 constexpr uint64_t TEST_FILE_SIZE = 26;
-const auto TEST_FILE_CONTENT = []() {
-	string content(TEST_FILE_SIZE, '\0');
-	for (uint64_t idx = 0; idx < TEST_FILE_SIZE; ++idx) {
-		content[idx] = 'a' + idx;
-	}
-	return content;
-}();
+extern const string TEST_FILE_CONTENT;
 
 } // namespace duckdb
