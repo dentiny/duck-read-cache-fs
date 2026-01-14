@@ -39,6 +39,14 @@ extern const NoDestructor<string> TEMP_PROFILE_TYPE;
 extern const NoDestructor<string> PERSISTENT_PROFILE_TYPE;
 extern const NoDestructor<unordered_set<string>> ALL_PROFILE_TYPES;
 
+// Default clear cache on write is disabled.
+extern const NoDestructor<string> DISABLE_CLEAR_CACHE_ON_WRITE;
+// Only clear cache on write for the current duckdb instance.
+extern const NoDestructor<string> CLEAR_CACHE_ON_WRITE_CUR_DB;
+// Clear cache on write.
+extern const NoDestructor<string> CLEAR_CACHE_ON_WRITE;
+extern const NoDestructor<unordered_set<string>> ALL_CLEAR_CACHE_OPTIONS;
+
 //===--------------------------------------------------------------------===//
 // Default configuration
 //===--------------------------------------------------------------------===//
@@ -113,7 +121,7 @@ extern bool DEFAULT_ENABLE_GLOB_CACHE;
 extern bool DEFAULT_ENABLE_CACHE_VALIDATION;
 
 // Default enable clearing cache on write operations.
-extern bool DEFAULT_CLEAR_CACHE_ON_WRITE;
+extern NoDestructor<string> DEFAULT_CLEAR_CACHE_ON_WRITE;
 
 // Default not ignore SIGPIPE in the extension.
 extern bool DEFAULT_IGNORE_SIGPIPE;
