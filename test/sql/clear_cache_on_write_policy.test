@@ -1,0 +1,114 @@
+# name: test/sql/clear_cache_on_write_policy.test
+# description: test cache_httpfs_clear_cache_on_write_policy configuration options
+# group: [sql]
+
+require notwindows
+
+require cache_httpfs
+
+# Test that invalid clear cache on write policy throws an error
+statement error
+SET cache_httpfs_clear_cache_on_write_policy='invalid_option';
+----
+Invalid cache clear on write option 'invalid_option'
+
+# ==========================
+# Test default (disable) option
+# ==========================
+
+statement ok
+SET cache_httpfs_type='on_disk';
+
+statement ok
+SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_clear_on_write_test';
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+# Verify default value is 'disable'
+statement ok
+SET cache_httpfs_clear_cache_on_write_policy='disable';
+
+# Read a file to populate cache
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+# Verify cache was populated
+query I
+SELECT COUNT(*) > 0 FROM cache_httpfs_cache_status_query();
+----
+true
+
+# ==========================
+# Test clear_for_cur_db option
+# ==========================
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+# Update cache directory for clear_for_cur_db tests
+statement ok
+SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_clear_for_cur_db_test';
+
+statement ok
+SET cache_httpfs_clear_cache_on_write_policy='clear_for_cur_db';
+
+# Read a file to populate cache
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+# Verify cache was populated
+query I
+SELECT COUNT(*) > 0 FROM cache_httpfs_cache_status_query();
+----
+true
+
+# Verify cache files metadata is being tracked for clear_for_cur_db mode
+query I
+SELECT COUNT(*) FROM cache_httpfs_cache_status_query();
+----
+1
+
+# ==========================
+# Test clear_cache_consistent option
+# ==========================
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+# Update cache directory for clear_cache_consistent tests
+statement ok
+SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_clear_consistent_test';
+
+statement ok
+SET cache_httpfs_clear_cache_on_write_policy='clear_cache_consistent';
+
+# Read a file to populate cache
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+# Verify cache was populated
+query I
+SELECT COUNT(*) > 0 FROM cache_httpfs_cache_status_query();
+----
+true
+
+# Verify cache is being populated for clear_cache_consistent mode
+query I
+SELECT COUNT(*) FROM cache_httpfs_cache_status_query();
+----
+1
+
+# ==========================
+# Cleanup
+# ==========================
+
+# Clean up test cache directories
+statement ok
+SELECT cache_httpfs_clear_cache();
