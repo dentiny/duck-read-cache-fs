@@ -228,6 +228,10 @@ target_link_libraries(test_scoped_directory ${EXTENSION_NAME})
 add_executable(test_optional unit/test_optional.cpp)
 target_link_libraries(test_optional ${EXTENSION_NAME})
 
+add_executable(test_clear_cache_on_write_policy
+               unit/test_clear_cache_on_write_policy.cpp)
+target_link_libraries(test_clear_cache_on_write_policy ${EXTENSION_NAME})
+
 # Benchmark
 add_executable(read_s3_object benchmark/read_s3_object.cpp)
 target_link_libraries(read_s3_object ${EXTENSION_NAME})
