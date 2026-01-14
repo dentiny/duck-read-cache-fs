@@ -19,6 +19,7 @@
 #include "filesystem_utils.hpp"
 #include "mock_filesystem.hpp"
 #include "scope_guard.hpp"
+#include "test_constants.hpp"
 #include "test_utils.hpp"
 
 #include <utime.h>
@@ -27,14 +28,6 @@ using namespace duckdb; // NOLINT
 
 namespace {
 
-constexpr uint64_t TEST_FILE_SIZE = 26;
-const auto TEST_FILE_CONTENT = []() {
-	string content(TEST_FILE_SIZE, '\0');
-	for (uint64_t idx = 0; idx < TEST_FILE_SIZE; ++idx) {
-		content[idx] = 'a' + idx;
-	}
-	return content;
-}();
 const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 

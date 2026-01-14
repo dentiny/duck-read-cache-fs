@@ -11,19 +11,12 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "noop_cache_reader.hpp"
 #include "scope_guard.hpp"
+#include "test_constants.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
 namespace {
-constexpr uint64_t TEST_FILE_SIZE = 26;
-const auto TEST_FILE_CONTENT = []() {
-	string content(TEST_FILE_SIZE, '\0');
-	for (uint64_t idx = 0; idx < TEST_FILE_SIZE; ++idx) {
-		content[idx] = 'a' + idx;
-	}
-	return content;
-}();
 const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
 } // namespace
 

@@ -11,6 +11,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
+#include "test_constants.hpp"
 #include "test_utils.hpp"
 
 #include <utime.h>
@@ -18,15 +19,7 @@
 using namespace duckdb; // NOLINT
 
 namespace {
-constexpr uint64_t TEST_FILE_SIZE = 26;
 constexpr idx_t TEST_FILE_COUNT = 100;
-const auto TEST_FILE_CONTENT = []() {
-	string content(TEST_FILE_SIZE, '\0');
-	for (uint64_t idx = 0; idx < TEST_FILE_SIZE; ++idx) {
-		content[idx] = 'a' + idx;
-	}
-	return content;
-}();
 const auto TEST_FILES = []() {
 	vector<string> test_files;
 	test_files.reserve(TEST_FILE_COUNT);
