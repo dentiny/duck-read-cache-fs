@@ -1,3 +1,31 @@
+# 0.12.2
+
+## Added
+
+- Add thread annotation for clang environment, which issues compilation error on disobeyed thread annotation ([#373])
+
+[#373]: https://github.com/dentiny/duck-read-cache-fs/pull/373
+
+- Add option to allow users to enable/disable cache entries clear on write operations ([#376])
+
+[#376]: https://github.com/dentiny/duck-read-cache-fs/pull/376
+
+## Improved
+
+- Move cache clear logic from "Write" operation to "OpenFile", which avoids multiple unnecessary expensive cache clear calls ([#379])
+
+[#379]: https://github.com/dentiny/duck-read-cache-fs/pull/379
+
+- Parallelize on-disk cache file deletion ([#383])
+
+[#383]: https://github.com/dentiny/duck-read-cache-fs/pull/383
+
+## Fixed
+
+- Fix potential failed non-existent file removal ([#382])
+
+[#382]: https://github.com/dentiny/duck-read-cache-fs/pull/382
+
 # 0.12.1
 
 ## Fixed
