@@ -11,13 +11,13 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "mock_filesystem.hpp"
+#include "test_constants.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
 namespace {
 
-constexpr uint64_t TEST_FILE_SIZE = 26;
 constexpr int64_t TEST_CHUNK_SIZE = 10;
 const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache_exception";
