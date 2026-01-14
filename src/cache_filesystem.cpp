@@ -408,7 +408,7 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
 	}
 
 	// If setting has already been specified to clear cache, we clear it only once at file open.
-	if (instance_state.lock()->config.clear_cache_on_write) {
+	if (instance_state.lock()->config.clear_cache_on_write_option != *DISABLE_CLEAR_CACHE_ON_WRITE) {
 		ClearCache(file.path);
 	}
 

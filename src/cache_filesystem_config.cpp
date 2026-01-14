@@ -37,6 +37,18 @@ const NoDestructor<string> PERSISTENT_PROFILE_TYPE {"duckdb"};
 const NoDestructor<unordered_set<string>> ALL_PROFILE_TYPES {
     {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE, *PERSISTENT_PROFILE_TYPE}};
 
+// No clear cache on write.
+const NoDestructor<string> DISABLE_CLEAR_CACHE_ON_WRITE {"disable"};
+// Only clear cache on write for the current duckdb instance, which allows optimization to manage cache list in the
+// memory, instead of listing filesystem every cleanup. The caveat is if multiple duckdb instances use the same cache
+// directory and access the same file, there could be inconsistency.
+const NoDestructor<string> CLEAR_CACHE_ON_WRITE_CUR_DB {"clear_for_cur_db"};
+// The safest way to clear cache on write: list all cache files under the current cache directory and cleanup all
+// related entries.
+const NoDestructor<string> CLEAR_CACHE_ON_WRITE {"clear_cache_consistent"};
+const NoDestructor<unordered_set<string>> ALL_CLEAR_CACHE_OPTIONS {
+    {*DISABLE_CLEAR_CACHE_ON_WRITE, *CLEAR_CACHE_ON_WRITE_CUR_DB, *CLEAR_CACHE_ON_WRITE}};
+
 //===--------------------------------------------------------------------===//
 // Default configuration definitions
 //===--------------------------------------------------------------------===//
@@ -110,8 +122,8 @@ bool DEFAULT_ENABLE_GLOB_CACHE = true;
 // Default enable cache validation via version tag and last modification timestamp.
 bool DEFAULT_ENABLE_CACHE_VALIDATION = false;
 
-// Default enable clearing cache on write operations.
-bool DEFAULT_CLEAR_CACHE_ON_WRITE = false;
+// Default disable clearing cache on write operations.
+NoDestructor<string> DEFAULT_CLEAR_CACHE_ON_WRITE {*DISABLE_CLEAR_CACHE_ON_WRITE};
 
 // Default not ignore SIGPIPE in the extension.
 bool DEFAULT_IGNORE_SIGPIPE = false;

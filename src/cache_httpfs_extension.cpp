@@ -277,7 +277,26 @@ void UpdateEnableCacheValidation(ClientContext &context, SetScope scope, Value &
 
 void UpdateClearCacheOnWrite(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
-	inst_state.config.clear_cache_on_write = parameter.GetValue<bool>();
+	auto clear_cache_on_write_option = parameter.GetValue<string>();
+	if (ALL_CLEAR_CACHE_OPTIONS->find(clear_cache_on_write_option) == ALL_CLEAR_CACHE_OPTIONS->end()) {
+		vector<string> valid_options(ALL_CLEAR_CACHE_OPTIONS->begin(), ALL_CLEAR_CACHE_OPTIONS->end());
+		throw InvalidInputException("Invalid cache clear on write option '%s'. Valid options are: %s",
+		                            clear_cache_on_write_option, StringUtil::Join(valid_options, ", "));
+	}
+	if (inst_state.config.clear_cache_on_write_option == clear_cache_on_write_option) {
+		return;
+	}
+
+	// Load cache files if users specify to evict on single duckdb instance.
+	inst_state.config.clear_cache_on_write_option = std::move(clear_cache_on_write_option);
+	if (inst_state.config.clear_cache_on_write_option == *CLEAR_CACHE_ON_WRITE_CUR_DB) {
+		D_ASSERT(inst_state.cache_files.empty());
+		inst_state.SetCacheFiles();
+	}
+	// Otherwise, cache files are not needed in the duckdb instance.
+	else {
+		inst_state.cache_files.clear();
+	}
 }
 
 // Implementation for check cache directories and create directories if necessary.
@@ -292,6 +311,7 @@ void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<str
 		local_fs->CreateDirectory(dir);
 	}
 	inst_state.config.on_disk_cache_directories = std::move(directories);
+	inst_state.ResetCacheFilesIfPossible();
 }
 
 void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &parameter) {
@@ -585,13 +605,16 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_CACHE_VALIDATION, UpdateEnableCacheValidation);
 
 	// Cache invalidation on write config.
-	config.AddExtensionOption(
-	    "cache_httpfs_clear_cache_on_write",
-	    "Whether to clear cache entries on write operations. When enabled, write operations will invalidate cached "
-	    "metadata, file handles, and glob entries for the modified file, which could be expensive."
-	    "Disabling this can improve write performance when many cache entries exist, but may lead to stale cache "
-	    "reads. By default disabled.",
-	    LogicalTypeId::BOOLEAN, DEFAULT_CLEAR_CACHE_ON_WRITE, UpdateClearCacheOnWrite);
+	config.AddExtensionOption("cache_httpfs_clear_cache_on_write_policy",
+	                          "Options to clear cache on write options, there're three options:"
+	                          "1. disable: the default option, which doesn't clean up cache entries on write "
+	                          "operations; it enjoys the best performancee but could suffer inconsistency."
+	                          "2. clear_cache_consistent: the safest option, which list cache entries on the cache "
+	                          "directories and delete related cache files."
+	                          "3. clear_for_cur_db: only clear cache for the current duckdb instance, which has better "
+	                          "performance than `clear_cache_on_write`. With the assumption of single instance, we "
+	                          "could manage cache files metadata in memoery.",
+	                          LogicalTypeId::VARCHAR, *DEFAULT_CLEAR_CACHE_ON_WRITE, UpdateClearCacheOnWrite);
 
 	// On disk cache config.
 	// TODO(hjiang): Add a new configurable for on-disk cache staleness.

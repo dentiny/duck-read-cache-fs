@@ -118,7 +118,7 @@ struct InstanceConfig {
 	bool enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
 
 	// Cache invalidation on write config
-	bool clear_cache_on_write = DEFAULT_CLEAR_CACHE_ON_WRITE;
+	string clear_cache_on_write_option = *DEFAULT_CLEAR_CACHE_ON_WRITE;
 };
 
 //===--------------------------------------------------------------------===//
@@ -133,6 +133,10 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	InstanceConfig config;
 	// Cache filesystem registry.
 	InstanceCacheFsRegistry registry;
+
+	// On-disk cache files, which are stored for cache clear on write operations.
+	// Only valid when clear cache is enabled, and users specify not to use the consistent mode.
+	unordered_set<string> cache_files;
 
 	InstanceCacheReaderManager cache_reader_manager;
 	CacheExclusionManager exclusion_manager;
@@ -163,6 +167,10 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	void ResetProfileCollector();
 	// Set the profile collector.
 	void SetProfileCollector(string profile_type);
+	// Set the on-disk cache files.
+	void SetCacheFiles();
+	// Reset on-disk cache files, if users specify the cache clear on write option is per-duckdb instance.
+	void ResetCacheFilesIfPossible();
 };
 
 //===--------------------------------------------------------------------===//

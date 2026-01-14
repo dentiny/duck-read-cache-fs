@@ -10,6 +10,7 @@
 #include "duckdb/main/client_context.hpp"
 #include "duckdb/main/database.hpp"
 #include "in_memory_cache_reader.hpp"
+#include "filesystem_utils.hpp"
 #include "noop_cache_reader.hpp"
 #include "noop_profile_collector.hpp"
 #include "temp_profile_collector.hpp"
@@ -244,6 +245,32 @@ void CacheHttpfsInstanceState::SetProfileCollector(string profile_type) {
 	auto cache_filesystems = registry.GetAllCacheFs();
 	for (auto *cache_fs : cache_filesystems) {
 		cache_fs->SetProfileCollector(*profile_collector);
+	}
+}
+
+void CacheHttpfsInstanceState::SetCacheFiles() {
+	D_ASSERT(cache_files.empty());
+	D_ASSERT(config.clear_cache_on_write_option == *CLEAR_CACHE_ON_WRITE_CUR_DB);
+	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
+		auto cur_cache_files = GetFilesUnder(cur_cache_dir);
+		cache_files.reserve(cache_files.size() + cur_cache_files.size());
+		cur_cache_files.insert(std::make_move_iterator(cur_cache_files.begin()),
+		                       std::make_move_iterator(cur_cache_files.end()));
+	}
+}
+
+void CacheHttpfsInstanceState::ResetCacheFilesIfPossible() {
+	if (config.clear_cache_on_write_option != *CLEAR_CACHE_ON_WRITE_CUR_DB) {
+		D_ASSERT(cache_files.empty());
+		return;
+	}
+
+	cache_files.clear();
+	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
+		auto cur_cache_files = GetFilesUnder(cur_cache_dir);
+		cache_files.reserve(cache_files.size() + cur_cache_files.size());
+		cur_cache_files.insert(std::make_move_iterator(cur_cache_files.begin()),
+		                       std::make_move_iterator(cur_cache_files.end()));
 	}
 }
 
