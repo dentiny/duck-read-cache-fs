@@ -506,17 +506,15 @@ void DiskCacheReader::ClearCache(const string &fname) {
 	}
 
 	const auto thread_num = std::min<size_t>(GetCpuCoreCount(), cache_files_to_remove.size());
-	ThreadPool tp{thread_num};
+	ThreadPool tp {thread_num};
 	vector<std::future<void>> file_remove_futures;
 	file_remove_futures.reserve(cache_files_to_remove.size());
 	for (auto cur_cache_file : cache_files_to_remove) {
-		auto fut = tp.Push([this, cur = std::move(cur_cache_file)]() {
-			local_filesystem->TryRemoveFile(cur);
-		});
+		auto fut = tp.Push([this, cur = std::move(cur_cache_file)]() { local_filesystem->TryRemoveFile(cur); });
 		file_remove_futures.emplace_back(std::move(fut));
 	}
 	tp.Wait();
-	for (auto& cur_fut : file_remove_futures) {
+	for (auto &cur_fut : file_remove_futures) {
 		cur_fut.get();
 	}
 
