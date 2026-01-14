@@ -498,7 +498,7 @@ void DiskCacheReader::ClearCache(const string &fname) {
 		local_filesystem->ListFiles(cur_cache_dir, [&](const string &cur_file, bool /*unused*/) {
 			if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {
 				const string filepath = StringUtil::Format("%s/%s", cur_cache_dir, cur_file);
-				local_filesystem->RemoveFile(filepath);
+				local_filesystem->TryRemoveFile(filepath);
 			}
 		});
 	}
