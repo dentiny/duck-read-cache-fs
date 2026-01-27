@@ -29,3 +29,18 @@ SELECT cache_httpfs_get_ondisk_data_cache_size();
 # Clear exclusion regex to keep the test hermetic.
 statement ok
 SELECT cache_httpfs_reset_exclusion_regex();
+
+# Exclusion regex could also be used to only enable certain patterns.
+statement ok
+SELECT cache_httpfs_add_exclusion_regex('^(?!https://raw\.githubusercontent\.com/dentiny)');
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+statement ok
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+
+query I
+SELECT cache_httpfs_get_ondisk_data_cache_size();
+----
+16222
