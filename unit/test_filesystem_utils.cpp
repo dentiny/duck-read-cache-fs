@@ -9,9 +9,6 @@
 #include "duckdb/common/string_util.hpp"
 #include "cache_filesystem_config.hpp"
 #include "filesystem_utils.hpp"
-#include "hffs.hpp"
-#include "duckdb/storage/buffer_manager.hpp"
-#include "duckdb/main/database.hpp"
 
 #include <utime.h>
 
@@ -20,15 +17,6 @@ using namespace duckdb; // NOLINT
 namespace {
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 } // namespace
-
-TEST_CASE("DEBUG HTTPFS FILESYSTEM", "[utils test]") {
-	auto fs = make_uniq<HTTPFileSystem>();
-	// auto database_instance = make_shared_ptr<DatabaseInstance>();
-	// auto& buffer_manager = database_instance->GetBufferManager();
-	// auto buffer = buffer_manager.Allocate(MemoryTag::EXTERNAL_FILE_CACHE, 33554428);
-	// QueryContext context;
-	std::cerr << fs->FileExists("https://github.com/duckdb/duckdb-data/releases/download/v1.0/example_rn.ndjson", nullptr) << std::endl;
-}
 
 TEST_CASE("Stale file deletion", "[utils test]") {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
