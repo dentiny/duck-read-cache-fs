@@ -1,3 +1,9 @@
+# 0.12.3
+
+## Changed
+
+- Upgrade duckdb to v1.4.4
+
 # 0.12.2
 
 ## Added
