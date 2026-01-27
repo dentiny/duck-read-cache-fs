@@ -102,6 +102,12 @@ D SELECT * FROM cache_httpfs_cache_access_info_query();
 ```sql
 D SET cache_httpfs_add_exclusion_regex('.*config.*');
 ```
+It could be used as whitelist for distributed query and caching as well.
+For instance, in a distributed setup where each DuckDB instance or a host (imagining on-disk cache shared via filesystem) is responsible for a specific data partition, a whitelist regex can ensure that only files within the assigned range are cached locally.
+```sql
+-- Only objects with under "bucket" GCS bucket and "prefix" directory will be cached.
+D SET cache_httpfs_add_exclusion_regex('^(?!gs://bucket/prefix/)');
+```
 
 - The extension provides table function to list current active configuration, example usage
 ```sql
