@@ -61,4 +61,7 @@ const string &GetDefaultOnDiskCacheDirectory();
 // Get the fake filesystem directory path.
 const string &GetFakeOnDiskCacheDirectory();
 
+// Get filesystem page size.
+idx_t GetFileSystemPageSize();
+
 } // namespace duckdb

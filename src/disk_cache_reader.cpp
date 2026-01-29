@@ -201,7 +201,8 @@ void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_d
 	{
 		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
 		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
-		if (config.enable_disk_reader_mem_cache) {
+		// Notice direct IO requires IO size to be aligned with page size.
+		if (config.enable_disk_reader_mem_cache && content.length() % GetFileSystemPageSize() == 0) {
 			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
 		}
 		auto file_handle = local_filesystem->OpenFile(local_temp_file, file_open_flags);

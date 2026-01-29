@@ -16,7 +16,7 @@ on_disk	enabled	enabled	enabled
 query IIIII
 SELECT * FROM cache_httpfs_get_data_cache_config();
 ----
-on_disk	[/tmp/duckdb_cache_httpfs_cache]	524288	creation_timestamp	page-cache
+on_disk	[/tmp/duckdb_cache_httpfs_cache]	524288	creation_timestamp	on-disk-memory-cache
 
 # Currently implementation late updates cache type on IO access, to check data cache config after update, have to perform an IO operation first.
 statement ok

@@ -306,4 +306,23 @@ const string &GetFakeOnDiskCacheDirectory() {
 	return *instance;
 }
 
+idx_t GetFileSystemPageSize() {
+#if defined(_WIN32)
+	SYSTEM_INFO si;
+	GetSystemInfo(&si);
+	return static_cast<std::size_t>(si.dwPageSize);
+
+#elif defined(_SC_PAGESIZE)
+
+	const long result = sysconf(_SC_PAGESIZE);
+	if (result <= 0) {
+		return 4096;
+	}
+	return static_cast<idx_t>(result);
+
+#else
+	return 4096; // conservative fallback
+#endif
+}
+
 } // namespace duckdb
