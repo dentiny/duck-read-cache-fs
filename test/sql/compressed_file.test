@@ -51,4 +51,4 @@ SELECT MIN(i), MAX(i), COUNT(*) FROM read_parquet('/tmp/cache_httpfs_fake_filesy
 query I
 SELECT COUNT(*) FROM cache_httpfs_cache_status_query()
 ----
-1
+2

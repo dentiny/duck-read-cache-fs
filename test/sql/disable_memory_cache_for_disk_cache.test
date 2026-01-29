@@ -1,4 +1,4 @@
-# name: test/sql/memory_cache_for_disk_cache.test
+# name: test/sql/disable_memory_cache_for_disk_cache.test
 # description: test IO operations when memory cache disabled for disk cache reader
 # group: [sql]
 
