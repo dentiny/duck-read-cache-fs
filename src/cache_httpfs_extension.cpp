@@ -162,7 +162,9 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 	auto &vfs = opener_filesystem.GetFileSystem();
 	auto internal_filesystem = vfs.ExtractSubSystem(filesystem_name);
 	if (internal_filesystem == nullptr) {
-		throw InvalidInputException("Filesystem %s hasn't been registered yet!", filesystem_name);
+		throw InvalidInputException("Filesystem %s hasn't been registered yet! Use "
+		                            "cache_httpfs_list_registered_filesystems() to see available filesystems.",
+		                            filesystem_name);
 	}
 
 	auto cache_filesystem =
