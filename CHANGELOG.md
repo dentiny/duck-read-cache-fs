@@ -1,3 +1,29 @@
+# 0.12.4
+
+## Improved
+
+- Add doc for whitelist cache filter ([#388])
+
+[#388]: https://github.com/dentiny/duck-read-cache-fs/pull/388
+
+- Wrap filesystem failure will prompt users to check all existing filesystems available ([#394])
+
+[#394]: https://github.com/dentiny/duck-read-cache-fs/pull/394
+
+- Enable in-memory cache for disk cache reader, so storage access will be avoided whenever possible ([#391])
+
+[#391]: https://github.com/dentiny/duck-read-cache-fs/pull/391
+
+## Fixed
+
+- Fix in-memory cache usage for disk cache reader, which requires IO requests to be page-aligned ([#391])
+
+[#391]: https://github.com/dentiny/duck-read-cache-fs/pull/391
+
+- Fix segfault at glob when accessing extended file info ([#395])
+
+[#395]: https://github.com/dentiny/duck-read-cache-fs/pull/395
+
 # 0.12.3
 
 ## Changed
