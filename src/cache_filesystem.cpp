@@ -300,9 +300,12 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 	// Attempt to fill in metadata cache.
 	for (const auto &cur_file_info : open_file_info) {
 		const auto &filepath = cur_file_info.path;
-		const auto &cur_extended_file_info = *cur_file_info.extended_info;
+		if (cur_file_info.extended_info == nullptr) {
+			continue;
+		}
 
 		// Attempt to get file size from extended file info.
+		const auto &cur_extended_file_info = *cur_file_info.extended_info;
 		auto iter = cur_extended_file_info.options.find(FILE_SIZE_INFO_KEY);
 		if (iter == cur_extended_file_info.options.end()) {
 			continue;
