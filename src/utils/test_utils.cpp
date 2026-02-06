@@ -31,6 +31,9 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(const TestCacheConfig &conf
 	inst_config.disk_reader_max_mem_cache_block_count = config.max_disk_reader_mem_cache_block_count;
 	inst_config.min_disk_bytes_for_cache = config.min_disk_bytes_for_cache;
 
+	// Clear cache on write option
+	inst_config.clear_cache_on_write_option = config.clear_cache_on_write_option;
+
 	// Initialize profile collector
 	instance_state->SetProfileCollector(inst_config.profile_type);
 
