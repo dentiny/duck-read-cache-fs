@@ -81,13 +81,16 @@ idx_t GetOverallFileSystemDiskSpace(const string &path) {
 	ULARGE_INTEGER free_bytes_unused;
 	ULARGE_INTEGER total_free_unused;
 	const BOOL ok = GetDiskFreeSpaceExA(path.c_str(), &free_bytes_unused, &total_bytes, &total_free_unused);
-	D_ASSERT(ok);
+	if (!ok) {
+		return 0;
+	}
 	return static_cast<idx_t>(total_bytes.QuadPart);
 #else
 	struct statvfs vfs;
-
 	const auto ret = statvfs(path.c_str(), &vfs);
-	D_ASSERT(ret == 0);
+	if (ret != 0) {
+		return 0;
+	}
 
 	auto total_blocks = vfs.f_blocks;
 	auto block_size = vfs.f_frsize;
