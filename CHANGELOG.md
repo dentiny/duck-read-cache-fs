@@ -1,3 +1,9 @@
+# 0.12.5
+
+## Fixed
+
+- Update extension-ci-tools and duckdb-httpfs to latest
+
 # 0.12.4
 
 ## Improved
