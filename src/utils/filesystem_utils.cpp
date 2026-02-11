@@ -75,6 +75,13 @@ vector<string> GetSortedFilesUnder(const string &folder) {
 	return file_names;
 }
 
+unordered_set<string> GetFilesUnder(const string &folder) {
+	unordered_set<string> file_names;
+	LocalFileSystem::CreateLocal()->ListFiles(
+	    folder, [&file_names](const string &fname, bool /*unused*/) { file_names.insert(fname); });
+	return file_names;
+}
+
 idx_t GetOverallFileSystemDiskSpace(const string &path) {
 #if defined(_WIN32)
 	ULARGE_INTEGER total_bytes;
