@@ -1,5 +1,6 @@
 #include "test_utils.hpp"
 
+#include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/local_file_system.hpp"
 
 namespace duckdb {
@@ -30,16 +31,17 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(const TestCacheConfig &conf
 	inst_config.disk_reader_max_mem_cache_block_count = config.max_disk_reader_mem_cache_block_count;
 	inst_config.min_disk_bytes_for_cache = config.min_disk_bytes_for_cache;
 
+	// Initialize profile collector
+	instance_state->SetProfileCollector(inst_config.profile_type);
+
 	// Ensure cache directories exist
 	auto local_fs = LocalFileSystem::CreateLocal();
 	for (const auto &dir : inst_config.on_disk_cache_directories) {
 		local_fs->CreateDirectory(dir);
 	}
 
-	// Register state with instance
 	SetInstanceState(*db.instance.get(), instance_state);
-
-	// Create cache filesystem wrapping local filesystem
+	InitializeCacheReaderForTest(instance_state, inst_config);
 	cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal(), instance_state);
 }
 
@@ -54,6 +56,10 @@ CacheHttpfsInstanceState &TestCacheFileSystemHelper::GetInstanceStateOrThrow() {
 
 InstanceConfig &TestCacheFileSystemHelper::GetConfig() {
 	return instance_state->config;
+}
+
+void InitializeCacheReaderForTest(shared_ptr<CacheHttpfsInstanceState> &instance_state, const InstanceConfig &config) {
+	instance_state->cache_reader_manager.SetCacheReader(config, instance_state);
 }
 
 } // namespace duckdb

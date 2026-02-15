@@ -1,6 +1,7 @@
 // Unit test for multiple DuckDB instances in a single process.
 //
-// This test validates that the extension properly supports multiple DuckDB instances in a single process, each with its own independent configuration and state.
+// This test validates that the extension properly supports multiple DuckDB instances in a single process, each with its
+// own independent configuration and state.
 
 #define CATCH_CONFIG_RUNNER
 #include "catch.hpp"
@@ -11,20 +12,13 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "scoped_directory.hpp"
+#include "test_constants.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
 namespace {
 
-constexpr uint64_t TEST_FILE_SIZE = 26;
-const auto TEST_FILE_CONTENT = []() {
-	string content(TEST_FILE_SIZE, '\0');
-	for (uint64_t idx = 0; idx < TEST_FILE_SIZE; ++idx) {
-		content[idx] = 'a' + idx;
-	}
-	return content;
-}();
 const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
 
 void CreateSourceTestFile() {
@@ -102,7 +96,7 @@ TEST_CASE("Test multiple instances with different cache types", "[multi-instance
 		const uint64_t bytes_to_read = 10;
 		string content(bytes_to_read, '\0');
 		cache_fs1->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-		               start_offset);
+		                start_offset);
 		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 	}
 
@@ -112,7 +106,7 @@ TEST_CASE("Test multiple instances with different cache types", "[multi-instance
 		const uint64_t bytes_to_read = 8;
 		string content(bytes_to_read, '\0');
 		cache_fs2->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-		               start_offset);
+		                start_offset);
 		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 	}
 
@@ -122,7 +116,7 @@ TEST_CASE("Test multiple instances with different cache types", "[multi-instance
 		const uint64_t bytes_to_read = 10;
 		string content(bytes_to_read, '\0');
 		cache_fs3->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
-		               start_offset);
+		                start_offset);
 		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
 	}
 

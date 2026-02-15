@@ -16,105 +16,111 @@ namespace duckdb {
 //===--------------------------------------------------------------------===//
 // Config constant
 //===--------------------------------------------------------------------===//
-inline const NoDestructor<string> NOOP_CACHE_TYPE {"noop"};
-inline const NoDestructor<string> ON_DISK_CACHE_TYPE {"on_disk"};
-inline const NoDestructor<string> IN_MEM_CACHE_TYPE {"in_mem"};
-inline const std::unordered_set<string> ALL_CACHE_TYPES {*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE, *IN_MEM_CACHE_TYPE};
+extern const NoDestructor<string> NOOP_CACHE_TYPE;
+extern const NoDestructor<string> ON_DISK_CACHE_TYPE;
+extern const NoDestructor<string> IN_MEM_CACHE_TYPE;
+extern const NoDestructor<unordered_set<string>> ALL_CACHE_TYPES;
+
+// Cache reader names.
+extern const NoDestructor<string> NOOP_CACHE_READER_NAME;
+extern const NoDestructor<string> ON_DISK_CACHE_READER_NAME;
+extern const NoDestructor<string> IN_MEM_CACHE_READER_NAME;
 
 // Creation timestamp-based on-disk eviction policy.
-inline const NoDestructor<string> ON_DISK_CREATION_TIMESTAMP_EVICTION {"creation_timestamp"};
+extern const NoDestructor<string> ON_DISK_CREATION_TIMESTAMP_EVICTION;
 // On-disk LRU eviction policy made for single-process usage.
-inline const NoDestructor<string> ON_DISK_LRU_SINGLE_PROC_EVICTION {"lru_sp"};
+extern const NoDestructor<string> ON_DISK_LRU_SINGLE_PROC_EVICTION;
 
 // Default profile option, which performs no-op.
-inline const NoDestructor<string> NOOP_PROFILE_TYPE {"noop"};
+extern const NoDestructor<string> NOOP_PROFILE_TYPE;
 // Store the latest IO operation profiling result, which potentially suffers concurrent updates.
-inline const NoDestructor<string> TEMP_PROFILE_TYPE {"temp"};
+extern const NoDestructor<string> TEMP_PROFILE_TYPE;
 // Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
-inline const NoDestructor<string> PERSISTENT_PROFILE_TYPE {"duckdb"};
-inline const NoDestructor<std::unordered_set<string>> ALL_PROFILE_TYPES {
-    {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE, *PERSISTENT_PROFILE_TYPE}};
+extern const NoDestructor<string> PERSISTENT_PROFILE_TYPE;
+extern const NoDestructor<unordered_set<string>> ALL_PROFILE_TYPES;
 
 //===--------------------------------------------------------------------===//
 // Default configuration
 //===--------------------------------------------------------------------===//
-inline const idx_t DEFAULT_CACHE_BLOCK_SIZE = 512_KiB;
-inline const NoDestructor<string> DEFAULT_ON_DISK_CACHE_DIRECTORY {"/tmp/duckdb_cache_httpfs_cache"};
+extern const idx_t DEFAULT_CACHE_BLOCK_SIZE;
 
 // Default to use on-disk cache filesystem.
-inline NoDestructor<string> DEFAULT_CACHE_TYPE {*ON_DISK_CACHE_TYPE};
+extern NoDestructor<string> DEFAULT_CACHE_TYPE;
 
 // Default to timestamp-based on-disk cache eviction policy.
-inline NoDestructor<string> DEFAULT_ON_DISK_EVICTION_POLICY {*ON_DISK_CREATION_TIMESTAMP_EVICTION};
+extern NoDestructor<string> DEFAULT_ON_DISK_EVICTION_POLICY;
 
 // To prevent go out of disk space, we set a threshold to disallow local caching if insufficient. It applies to all
 // filesystems. The value here is the decimal representation for percentage value; for example, 0.05 means 5%.
-inline constexpr double MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE = 0.05;
+extern const double MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE;
 
 // By default, enable in-memory cache for disk cache reader.
-inline constexpr bool DEFAULT_ENABLE_DISK_READER_MEM_CACHE = false;
+extern const bool DEFAULT_ENABLE_DISK_READER_MEM_CACHE;
 
 // Maximum in-memory cache block for disk cache reader.
-inline constexpr idx_t DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT = 256;
+extern const idx_t DEFAULT_MAX_DISK_READER_MEM_CACHE_BLOCK_COUNT;
 
 // Default timeout in milliseconds for in-memory cache block for disk cache reader.
-inline constexpr idx_t DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC = 1800ULL * 1000 /*30min*/;
+extern const idx_t DEFAULT_DISK_READER_MEM_CACHE_TIMEOUT_MILLISEC;
 
 // Maximum in-memory cache block number, which caps the overall memory consumption as (block size * max block count).
-inline constexpr idx_t DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT = 256;
+extern const idx_t DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
 
 // Default timeout in milliseconds for in-memory block cache entries.
-inline constexpr idx_t DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
+extern const idx_t DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC;
 
 // Max number of cache entries for file metadata cache.
-inline static constexpr size_t DEFAULT_MAX_METADATA_CACHE_ENTRY = 250;
+extern const size_t DEFAULT_MAX_METADATA_CACHE_ENTRY;
 
 // Timeout in milliseconds of cache entries for file metadata cache.
-inline static constexpr uint64_t DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
+extern const uint64_t DEFAULT_METADATA_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 // Number of seconds which we define as the threshold of staleness for metadata entries.
-inline constexpr idx_t CACHE_FILE_STALENESS_SECOND = 24 * 3600; // 1 day
+extern const idx_t CACHE_FILE_STALENESS_SECOND;
 // Number of milliseconds which mark staleness.
-inline constexpr idx_t CACHE_FILE_STALENESS_MILLISEC = CACHE_FILE_STALENESS_SECOND * 1000;
+extern const idx_t CACHE_FILE_STALENESS_MILLISEC;
 // Number of microseconds which marks staleness.
-inline constexpr idx_t CACHE_FILE_STALENESS_MICROSEC = CACHE_FILE_STALENESS_MILLISEC * 1000;
+extern const idx_t CACHE_FILE_STALENESS_MICROSEC;
 
 // Max number of cache entries for file handle cache.
-inline static constexpr size_t DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY = 250;
+extern const size_t DEFAULT_MAX_FILE_HANDLE_CACHE_ENTRY;
 
 // Timeout in milliseconds of cache entries for file handle cache.
-inline static constexpr uint64_t DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC = 3600ULL * 1000 /*1hour*/;
+extern const uint64_t DEFAULT_FILE_HANDLE_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 // Max number of cache entries for glob cache.
-inline static constexpr size_t DEFAULT_MAX_GLOB_CACHE_ENTRY = 64;
+extern const size_t DEFAULT_MAX_GLOB_CACHE_ENTRY;
 
 // Timeout in milliseconds of cache entries for file handle cache.
-inline static constexpr uint64_t DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC = 1800ULL * 1000 /*30min*/;
+extern const uint64_t DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC;
 
 // Default option for profile type.
-inline NoDestructor<string> DEFAULT_PROFILE_TYPE {*NOOP_PROFILE_TYPE};
+extern NoDestructor<string> DEFAULT_PROFILE_TYPE;
 
 // Default max number of parallel subrequest for a single filesystem read request. 0 means no limit.
-inline uint64_t DEFAULT_MAX_SUBREQUEST_COUNT = 0;
+extern uint64_t DEFAULT_MAX_SUBREQUEST_COUNT;
 
 // Default enable metadata cache.
-inline bool DEFAULT_ENABLE_METADATA_CACHE = true;
+extern bool DEFAULT_ENABLE_METADATA_CACHE;
 
 // Default enable file handle cache.
-inline bool DEFAULT_ENABLE_FILE_HANDLE_CACHE = true;
+extern bool DEFAULT_ENABLE_FILE_HANDLE_CACHE;
 
 // Default enable glob cache.
-inline bool DEFAULT_ENABLE_GLOB_CACHE = true;
+extern bool DEFAULT_ENABLE_GLOB_CACHE;
 
 // Default enable cache validation via version tag and last modification timestamp.
-inline bool DEFAULT_ENABLE_CACHE_VALIDATION = false;
+extern bool DEFAULT_ENABLE_CACHE_VALIDATION;
+
+// Default enable clearing cache on write operations.
+extern bool DEFAULT_CLEAR_CACHE_ON_WRITE;
 
 // Default not ignore SIGPIPE in the extension.
-inline bool DEFAULT_IGNORE_SIGPIPE = false;
+extern bool DEFAULT_IGNORE_SIGPIPE;
 
 // Default min disk bytes required for on-disk cache; by default 0 which user doesn't specify and override, and default
 // value will be considered.
-inline idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE = 0;
+extern idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 
 //===--------------------------------------------------------------------===//
 // Util function for filesystem configurations.

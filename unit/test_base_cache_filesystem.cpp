@@ -5,6 +5,7 @@
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/virtual_file_system.hpp"
 #include "hffs.hpp"
+#include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -30,6 +31,7 @@ void DeleteTestFile() {
 // be used for certains files.
 TEST_CASE("Test cached filesystem CanHandle", "[base cache filesystem]") {
 	auto instance_state = make_shared_ptr<CacheHttpfsInstanceState>();
+	InitializeCacheReaderForTest(instance_state, instance_state->config);
 	unique_ptr<FileSystem> vfs = make_uniq<VirtualFileSystem>();
 	vfs->RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<HuggingFaceFileSystem>(), instance_state));
 	vfs->RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<LocalFileSystem>(), std::move(instance_state)));

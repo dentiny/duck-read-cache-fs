@@ -23,7 +23,7 @@ public:
 	Histogram &operator=(Histogram &&) = delete;
 
 	// Set the distribution stats name and unit, used for formatting purpose.
-	void SetStatsDistribution(std::string name, std::string unit);
+	void SetStatsDistribution(string name, string unit);
 
 	// Add [val] into the histogram.
 	// Return whether [val] is valid.
@@ -54,7 +54,7 @@ public:
 	}
 
 	// Display histogram into string format.
-	std::string FormatString() const;
+	string FormatString() const;
 
 	// Reset histogram.
 	void Reset();

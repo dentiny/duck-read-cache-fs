@@ -1,6 +1,8 @@
-# name: test/sql/memory_cache_for_disk_cache.test
-# description: test IO operations when memory cache enabled for disk cache reader
+# name: test/sql/disable_memory_cache_for_disk_cache.test
+# description: test IO operations when memory cache disabled for disk cache reader
 # group: [sql]
+
+require notwindows
 
 require cache_httpfs
 
@@ -10,7 +12,7 @@ statement ok
 SET cache_httpfs_type='on_disk';
 
 statement ok
-SET cache_httpfs_disk_cache_reader_enable_memory_cache=true;
+SET cache_httpfs_disk_cache_reader_enable_memory_cache=false;
 
 statement ok
 SET cache_httpfs_cache_directories_config='/tmp/duckdb_cache_httpfs_cache';

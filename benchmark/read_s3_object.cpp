@@ -62,7 +62,7 @@ void ReadUncachedWholeFile(uint64_t block_size) {
 	auto s3fs = make_uniq<S3FileSystem>(buffer_manager);
 
 	// Use default cache directory
-	vector<string> cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
+	vector<string> cache_directories = {GetDefaultOnDiskCacheDirectory()};
 	for (const auto &cur_cache_dir : cache_directories) {
 		LocalFileSystem::CreateLocal()->RemoveDirectory(cur_cache_dir);
 	}
@@ -107,8 +107,10 @@ void ReadUncachedWholeFile(uint64_t block_size) {
 } // namespace duckdb
 
 int main(int argc, char **argv) {
+#if !defined(_WIN32)
 	// Ignore SIGPIPE, reference: https://blog.erratasec.com/2018/10/tcpip-sockets-and-sigpipe.html
 	std::signal(SIGPIPE, SIG_IGN);
+#endif
 
 	constexpr std::array<uint64_t, 10> BLOCK_SIZE_ARR {
 	    64ULL * 1024,        // 64KiB

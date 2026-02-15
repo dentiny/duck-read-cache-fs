@@ -1,13 +1,10 @@
 #include "fake_filesystem.hpp"
 
 #include "duckdb/common/string_util.hpp"
+#include "filesystem_utils.hpp"
 #include "no_destructor.hpp"
 
 namespace duckdb {
-
-namespace {
-const NoDestructor<std::string> FAKE_FILESYSTEM_PREFIX {"/tmp/cache_httpfs_fake_filesystem"};
-} // namespace
 
 CacheHttpfsFakeFsHandle::CacheHttpfsFakeFsHandle(string path, unique_ptr<FileHandle> internal_file_handle_p,
                                                  CacheHttpfsFakeFileSystem &fs)
@@ -15,16 +12,17 @@ CacheHttpfsFakeFsHandle::CacheHttpfsFakeFsHandle(string path, unique_ptr<FileHan
       internal_file_handle(std::move(internal_file_handle_p)) {
 }
 CacheHttpfsFakeFileSystem::CacheHttpfsFakeFileSystem() : local_filesystem(LocalFileSystem::CreateLocal()) {
-	local_filesystem->CreateDirectory(*FAKE_FILESYSTEM_PREFIX);
+	local_filesystem->CreateDirectory(GetFakeOnDiskCacheDirectory());
 }
 bool CacheHttpfsFakeFileSystem::CanHandleFile(const string &path) {
-	return StringUtil::StartsWith(path, *FAKE_FILESYSTEM_PREFIX);
+	return StringUtil::StartsWith(path, GetFakeOnDiskCacheDirectory());
 }
 
 unique_ptr<FileHandle> CacheHttpfsFakeFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                            optional_ptr<FileOpener> opener) {
 	auto file_handle = local_filesystem->OpenFile(path, flags, opener);
-	return make_uniq<CacheHttpfsFakeFsHandle>(path, std::move(file_handle), *this);
+	auto handle = make_uniq<CacheHttpfsFakeFsHandle>(path, std::move(file_handle), *this);
+	return std::move(handle);
 }
 void CacheHttpfsFakeFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
 	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
@@ -67,6 +65,10 @@ bool CacheHttpfsFakeFileSystem::Trim(FileHandle &handle, idx_t offset_bytes, idx
 timestamp_t CacheHttpfsFakeFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
 	return local_filesystem->GetLastModifiedTime(*local_filesystem_handle);
+}
+string CacheHttpfsFakeFileSystem::GetVersionTag(FileHandle &handle) {
+	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
+	return local_filesystem->GetVersionTag(*local_filesystem_handle);
 }
 FileType CacheHttpfsFakeFileSystem::GetFileType(FileHandle &handle) {
 	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;

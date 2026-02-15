@@ -3,6 +3,8 @@
 #pragma once
 
 #include "base_cache_reader.hpp"
+#include "cache_filesystem_config.hpp"
+#include "cache_read_chunk.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
@@ -10,19 +12,19 @@
 
 namespace duckdb {
 
-// Forward declaration.
+// Forward declarations.
 struct CacheHttpfsInstanceState;
 
 class InMemoryCacheReader final : public BaseCacheReader {
 public:
 	// Constructor: config values are read from instance state at runtime (with defaults as fallback).
-	explicit InMemoryCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-	    : instance_state(std::move(instance_state_p)) {
+	InMemoryCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p, BaseProfileCollector &profile_collector_p)
+	    : BaseCacheReader(profile_collector_p, *IN_MEM_CACHE_READER_NAME), instance_state(std::move(instance_state_p)) {
 	}
 	~InMemoryCacheReader() override = default;
 
-	std::string GetName() const override {
-		return "in_mem_cache_reader";
+	string GetName() const override {
+		return *IN_MEM_CACHE_READER_NAME;
 	}
 
 	void ClearCache() override;
@@ -43,6 +45,9 @@ private:
 
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
+
+	// Process a single cache read chunk in a worker thread.
+	void ProcessCacheReadChunk(FileHandle &handle, const string &version_tag, CacheReadChunk cache_read_chunk);
 
 	// Instance state for config lookup.
 	weak_ptr<CacheHttpfsInstanceState> instance_state;

@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <mutex>
-
 #include "base_cache_reader.hpp"
 #include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_config.hpp"
@@ -16,10 +14,14 @@
 #include "duckdb/common/unordered_set.hpp"
 #include "duckdb/common/vector.hpp"
 #include "duckdb/storage/object_cache.hpp"
+#include "filesystem_utils.hpp"
+#include "mutex.hpp"
+#include "thread_annotation.hpp"
 
 namespace duckdb {
 
 // Forward declarations
+class BaseProfileCollector;
 class CacheFileSystem;
 class ClientContext;
 class DatabaseInstance;
@@ -40,8 +42,8 @@ public:
 	void Reset();
 
 private:
-	mutable std::mutex mutex;
-	unordered_set<CacheFileSystem *> cache_filesystems;
+	mutable concurrency::mutex mutex;
+	unordered_set<CacheFileSystem *> cache_filesystems DUCKDB_GUARDED_BY(mutex);
 };
 
 //===--------------------------------------------------------------------===//
@@ -58,16 +60,18 @@ public:
 	vector<BaseCacheReader *> GetCacheReaders() const;
 	void InitializeDiskCacheReader(const vector<string> &cache_directories,
 	                               weak_ptr<CacheHttpfsInstanceState> instance_state_p);
+	// Update existing readers to use a new profile collector (when profile type changes).
+	void UpdateProfileCollector(BaseProfileCollector &profile_collector);
 	void ClearCache();
 	void ClearCache(const string &fname);
 	void Reset();
 
 private:
-	mutable std::mutex mutex;
-	unique_ptr<BaseCacheReader> noop_cache_reader;
-	unique_ptr<BaseCacheReader> in_mem_cache_reader;
-	unique_ptr<BaseCacheReader> on_disk_cache_reader;
-	BaseCacheReader *internal_cache_reader = nullptr;
+	mutable concurrency::mutex mutex;
+	unique_ptr<BaseCacheReader> noop_cache_reader DUCKDB_GUARDED_BY(mutex);
+	unique_ptr<BaseCacheReader> in_mem_cache_reader DUCKDB_GUARDED_BY(mutex);
+	unique_ptr<BaseCacheReader> on_disk_cache_reader DUCKDB_GUARDED_BY(mutex);
+	BaseCacheReader *internal_cache_reader DUCKDB_GUARDED_BY(mutex) = nullptr;
 };
 
 //===--------------------------------------------------------------------===//
@@ -82,7 +86,7 @@ struct InstanceConfig {
 	bool ignore_sigpipe = DEFAULT_IGNORE_SIGPIPE;
 
 	// On-disk cache config
-	vector<string> on_disk_cache_directories = {*DEFAULT_ON_DISK_CACHE_DIRECTORY};
+	vector<string> on_disk_cache_directories = {GetDefaultOnDiskCacheDirectory()};
 	idx_t min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 	string on_disk_eviction_policy = *DEFAULT_ON_DISK_EVICTION_POLICY;
 
@@ -112,6 +116,9 @@ struct InstanceConfig {
 
 	// Cache validation config
 	bool enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
+
+	// Cache invalidation on write config
+	bool clear_cache_on_write = DEFAULT_CLEAR_CACHE_ON_WRITE;
 };
 
 //===--------------------------------------------------------------------===//
@@ -129,8 +136,17 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 
 	InstanceCacheReaderManager cache_reader_manager;
 	CacheExclusionManager exclusion_manager;
+	// Per-database profile collector, which is shared by all cache filesystems and cache readers.
+	//
+	// Thread-safety and ownership guarantee:
+	// - Profile collector is a "singleton" owned by per-database cache httpfs instance state
+	// - Both cache filesystems and cache readers make IO operation, so they hold a reference for profile collector to
+	// record metrics
+	// - Profile collector could be updated at extension setting update callback, which doesn't hold lock intentionally,
+	// based on the assumption that setting update doesn't run concurrently with IO operation
+	unique_ptr<BaseProfileCollector> profile_collector;
 
-	CacheHttpfsInstanceState() = default;
+	CacheHttpfsInstanceState();
 
 	// ObjectCacheEntry interface
 	string GetObjectType() override {
@@ -140,6 +156,13 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	static string ObjectType() {
 		return OBJECT_TYPE;
 	}
+
+	// Get profile collector reference
+	BaseProfileCollector &GetProfileCollector();
+	// Reset profile collector.
+	void ResetProfileCollector();
+	// Set the profile collector.
+	void SetProfileCollector(string profile_type);
 };
 
 //===--------------------------------------------------------------------===//
@@ -158,7 +181,7 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance);
 // Get instance state from ClientContext, throwing if not found
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context);
 
-// Get instance config from the instance state.
-InstanceConfig &GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
+// Get instance state as shared_ptr, throw exception if already unreferenced.
+shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
 
 } // namespace duckdb

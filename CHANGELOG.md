@@ -1,3 +1,118 @@
+# 0.12.5
+
+## Fixed
+
+- Update extension-ci-tools and duckdb-httpfs to latest
+
+# 0.12.4
+
+## Improved
+
+- Add doc for whitelist cache filter ([#388])
+
+[#388]: https://github.com/dentiny/duck-read-cache-fs/pull/388
+
+- Wrap filesystem failure will prompt users to check all existing filesystems available ([#394])
+
+[#394]: https://github.com/dentiny/duck-read-cache-fs/pull/394
+
+- Enable in-memory cache for disk cache reader, so storage access will be avoided whenever possible ([#391])
+
+[#391]: https://github.com/dentiny/duck-read-cache-fs/pull/391
+
+## Fixed
+
+- Fix in-memory cache usage for disk cache reader, which requires IO requests to be page-aligned ([#391])
+
+[#391]: https://github.com/dentiny/duck-read-cache-fs/pull/391
+
+- Fix segfault at glob when accessing extended file info ([#395])
+
+[#395]: https://github.com/dentiny/duck-read-cache-fs/pull/395
+
+# 0.12.3
+
+## Changed
+
+- Upgrade duckdb to v1.4.4
+
+# 0.12.2
+
+## Added
+
+- Add thread annotation for clang environment, which issues compilation error on disobeyed thread annotation ([#373])
+
+[#373]: https://github.com/dentiny/duck-read-cache-fs/pull/373
+
+- Add option to allow users to enable/disable cache entries clear on write operations ([#376])
+
+[#376]: https://github.com/dentiny/duck-read-cache-fs/pull/376
+
+## Improved
+
+- Move cache clear logic from "Write" operation to "OpenFile", which avoids multiple unnecessary expensive cache clear calls ([#379])
+
+[#379]: https://github.com/dentiny/duck-read-cache-fs/pull/379
+
+- Parallelize on-disk cache file deletion ([#383])
+
+[#383]: https://github.com/dentiny/duck-read-cache-fs/pull/383
+
+## Fixed
+
+- Fix potential failed non-existent file removal ([#382])
+
+[#382]: https://github.com/dentiny/duck-read-cache-fs/pull/382
+
+# 0.12.1
+
+## Fixed
+
+- Fix a potential data race for profile collector access, which is complaint by TSAN ([#371])
+
+[#371]: https://github.com/dentiny/duck-read-cache-fs/pull/371
+
+## Improved
+
+- Similar to the fixed item, use extension setting callback to actively "push" cache type change, instead of passively "pull" on IO operation ([#369])
+
+[#369]: https://github.com/dentiny/duck-read-cache-fs/pull/369
+
+# 0.12.0
+
+## Fixed
+
+- Double checked cached read doesn't affect program correctness when compression gets involved, so revert the aggressive change. ([#361])
+
+[#361]: https://github.com/dentiny/duck-read-cache-fs/pull/361
+
+- Fix IO exception handling in multi-threaded read ([#363])
+
+[#363]: https://github.com/dentiny/duck-read-cache-fs/pull/363
+
+# 0.11.2
+
+## Fixed
+
+- Temporarily disable caching on compressed read ([#360])
+
+[#360]: https://github.com/dentiny/duck-read-cache-fs/pull/360
+
+# 0.11.1
+
+## Fixed
+
+- On write operations, corresponding cache entries are deleted ([#346])
+
+[#346]: https://github.com/dentiny/duck-read-cache-fs/pull/346
+
+## Add
+
+- Implement extended APIs for duckdb filesystem interface ([#341], [#345])
+
+[#341]: https://github.com/dentiny/duck-read-cache-fs/pull/341
+[#345]: https://github.com/dentiny/duck-read-cache-fs/pull/345
+
 # 0.11.0
 
 ## Fixed

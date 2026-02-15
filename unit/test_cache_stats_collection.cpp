@@ -26,8 +26,8 @@ void DeleteTestFile() {
 }
 
 // Get cache access info for file handle.
-CacheAccessInfo GetFileHandleCacheInfo(BaseProfileCollector *profiler) {
-	auto cache_access_infos = profiler->GetCacheAccessInfo();
+CacheAccessInfo GetFileHandleCacheInfo(BaseProfileCollector &profiler) {
+	auto cache_access_infos = profiler.GetCacheAccessInfo();
 	for (auto cur_access_info : cache_access_infos) {
 		if (cur_access_info.cache_type == "file handle") {
 			return cur_access_info;
@@ -49,7 +49,7 @@ TEST_CASE("Test cache stats collection disabled", "[profile collector]") {
 
 	// First access, there're no cache entries inside of cache filesystem.
 	[[maybe_unused]] auto file_handle_1 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	auto *profiler = cache_filesystem->GetProfileCollector();
+	auto &profiler = cache_filesystem->GetProfileCollector();
 	auto file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 0);
@@ -57,8 +57,8 @@ TEST_CASE("Test cache stats collection disabled", "[profile collector]") {
 
 	// Second access, still cache miss, but indicate we should have bigger cache size.
 	[[maybe_unused]] auto file_handle_2 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	profiler = cache_filesystem->GetProfileCollector();
-	file_handle_cache_info = GetFileHandleCacheInfo(profiler);
+	auto &profiler2 = cache_filesystem->GetProfileCollector();
+	file_handle_cache_info = GetFileHandleCacheInfo(profiler2);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 0);
 	REQUIRE(file_handle_cache_info.cache_miss_by_in_use == 0);
@@ -74,7 +74,7 @@ TEST_CASE("Test cache stats collection", "[profile collector]") {
 
 	// First access, there're no cache entries inside of cache filesystem.
 	[[maybe_unused]] auto file_handle_1 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	auto *profiler = cache_filesystem->GetProfileCollector();
+	auto &profiler = cache_filesystem->GetProfileCollector();
 	auto file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 1);
@@ -82,8 +82,8 @@ TEST_CASE("Test cache stats collection", "[profile collector]") {
 
 	// Second access, still cache miss, but indicate we should have bigger cache size.
 	[[maybe_unused]] auto file_handle_2 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	profiler = cache_filesystem->GetProfileCollector();
-	file_handle_cache_info = GetFileHandleCacheInfo(profiler);
+	auto &profiler2 = cache_filesystem->GetProfileCollector();
+	file_handle_cache_info = GetFileHandleCacheInfo(profiler2);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 2);
 	REQUIRE(file_handle_cache_info.cache_miss_by_in_use == 1);
@@ -92,8 +92,8 @@ TEST_CASE("Test cache stats collection", "[profile collector]") {
 	file_handle_1.reset();
 	file_handle_2.reset();
 	[[maybe_unused]] auto file_handle_3 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
-	profiler = cache_filesystem->GetProfileCollector();
-	file_handle_cache_info = GetFileHandleCacheInfo(profiler);
+	auto &profiler3 = cache_filesystem->GetProfileCollector();
+	file_handle_cache_info = GetFileHandleCacheInfo(profiler3);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 1);
 	REQUIRE(file_handle_cache_info.cache_miss_count == 2);
 	REQUIRE(file_handle_cache_info.cache_miss_by_in_use == 1);

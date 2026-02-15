@@ -25,7 +25,7 @@ public:
 	LatencyGuard(const LatencyGuard &) = delete;
 	LatencyGuard &operator=(const LatencyGuard &) = delete;
 	LatencyGuard(LatencyGuard &&) = default;
-	LatencyGuard &operator=(LatencyGuard &&) = delete;
+	LatencyGuard &operator=(LatencyGuard &&) = default;
 
 private:
 	BaseProfileCollector &profile_collector;
@@ -52,6 +52,8 @@ public:
 	virtual void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) = 0;
 	// Record cache size and actual bytes access.
 	virtual void RecordActualCacheRead(idx_t cache_size, idx_t actual_bytes) = 0;
+	// Record bytes written.
+	virtual void RecordBytesWritten(idx_t bytes) = 0;
 	// Get profiler type.
 	virtual string GetProfilerType() = 0;
 	// Get cache access information.
@@ -79,37 +81,6 @@ public:
 
 protected:
 	string cache_reader_type = "";
-};
-
-class NoopProfileCollector final : public BaseProfileCollector {
-public:
-	NoopProfileCollector() = default;
-	~NoopProfileCollector() override = default;
-
-	LatencyGuard RecordOperationStart(IoOperation io_oper) override {
-		return LatencyGuard {*this, std::move(io_oper)};
-	}
-	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override {
-	}
-	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {
-	}
-	void RecordActualCacheRead(idx_t cache_size, idx_t actual_bytes) override {
-	}
-	string GetProfilerType() override {
-		return *NOOP_PROFILE_TYPE;
-	}
-	vector<CacheAccessInfo> GetCacheAccessInfo() const override {
-		vector<CacheAccessInfo> cache_access_info;
-		cache_access_info.resize(kCacheEntityCount);
-		for (size_t idx = 0; idx < kCacheEntityCount; ++idx) {
-			cache_access_info[idx].cache_type = CACHE_ENTITY_NAMES[idx];
-		}
-		return cache_access_info;
-	}
-	void Reset() override {};
-	std::pair<string, uint64_t> GetHumanReadableStats() override {
-		return std::make_pair("(noop profile collector)", /*timestamp=*/0);
-	}
 };
 
 } // namespace duckdb

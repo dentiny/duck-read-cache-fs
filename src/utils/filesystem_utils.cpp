@@ -6,22 +6,24 @@
 #include <filesystem>
 #include <iterator>
 
-#if defined(_WIN32)
-#include <windows.h>
-#endif
-
 #if !defined(_WIN32)
 #include <cerrno>
 #include <cstring>
+#include <cstdlib>
 #include <utime.h>
 #include <sys/statvfs.h>
 #include <sys/xattr.h>
+#else
+#include <windows.h>
 #endif
 
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/numeric_utils.hpp"
+#include "duckdb/common/string.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "no_destructor.hpp"
 
 namespace duckdb {
 
@@ -46,7 +48,7 @@ vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &
 		}
 
 		const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
-		const int64_t diff_in_microsec = now.value - last_mod_time.value;
+		const idx_t diff_in_microsec = NumericCast<idx_t>(now.value - last_mod_time.value);
 		if (diff_in_microsec >= CACHE_FILE_STALENESS_MICROSEC) {
 			if (std::remove(full_name.data()) < -1 && errno != EEXIST) {
 				throw IOException("Fails to delete stale cache file %s", full_name);
@@ -58,34 +60,37 @@ vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &
 	return evicted_cache_files;
 }
 
-int GetFileCountUnder(const std::string &folder) {
+int GetFileCountUnder(const string &folder) {
 	int file_count = 0;
 	LocalFileSystem::CreateLocal()->ListFiles(
 	    folder, [&file_count](const string & /*unused*/, bool /*unused*/) { ++file_count; });
 	return file_count;
 }
 
-vector<std::string> GetSortedFilesUnder(const std::string &folder) {
-	vector<std::string> file_names;
+vector<string> GetSortedFilesUnder(const string &folder) {
+	vector<string> file_names;
 	LocalFileSystem::CreateLocal()->ListFiles(
 	    folder, [&file_names](const string &fname, bool /*unused*/) { file_names.emplace_back(fname); });
 	std::sort(file_names.begin(), file_names.end());
 	return file_names;
 }
 
-idx_t GetOverallFileSystemDiskSpace(const std::string &path) {
+idx_t GetOverallFileSystemDiskSpace(const string &path) {
 #if defined(_WIN32)
 	ULARGE_INTEGER total_bytes;
 	ULARGE_INTEGER free_bytes_unused;
 	ULARGE_INTEGER total_free_unused;
 	const BOOL ok = GetDiskFreeSpaceExA(path.c_str(), &free_bytes_unused, &total_bytes, &total_free_unused);
-	D_ASSERT(ok);
+	if (!ok) {
+		return 0;
+	}
 	return static_cast<idx_t>(total_bytes.QuadPart);
 #else
 	struct statvfs vfs;
-
 	const auto ret = statvfs(path.c_str(), &vfs);
-	D_ASSERT(ret == 0);
+	if (ret != 0) {
+		return 0;
+	}
 
 	auto total_blocks = vfs.f_blocks;
 	auto block_size = vfs.f_frsize;
@@ -93,7 +98,7 @@ idx_t GetOverallFileSystemDiskSpace(const std::string &path) {
 #endif
 }
 
-optional_idx GetTotalDiskSpace(const std::string &path) {
+optional_idx GetTotalDiskSpace(const string &path) {
 #if defined(_WIN32)
 	ULARGE_INTEGER total_bytes;
 	ULARGE_INTEGER free_bytes_unused;
@@ -256,6 +261,71 @@ bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t
 
 	return static_cast<double>(avai_fs_bytes.GetIndex()) / total_fs_bytes.GetIndex() >
 	       MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE;
+}
+
+string GetTemporaryDirectory() {
+#if defined(_WIN32)
+	char temp_path[MAX_PATH];
+	DWORD ret = GetTempPathA(MAX_PATH, temp_path);
+	if (ret > 0 && ret < MAX_PATH) {
+		// GetTempPath returns path with trailing backslash, remove it
+		string result(temp_path);
+		if (!result.empty() && (result.back() == '\\' || result.back() == '/')) {
+			result.pop_back();
+		}
+		return result;
+	}
+	// Fallback to environment variables
+	const char *temp = std::getenv("TEMP");
+	if (temp != nullptr) {
+		return string(temp);
+	}
+	const char *tmp = std::getenv("TMP");
+	if (tmp != nullptr) {
+		return string(tmp);
+	}
+	// Last resort fallback
+	return "C:\\Temp";
+#else
+	return "/tmp";
+#endif
+}
+
+const string &GetDefaultOnDiskCacheDirectory() {
+	static NoDestructor<string> instance {[]() {
+		auto temp_dir = GetTemporaryDirectory();
+		auto local_fs = LocalFileSystem::CreateLocal();
+		return local_fs->JoinPath(temp_dir, "duckdb_cache_httpfs_cache");
+	}()};
+	return *instance;
+}
+
+const string &GetFakeOnDiskCacheDirectory() {
+	static NoDestructor<string> instance {[]() {
+		auto temp_dir = GetTemporaryDirectory();
+		auto local_fs = LocalFileSystem::CreateLocal();
+		return local_fs->JoinPath(temp_dir, "cache_httpfs_fake_filesystem");
+	}()};
+	return *instance;
+}
+
+idx_t GetFileSystemPageSize() {
+#if defined(_WIN32)
+	SYSTEM_INFO si;
+	GetSystemInfo(&si);
+	return static_cast<std::size_t>(si.dwPageSize);
+
+#elif defined(_SC_PAGESIZE)
+
+	const long result = sysconf(_SC_PAGESIZE);
+	if (result <= 0) {
+		return 4096;
+	}
+	return static_cast<idx_t>(result);
+
+#else
+	return 4096; // conservative fallback
+#endif
 }
 
 } // namespace duckdb

@@ -3,8 +3,7 @@
 // Value is stored in natively (aka, without shared pointer wrapper as `CopiableValueLruCache`). It's made for values
 // which are cheap to copy, which happens when internal data structure resizes and key-value pair gets requested.
 //
-// TODO(hjiang): The extension is compiled and linked with C++14 so we don't have `std::optional`;
-// as a workaround we return default value if the requested key doesn't exist in cache.
+// Returns optional values so callers can distinguish between cached misses and default-constructed results.
 
 #pragma once
 
@@ -15,13 +14,15 @@
 #include <memory>
 #include <utility>
 #include <type_traits>
-#include <mutex>
 
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 #include "map_utils.hpp"
+#include "mutex.hpp"
+#include "optional.hpp"
+#include "thread_annotation.hpp"
 #include "time_utils.hpp"
 
 namespace duckdb {
@@ -77,11 +78,11 @@ public:
 	}
 
 	// Look up the entry with key `key`.
-	// Return the default value (with `empty() == true`) if `key` doesn't exist in cache.
-	Val Get(const Key &key) {
+	// Return empty optional if `key` doesn't exist in cache.
+	optional<Val> Get(const Key &key) {
 		const auto entry_map_iter = entry_map.find(key);
 		if (entry_map_iter == entry_map.end()) {
-			return Val {};
+			return nullopt;
 		}
 
 		// Check whether found cache entry is expired or not.
@@ -89,7 +90,7 @@ public:
 			const auto now = GetSteadyNowMilliSecSinceEpoch();
 			if (now - entry_map_iter->second.timestamp > timeout_millisec) {
 				DeleteImpl(entry_map_iter);
-				return Val {};
+				return nullopt;
 			}
 		}
 
@@ -149,7 +150,7 @@ private:
 	};
 
 	using KeyConstRef = std::reference_wrapper<const Key>;
-	using EntryMap = std::unordered_map<KeyConstRef, Entry, RefHash<KeyHash>, RefEq<KeyEqual>>;
+	using EntryMap = unordered_map<KeyConstRef, Entry, RefHash<KeyHash>, RefEq<KeyEqual>>;
 
 	// Delete key-value pairs indicated by the given entry map iterator [iter] from cache.
 	void DeleteImpl(typename EntryMap::iterator iter) {
@@ -199,46 +200,46 @@ public:
 
 	// Insert `value` with key `key`. This will replace any previous entry with the same key.
 	void Put(Key key, Val value) {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		internal_cache.Put(std::move(key), std::move(value));
 	}
 
 	// Delete the entry with key `key`. Return true if the entry was found for `key`, false if the entry was not found.
 	// In both cases, there is no entry with key `key` existed after the call.
 	bool Delete(const Key &key) {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		return internal_cache.Delete(key);
 	}
 
 	// Look up the entry with key `key`.
-	// Return a default value (with `empty() == true`) if `key` doesn't exist in cache.
-	Val Get(const Key &key) {
-		std::unique_lock<std::mutex> lock(mu);
+	// Return empty optional if `key` doesn't exist in cache.
+	optional<Val> Get(const Key &key) {
+		concurrency::unique_lock<concurrency::mutex> lock(mu);
 		return internal_cache.Get(key);
 	}
 
 	// Clear the cache.
 	void Clear() {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		internal_cache.Clear();
 	}
 
 	// Clear cache entry by its key functor.
 	template <typename KeyFilter>
 	void Clear(KeyFilter &&key_filter) {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		internal_cache.Clear(std::forward<KeyFilter>(key_filter));
 	}
 
 	// Accessors for cache parameters.
 	size_t MaxEntries() const {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		return internal_cache.MaxEntries();
 	}
 
 	// Get all keys inside of the cache; the order of keys returned is not deterministic.
 	vector<Key> Keys() const {
-		const std::lock_guard<std::mutex> lock(mu);
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		return internal_cache.Keys();
 	}
 
@@ -249,10 +250,10 @@ public:
 		shared_ptr<CreationToken> creation_token;
 
 		{
-			std::unique_lock<std::mutex> lck(mu);
+			concurrency::unique_lock<concurrency::mutex> lck(mu);
 			auto cached_val = internal_cache.Get(key);
-			if (!cached_val.empty()) {
-				return cached_val;
+			if (cached_val) {
+				return *cached_val;
 			}
 
 			auto creation_iter = ongoing_creation.find(key);
@@ -283,7 +284,7 @@ public:
 		Val val = factory(key);
 
 		{
-			const std::lock_guard<std::mutex> lck(mu);
+			const concurrency::lock_guard<concurrency::mutex> lck(mu);
 			internal_cache.Put(key, val);
 			creation_token->val = val;
 			creation_token->has_value = true;
@@ -307,10 +308,10 @@ private:
 		int count = 0;
 	};
 
-	mutable std::mutex mu;
-	CopiableValueLruCache<Key, Val, KeyHash, KeyEqual> internal_cache;
+	mutable concurrency::mutex mu;
+	CopiableValueLruCache<Key, Val, KeyHash, KeyEqual> internal_cache DUCKDB_GUARDED_BY(mu);
 	// Ongoing creation.
-	std::unordered_map<Key, shared_ptr<CreationToken>, KeyHash, KeyEqual> ongoing_creation;
+	unordered_map<Key, shared_ptr<CreationToken>, KeyHash, KeyEqual> ongoing_creation DUCKDB_GUARDED_BY(mu);
 };
 
 // Same interfaces as `CopiableValueLruCache`, but all cached values are `const` specified to avoid concurrent updates.

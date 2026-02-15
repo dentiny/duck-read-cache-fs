@@ -9,6 +9,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
+#include "test_constants.hpp"
 #include "test_utils.hpp"
 
 #include <utime.h>
@@ -16,14 +17,6 @@
 using namespace duckdb; // NOLINT
 
 namespace {
-constexpr uint64_t TEST_FILE_SIZE = 26;
-const auto TEST_FILE_CONTENT = []() {
-	string content(TEST_FILE_SIZE, '\0');
-	for (uint64_t idx = 0; idx < TEST_FILE_SIZE; ++idx) {
-		content[idx] = 'a' + idx;
-	}
-	return content;
-}();
 const auto TEST_DIRECTORY = "/tmp/duckdb_test_cache";
 const auto TEST_FILENAME = StringUtil::Format("/tmp/duckdb_test_cache/%s", UUID::ToString(UUID::GenerateRandomUUID()));
 
@@ -87,6 +80,7 @@ TEST_CASE("Test clear cache", "[cache filesystem test]") {
 
 int main(int argc, char **argv) {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
+	local_filesystem->RemoveDirectory(TEST_DIRECTORY);
 	local_filesystem->CreateDirectory(TEST_DIRECTORY);
 	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
 	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);

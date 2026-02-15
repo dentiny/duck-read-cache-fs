@@ -2,6 +2,8 @@
 # description: test cached_fs read multiple files
 # group: [sql]
 
+require notwindows
+
 require cache_httpfs
 
 require parquet
@@ -30,6 +32,8 @@ test	88	NULL	2020-12-30 00:25:58.745232+00
 query IIIII
 SELECT * FROM cache_httpfs_cache_status_query() ORDER BY remote_filename;
 ----
+(no disk cache)	https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn1.csv	0	23	in-mem-disk-cache
+(no disk cache)	https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn2.csv	0	171	in-mem-disk-cache
 /tmp/duckdb_cache_httpfs_cache/790e86440e87f3fe45cbfab00131ea59fbe90728a8277d2bc0610e9c43dae4cf-ubn1.csv-0-23	ubn1.csv	0	23	on-disk
 /tmp/duckdb_cache_httpfs_cache/716e708a8a767ba362ce86783df2a9bdf9f1e867fa38091e09865a3d3bf96a7a-ubn2.csv-0-171	ubn2.csv	0	171	on-disk
 

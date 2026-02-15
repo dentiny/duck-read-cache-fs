@@ -38,7 +38,7 @@ struct CacheFileDestination {
 // Convert SHA256 value to hex string.
 string Sha256ToHexString(const duckdb::hash_bytes &sha256) {
 	static constexpr char kHexChars[] = "0123456789abcdef";
-	std::string result;
+	string result;
 	// SHA256 has 32 byte, we encode 2 chars for each byte of SHA256.
 	result.reserve(64);
 
@@ -66,7 +66,7 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
 	const string fname = StringUtil::GetFileName(remote_file);
 
 	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
-	for (int idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
+	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
 		hash_value ^= static_cast<uint64_t>(remote_file_sha256_val[idx]);
 		hash_value *= 0x100000001b3; // FNV prime
 	}
@@ -82,8 +82,8 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
 }
 
 // Get remote file information from the given local cache [fname].
-std::tuple<std::string /*remote_filename*/, uint64_t /*start_offset*/, uint64_t /*end_offset*/>
-GetRemoteFileInfo(const std::string &fname) {
+std::tuple<string /*remote_filename*/, uint64_t /*start_offset*/, uint64_t /*end_offset*/>
+GetRemoteFileInfo(const string &fname) {
 	// [fname] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
 	vector<string> tokens = StringUtil::Split(fname, "-");
 	D_ASSERT(tokens.size() >= 4);
@@ -136,16 +136,19 @@ void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, cons
 
 } // namespace
 
-DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-    : local_filesystem(LocalFileSystem::CreateLocal()), instance_state(std::move(instance_state_p)) {
+DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p,
+                                 BaseProfileCollector &profile_collector_p)
+    : BaseCacheReader(profile_collector_p, *ON_DISK_CACHE_READER_NAME),
+      local_filesystem(LocalFileSystem::CreateLocal()), instance_state(std::move(instance_state_p)) {
 }
 
 string DiskCacheReader::EvictCacheBlockLru() {
-	const std::lock_guard<std::mutex> lck(cache_file_creation_timestamp_map_mutex);
+	const concurrency::lock_guard<concurrency::mutex> lck(cache_file_creation_timestamp_map_mutex);
 	// Initialize file creation timestamp map, which should be called only once.
 	// IO operation is performed inside of critical section intentionally, since it's required for all threads.
 	if (cache_file_creation_timestamp_map.empty()) {
-		const auto &cache_directories = GetInstanceConfig(instance_state).on_disk_cache_directories;
+		auto instance_state_locked = GetInstanceConfig(instance_state);
+		const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
 		cache_file_creation_timestamp_map = GetOnDiskFilesUnder(cache_directories);
 	}
 	D_ASSERT(!cache_file_creation_timestamp_map.empty());
@@ -179,7 +182,8 @@ bool DiskCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const str
 
 void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_directory,
                                  const string &local_cache_file, const string &content, const string &version_tag) {
-	const auto config = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &config = instance_state_locked->config;
 
 	// Skip local cache if insufficient disk space.
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
@@ -197,7 +201,8 @@ void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_d
 	{
 		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
 		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
-		if (config.enable_disk_reader_mem_cache) {
+		// Notice direct IO requires IO size to be aligned with page size.
+		if (config.enable_disk_reader_mem_cache && content.length() % GetFileSystemPageSize() == 0) {
 			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
 		}
 		auto file_handle = local_filesystem->OpenFile(local_temp_file, file_open_flags);
@@ -235,10 +240,11 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	}
 
 	// Fill in on disk cache entries.
-	const auto &cache_directories = GetInstanceConfig(instance_state).on_disk_cache_directories;
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
 	for (const auto &cur_cache_dir : cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir,
-		                            [&cache_entries_info, cur_cache_dir](const std::string &fname, bool /*unused*/) {
+		                            [&cache_entries_info, cur_cache_dir](const string &fname, bool /*unused*/) {
 			                            auto remote_file_info = GetRemoteFileInfo(fname);
 			                            cache_entries_info.emplace_back(DataCacheEntryInfo {
 			                                .cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname),
@@ -253,13 +259,126 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	return cache_entries_info;
 }
 
+void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceConfig &config, const string &version_tag,
+                                            CacheReadChunk cache_read_chunk) {
+	SetThreadName("RdCachRdThd");
+
+	// Attempt in-memory cache block first, so potentially we don't need to access disk storage.
+	InMemCacheBlock block_key;
+	block_key.fname = handle.GetPath();
+	block_key.start_off = cache_read_chunk.aligned_start_offset;
+	block_key.blk_size = cache_read_chunk.chunk_size;
+	auto cache_destination = GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(),
+	                                           cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
+
+	if (in_mem_cache_blocks != nullptr) {
+		auto cache_entry = in_mem_cache_blocks->Get(block_key);
+		// Check cache entry validity and clear if necessary.
+		if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag)) {
+			in_mem_cache_blocks->Delete(block_key);
+			cache_entry = nullptr;
+			local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
+		}
+		if (cache_entry != nullptr) {
+			GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+			DUCKDB_LOG_READ_CACHE_HIT((handle));
+			cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
+			return;
+		}
+	}
+
+	// Create cache content.
+	auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
+	void *addr = const_cast<char *>(content.data());
+
+	// Attempt to open the file directly, so a successfully opened file handle won't be deleted by cleanup
+	// thread and lead to data race.
+	//
+	// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
+	auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
+	// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double
+	// caching.
+	if (config.enable_disk_reader_mem_cache) {
+		file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
+	}
+
+	auto file_handle = local_filesystem->OpenFile(cache_destination.cache_filepath, file_open_flags);
+
+	// Check cache validity and clear if necessary.
+	if (file_handle != nullptr && !ValidateCacheFile(cache_destination.cache_filepath, version_tag)) {
+		local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
+		file_handle = nullptr;
+	}
+
+	if (file_handle != nullptr) {
+		GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+		DUCKDB_LOG_READ_CACHE_HIT((handle));
+		{
+			const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kDiskCacheRead);
+			local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
+		}
+		cache_read_chunk.CopyBufferToRequestedMemory(content);
+
+		// Update in-memory cache if applicable.
+		if (in_mem_cache_blocks != nullptr) {
+			InMemCacheEntry new_cache_entry {
+			    .data = std::move(content),
+			    .version_tag = version_tag,
+			};
+			in_mem_cache_blocks->Put(std::move(block_key),
+			                         make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
+		}
+
+		// Update access and modification timestamp for the cache file, so it won't get evicted.
+		// Intentionally ignore the return value, since it's possible the cache file has been requested to
+		// delete by another eviction thread.
+		// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
+		UpdateFileTimestamps(cache_destination.cache_filepath);
+		return;
+	}
+
+	// We suffer a cache loss, fallback to remote access then local filesystem write.
+	GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
+	DUCKDB_LOG_READ_CACHE_MISS((handle));
+	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
+
+	{
+		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kRead);
+		internal_filesystem->Read(*disk_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
+		                          cache_read_chunk.aligned_start_offset);
+	}
+
+	// Copy to destination buffer, if bytes are read into [content] buffer rather than user-provided buffer.
+	cache_read_chunk.CopyBufferToRequestedMemory(content);
+
+	// Attempt to cache file locally.
+	// We're tolerate of local cache file write failure, which doesn't affect returned content correctness.
+	try {
+		const auto &cache_directory = config.on_disk_cache_directories[cache_destination.cache_directory_idx];
+		CacheLocal(handle, cache_directory, cache_destination.cache_filepath, content, version_tag);
+
+		// Update in-memory cache if applicable.
+		if (in_mem_cache_blocks != nullptr) {
+			InMemCacheEntry new_cache_entry {
+			    .data = std::move(content),
+			    .version_tag = version_tag,
+			};
+			in_mem_cache_blocks->Put(std::move(block_key),
+			                         make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
+		}
+	} catch (...) {
+	}
+}
+
 void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
                                    idx_t requested_bytes_to_read, idx_t file_size) {
 	if (requested_bytes_to_read == 0) {
 		return;
 	}
 
-	const auto config = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &config = instance_state_locked->config;
 	std::call_once(cache_init_flag, [this, &config]() {
 		if (config.enable_disk_reader_mem_cache) {
 			in_mem_cache_blocks = make_uniq<InMemCache>(config.disk_reader_max_mem_cache_timeout_millisec,
@@ -281,7 +400,11 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	idx_t already_read_bytes = 0;
 	// Threads to parallelly perform IO.
 
-	ThreadPool io_threads(GetThreadCountForSubrequests(alignment_info.subrequest_count, config.max_subrequest_count));
+	const auto task_count =
+	    GetThreadCountForSubrequests(alignment_info.subrequest_count, config.max_subrequest_count);
+	ThreadPool io_threads(task_count);
+	vector<std::future<void>> io_task_futures;
+	io_task_futures.reserve(task_count);
 	// Get file-level metadata once before processing chunks.
 	string version_tag = config.enable_cache_validation ? handle.Cast<CacheFileSystemHandle>().GetVersionTag() : "";
 
@@ -339,126 +462,26 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
-		//
-		// TODO(hjiang): Refactor the thread function.
-		io_threads.Push([this, &handle, &config, version_tag = std::cref(version_tag),
-		                 cache_read_chunk = cache_read_chunk]() mutable {
-			SetThreadName("RdCachRdThd");
-
-			// Attempt in-memory cache block first, so potentially we don't need to access disk storage.
-			InMemCacheBlock block_key;
-			block_key.fname = handle.GetPath();
-			block_key.start_off = cache_read_chunk.aligned_start_offset;
-			block_key.blk_size = cache_read_chunk.chunk_size;
-			auto cache_destination =
-			    GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(),
-			                      cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
-
-			if (in_mem_cache_blocks != nullptr) {
-				auto cache_entry = in_mem_cache_blocks->Get(block_key);
-				// Check cache entry validity and clear if necessary.
-				if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag.get())) {
-					in_mem_cache_blocks->Delete(block_key);
-					cache_entry = nullptr;
-					local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
-				}
-				if (cache_entry != nullptr) {
-					profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
-					DUCKDB_LOG_READ_CACHE_HIT((handle));
-					cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
-					return;
-				}
-			}
-
-			// Create cache content.
-			auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
-			void *addr = const_cast<char *>(content.data());
-
-			// Attempt to open the file directly, so a successfully opened file handle won't be deleted by cleanup
-			// thread and lead to data race.
-			//
-			// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
-			auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
-			// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double
-			// caching.
-			if (config.enable_disk_reader_mem_cache) {
-				file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
-			}
-
-			auto file_handle = local_filesystem->OpenFile(cache_destination.cache_filepath, file_open_flags);
-
-			// Check cache validity and clear if necessary.
-			if (file_handle != nullptr && !ValidateCacheFile(cache_destination.cache_filepath, version_tag.get())) {
-				local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
-				file_handle = nullptr;
-			}
-
-			if (file_handle != nullptr) {
-				profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
-				DUCKDB_LOG_READ_CACHE_HIT((handle));
-				{
-					const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kDiskCacheRead);
-					local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
-				}
-				cache_read_chunk.CopyBufferToRequestedMemory(content);
-
-				// Update in-memory cache if applicable.
-				if (in_mem_cache_blocks != nullptr) {
-					InMemCacheEntry new_cache_entry {
-					    .data = std::move(content),
-					    .version_tag = version_tag.get(),
-					};
-					in_mem_cache_blocks->Put(std::move(block_key),
-					                         make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
-				}
-
-				// Update access and modification timestamp for the cache file, so it won't get evicted.
-				// Intentionally ignore the return value, since it's possible the cache file has been requested to
-				// delete by another eviction thread.
-				// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
-				UpdateFileTimestamps(cache_destination.cache_filepath);
-				return;
-			}
-
-			// We suffer a cache loss, fallback to remote access then local filesystem write.
-			profile_collector->RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
-			DUCKDB_LOG_READ_CACHE_MISS((handle));
-			auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
-			auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
-
-			{
-				const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kRead);
-				internal_filesystem->Read(*disk_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
-				                          cache_read_chunk.aligned_start_offset);
-			}
-
-			// Copy to destination buffer, if bytes are read into [content] buffer rather than user-provided buffer.
-			cache_read_chunk.CopyBufferToRequestedMemory(content);
-
-			// Attempt to cache file locally.
-			const auto &cache_directory = config.on_disk_cache_directories[cache_destination.cache_directory_idx];
-			CacheLocal(handle, cache_directory, cache_destination.cache_filepath, content, version_tag.get());
-
-			// Update in-memory cache if applicable.
-			if (in_mem_cache_blocks != nullptr) {
-				InMemCacheEntry new_cache_entry {
-				    .data = std::move(content),
-				    .version_tag = version_tag.get(),
-				};
-				in_mem_cache_blocks->Put(std::move(block_key),
-				                         make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
-			}
+		auto cur_task_future = io_threads.Push([this, &handle, &config, &version_tag, cache_read_chunk]() {
+			ProcessCacheReadChunk(handle, config, version_tag, cache_read_chunk);
 		});
+		io_task_futures.emplace_back(std::move(cur_task_future));
 	}
+
+	// Block wait for all IO operations to complete.
 	io_threads.Wait();
+	for (auto &cur_task_future : io_task_futures) {
+		cur_task_future.get();
+	}
 
 	// Record "bytes to read" and "bytes to cache".
-	profile_collector->RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
-	                                         /*actual_bytes=*/requested_bytes_to_read);
+	GetProfileCollector().RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
+	                                            /*actual_bytes=*/requested_bytes_to_read);
 }
 
 void DiskCacheReader::ClearCache() {
-	const auto &config = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &config = instance_state_locked->config;
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		// Create an empty directory, otherwise later read access errors.
@@ -470,16 +493,34 @@ void DiskCacheReader::ClearCache() {
 }
 
 void DiskCacheReader::ClearCache(const string &fname) {
+	// Delete on-disk files.
+	vector<string> cache_files_to_remove;
 	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
-	const auto &config = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfig(instance_state);
+	const auto &config = instance_state_locked->config;
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir, [&](const string &cur_file, bool /*unused*/) {
 			if (StringUtil::StartsWith(cur_file, cache_file_prefix)) {
-				const string filepath = StringUtil::Format("%s/%s", cur_cache_dir, cur_file);
-				local_filesystem->RemoveFile(filepath);
+				string filepath = StringUtil::Format("%s/%s", cur_cache_dir, cur_file);
+				cache_files_to_remove.emplace_back(std::move(filepath));
 			}
 		});
 	}
+
+	const auto thread_num = std::min<size_t>(GetCpuCoreCount(), cache_files_to_remove.size());
+	ThreadPool tp {thread_num};
+	vector<std::future<void>> file_remove_futures;
+	file_remove_futures.reserve(cache_files_to_remove.size());
+	for (auto cur_cache_file : cache_files_to_remove) {
+		auto fut = tp.Push([this, cur = std::move(cur_cache_file)]() { local_filesystem->TryRemoveFile(cur); });
+		file_remove_futures.emplace_back(std::move(fut));
+	}
+	tp.Wait();
+	for (auto &cur_fut : file_remove_futures) {
+		cur_fut.get();
+	}
+
+	// Delete in-memory cache for on-disk cache files.
 	if (in_mem_cache_blocks != nullptr) {
 		in_mem_cache_blocks->Clear([&fname](const InMemCacheBlock &block) { return block.fname == fname; });
 	}

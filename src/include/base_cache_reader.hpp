@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "base_cache_reader.hpp"
+#include "assert_utils.hpp"
 #include "base_profile_collector.hpp"
 #include "cache_entry_info.hpp"
 #include "duckdb/common/exception.hpp"
@@ -16,7 +16,10 @@ namespace duckdb {
 
 class BaseCacheReader {
 public:
-	BaseCacheReader() = default;
+	BaseCacheReader(BaseProfileCollector &profile_collector_p, string cache_reader_name_p)
+	    : profile_collector(profile_collector_p), cache_reader_name(std::move(cache_reader_name_p)) {
+		profile_collector.get().SetCacheReaderType(cache_reader_name);
+	}
 	virtual ~BaseCacheReader() = default;
 	BaseCacheReader(const BaseCacheReader &) = delete;
 	BaseCacheReader &operator=(const BaseCacheReader &) = delete;
@@ -37,17 +40,17 @@ public:
 	virtual void ClearCache(const string &fname) = 0;
 
 	// Get name for cache reader.
-	virtual std::string GetName() const {
+	virtual string GetName() const {
 		throw NotImplementedException("Base cache reader doesn't implement GetName.");
 	}
 
-	void SetProfileCollector(BaseProfileCollector *profile_collector_p) {
-		profile_collector = profile_collector_p;
-		profile_collector->SetCacheReaderType(GetName());
+	BaseProfileCollector &GetProfileCollector() const {
+		return profile_collector.get();
 	}
 
-	BaseProfileCollector *GetProfileCollector() const {
-		return profile_collector;
+	void SetProfileCollector(BaseProfileCollector &profile_collector_p) {
+		profile_collector = profile_collector_p;
+		profile_collector.get().SetCacheReaderType(cache_reader_name);
 	}
 
 	template <class TARGET>
@@ -62,8 +65,11 @@ public:
 	}
 
 protected:
-	// Ownership lies in cache filesystem.
-	BaseProfileCollector *profile_collector = nullptr;
+	// Ownership lies in cache httpfs instance state, which gets updated at extension setting update callback.
+	// Refer to [CacheHttpfsInstanceState] for thread-safety guarentee.
+	std::reference_wrapper<BaseProfileCollector> profile_collector;
+	// Cached name used when updating profile collector.
+	string cache_reader_name;
 };
 
 } // namespace duckdb

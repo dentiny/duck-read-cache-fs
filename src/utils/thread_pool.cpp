@@ -17,8 +17,8 @@ ThreadPool::ThreadPool(size_t thread_num) : idle_num_(thread_num) {
 			for (;;) {
 				Job cur_job;
 				{
-					std::unique_lock<std::mutex> lck(mutex_);
-					new_job_cv_.wait(lck, [this]() { return !jobs_.empty() || stopped_; });
+					concurrency::unique_lock<concurrency::mutex> lck(mutex_);
+					new_job_cv_.wait(lck, [this]() DUCKDB_REQUIRES(mutex_) { return !jobs_.empty() || stopped_; });
 					if (stopped_) {
 						return;
 					}
@@ -31,7 +31,7 @@ ThreadPool::ThreadPool(size_t thread_num) : idle_num_(thread_num) {
 				cur_job();
 
 				{
-					std::unique_lock<std::mutex> lck(mutex_);
+					concurrency::unique_lock<concurrency::mutex> lck(mutex_);
 					++idle_num_;
 					job_completion_cv_.notify_one();
 				}
@@ -41,8 +41,8 @@ ThreadPool::ThreadPool(size_t thread_num) : idle_num_(thread_num) {
 }
 
 void ThreadPool::Wait() {
-	std::unique_lock<std::mutex> lck(mutex_);
-	job_completion_cv_.wait(lck, [this]() {
+	concurrency::unique_lock<concurrency::mutex> lck(mutex_);
+	job_completion_cv_.wait(lck, [this]() DUCKDB_REQUIRES(mutex_) {
 		if (stopped_) {
 			return true;
 		}
@@ -55,7 +55,7 @@ void ThreadPool::Wait() {
 
 ThreadPool::~ThreadPool() noexcept {
 	{
-		const std::lock_guard<std::mutex> lck(mutex_);
+		const concurrency::lock_guard<concurrency::mutex> lck(mutex_);
 		stopped_ = true;
 		new_job_cv_.notify_all();
 	}

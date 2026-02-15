@@ -4,6 +4,7 @@
 
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/string.hpp"
 
 namespace duckdb {
 
@@ -26,7 +27,7 @@ class CacheHttpfsFakeFileSystem : public LocalFileSystem {
 public:
 	CacheHttpfsFakeFileSystem();
 	bool CanHandleFile(const string &path) override;
-	std::string GetName() const override {
+	string GetName() const override {
 		return "cache_httpfs_fake_filesystem";
 	}
 
@@ -42,6 +43,7 @@ public:
 	idx_t SeekPosition(FileHandle &handle) override;
 	bool Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) override;
 	timestamp_t GetLastModifiedTime(FileHandle &handle) override;
+	string GetVersionTag(FileHandle &handle) override;
 	FileType GetFileType(FileHandle &handle) override;
 	void Truncate(FileHandle &handle, int64_t new_size) override;
 	bool OnDiskFile(FileHandle &handle) override;

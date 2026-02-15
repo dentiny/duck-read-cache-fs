@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include <mutex>
-
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
+#include "mutex.hpp"
 #include "re2/re2.h"
+#include "thread_annotation.hpp"
 
 namespace duckdb {
 
@@ -26,8 +26,8 @@ public:
 	vector<string> GetExclusionRegex() const;
 
 private:
-	mutable std::mutex mu;
-	vector<unique_ptr<::duckdb_re2::RE2>> exclusion_regexes;
+	mutable concurrency::mutex mu;
+	vector<unique_ptr<::duckdb_re2::RE2>> exclusion_regexes DUCKDB_GUARDED_BY(mu);
 };
 
 } // namespace duckdb

@@ -1,5 +1,6 @@
 #include "cache_filesystem.hpp"
 
+#include "assert_utils.hpp"
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
@@ -45,6 +46,48 @@ void CacheFileSystemHandle::Close() {
 	}
 }
 
+CacheFileSystem::CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p,
+                                 weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+    : internal_filesystem(std::move(internal_filesystem_p)),
+      profile_collector([&instance_state_p]() -> BaseProfileCollector & {
+	      auto state = instance_state_p.lock();
+	      if (!state) {
+		      throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
+	      }
+	      return *state->profile_collector;
+      }()),
+      instance_state(std::move(instance_state_p)) {
+	// Register with per-instance registry
+	auto state = instance_state.lock();
+	if (!state) {
+		throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
+	}
+	state->registry.Register(this);
+}
+CacheFileSystem::~CacheFileSystem() {
+	// Unregister from per-instance registry before destruction
+	auto state = instance_state.lock();
+	if (state) {
+		state->registry.Unregister(this);
+	}
+	ClearFileHandleCache();
+}
+
+bool CacheFileSystem::ListFiles(const string &directory, const std::function<void(const string &, bool)> &callback,
+                                FileOpener *opener) {
+	auto wrapped_callback = [this, &callback](OpenFileInfo &info) {
+		const bool is_dir = this->IsDirectory(info.path);
+		callback(info.path, is_dir);
+	};
+	return ListFilesExtended(directory, wrapped_callback, opener);
+}
+
+bool CacheFileSystem::ListFilesExtended(const string &directory,
+                                        const std::function<void(OpenFileInfo &info)> &callback,
+                                        optional_ptr<FileOpener> opener) {
+	return internal_filesystem->ListFiles(directory, callback, opener);
+}
+
 void CacheFileSystem::SetMetadataCache() {
 	const auto &config = instance_state.lock()->config;
 	if (!config.enable_metadata_cache) {
@@ -58,11 +101,13 @@ void CacheFileSystem::SetMetadataCache() {
 }
 
 bool CacheFileSystem::TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFileRemove);
 	ClearCache(filename);
 	return internal_filesystem->TryRemoveFile(filename, opener);
 }
 
 void CacheFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFileRemove);
 	ClearCache(filename);
 	internal_filesystem->RemoveFile(filename, opener);
 }
@@ -90,7 +135,7 @@ void CacheFileSystem::ClearFileHandleCache() {
 	in_use_file_handle_counter = nullptr;
 }
 
-void CacheFileSystem::ClearFileHandleCache(const std::string &filepath) {
+void CacheFileSystem::ClearFileHandleCache(const string &filepath) {
 	if (file_handle_cache == nullptr) {
 		return;
 	}
@@ -116,26 +161,6 @@ void CacheFileSystem::SetFileHandleCache() {
 	}
 }
 
-void CacheFileSystem::SetProfileCollector() {
-	const auto &profile_type = instance_state.lock()->config.profile_type;
-	if (profile_type == *NOOP_PROFILE_TYPE) {
-		if (profile_collector == nullptr || profile_collector->GetProfilerType() != *NOOP_PROFILE_TYPE) {
-			profile_collector = make_uniq<NoopProfileCollector>();
-		}
-		return;
-	}
-	if (profile_type == *TEMP_PROFILE_TYPE) {
-		if (profile_collector == nullptr || profile_collector->GetProfilerType() != *TEMP_PROFILE_TYPE) {
-			profile_collector = make_uniq<TempProfileCollector>();
-		}
-		return;
-	}
-	// Default to noop if unknown type
-	if (profile_collector == nullptr) {
-		profile_collector = make_uniq<NoopProfileCollector>();
-	}
-}
-
 void CacheFileSystem::ClearCache() {
 	if (metadata_cache != nullptr) {
 		metadata_cache->Clear();
@@ -144,17 +169,20 @@ void CacheFileSystem::ClearCache() {
 		glob_cache->Clear();
 	}
 	ClearFileHandleCache();
+	// TODO(hjiang): This seems a duplicate function call, extension statement funtion has already cleared the cache.
 	instance_state.lock()->cache_reader_manager.ClearCache();
 }
 
-void CacheFileSystem::ClearCache(const std::string &filepath) {
+void CacheFileSystem::ClearCache(const string &filepath) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFilePathCacheClear);
 	if (metadata_cache != nullptr) {
-		metadata_cache->Clear([&filepath](const std::string &key) { return key == filepath; });
+		metadata_cache->Clear([&filepath](const string &key) { return key == filepath; });
 	}
 	if (glob_cache != nullptr) {
-		glob_cache->Clear([&filepath](const std::string &key) { return key == filepath; });
+		glob_cache->Clear([&filepath](const string &key) { return key == filepath; });
 	}
 	ClearFileHandleCache(filepath);
+	// TODO(hjiang): This seems a duplicate function call, extension statement funtion has already cleared the cache.
 	instance_state.lock()->cache_reader_manager.ClearCache(filepath);
 }
 
@@ -187,8 +215,23 @@ bool CacheFileSystem::IsManuallySet() {
 	return true;
 }
 
-std::string CacheFileSystem::GetName() const {
+string CacheFileSystem::GetName() const {
 	return StringUtil::Format("cache_httpfs_%s", internal_filesystem->GetName());
+}
+
+void CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kWrite);
+	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes, location);
+	GetProfileCollector().RecordBytesWritten(nr_bytes);
+}
+
+int64_t CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes) {
+	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kWrite);
+	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto bytes_written = internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes);
+	GetProfileCollector().RecordBytesWritten(bytes_written);
+	return bytes_written;
 }
 
 unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle) {
@@ -199,10 +242,9 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 	const auto flags = internal_file_handle->GetFlags();
 	D_ASSERT(flags.OpenForReading());
 
-	CacheFileSystem::FileHandleCacheKey cache_key {
-	    .path = internal_file_handle->GetPath(),
-	    .flags = flags | FileFlags::FILE_FLAGS_PARALLEL_ACCESS,
-	};
+	CacheFileSystem::FileHandleCacheKey cache_key;
+	cache_key.path = internal_file_handle->GetPath();
+	cache_key.flags = flags | FileFlags::FILE_FLAGS_PARALLEL_ACCESS;
 	if (in_use_file_handle_counter != nullptr) {
 		in_use_file_handle_counter->Increment(cache_key);
 	}
@@ -212,7 +254,7 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 		// Reset file handle state (i.e. file offset) before placing into cache.
 		file_handle.internal_file_handle->Reset();
 		if (file_handle_cache == nullptr) {
-			D_ASSERT(in_use_file_handle_counter == nullptr);
+			CACHE_HTTPFS_ALWAYS_ASSERT(in_use_file_handle_counter == nullptr);
 			return;
 		}
 
@@ -233,17 +275,16 @@ shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &han
 	// Get last modification timestamp.
 	const timestamp_t last_modification_time = internal_filesystem->GetLastModifiedTime(handle);
 
-	FileMetadata file_metadata {
-	    .file_size = file_size,
-	    .last_modification_time = last_modification_time,
-	};
+	FileMetadata file_metadata;
+	file_metadata.file_size = file_size;
+	file_metadata.last_modification_time = last_modification_time;
 	return make_shared_ptr<FileMetadata>(std::move(file_metadata));
 }
 
 vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *opener) {
 	vector<OpenFileInfo> open_file_info;
 	{
-		const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kGlob);
+		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kGlob);
 		open_file_info = internal_filesystem->Glob(path, opener);
 	}
 
@@ -259,9 +300,12 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 	// Attempt to fill in metadata cache.
 	for (const auto &cur_file_info : open_file_info) {
 		const auto &filepath = cur_file_info.path;
-		const auto &cur_extended_file_info = *cur_file_info.extended_info;
+		if (cur_file_info.extended_info == nullptr) {
+			continue;
+		}
 
 		// Attempt to get file size from extended file info.
+		const auto &cur_extended_file_info = *cur_file_info.extended_info;
 		auto iter = cur_extended_file_info.options.find(FILE_SIZE_INFO_KEY);
 		if (iter == cur_extended_file_info.options.end()) {
 			continue;
@@ -277,10 +321,9 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 		auto &last_modification_time_value = iter->second;
 		const timestamp_t last_modification_time = last_modification_time_value.GetValue<timestamp_t>();
 
-		FileMetadata file_metadata {
-		    .file_size = file_size,
-		    .last_modification_time = last_modification_time,
-		};
+		FileMetadata file_metadata;
+		file_metadata.file_size = file_size;
+		file_metadata.last_modification_time = last_modification_time;
 		metadata_cache->Put(filepath, make_shared_ptr<FileMetadata>(std::move(file_metadata)));
 	}
 	return open_file_info;
@@ -305,27 +348,17 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 		return make_shared_ptr<vector<OpenFileInfo>>(std::move(glob_res));
 	});
 	const CacheAccess cache_access = glob_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	GetProfileCollector()->RecordCacheAccess(CacheEntity::kGlob, cache_access);
+	GetProfileCollector().RecordCacheAccess(CacheEntity::kGlob, cache_access);
 	return *res;
 }
 
+// TODO(hjiang): remove the function and switch to extension setting callback.
 void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
-	// Initialize cache reader with mutex guard against concurrent access.
-	// For duckdb, read operation happens after successful file open, at which point we won't have new configs and read
-	// operation happening concurrently.
 	auto instance_state_locked = instance_state.lock();
 	const std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
-
-	auto &config = instance_state_locked->config;
-	SetProfileCollector();
-	instance_state_locked->cache_reader_manager.SetCacheReader(config, instance_state);
-
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();
-
-	D_ASSERT(profile_collector != nullptr);
-	instance_state_locked->cache_reader_manager.GetCacheReader()->SetProfileCollector(profile_collector.get());
 }
 
 unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenFileInfo &file, FileOpenFlags flags,
@@ -334,44 +367,52 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 
 	// Cache is exclusive, so we don't need to acquire lock for avoid repeated access.
 	if (file_handle_cache != nullptr) {
-		FileHandleCacheKey key {
-		    .path = file.path,
-		    .flags = flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS,
-		};
+		FileHandleCacheKey key;
+		key.path = file.path;
+		key.flags = flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS;
 		auto get_and_pop_res = file_handle_cache->GetAndPop(key);
 		for (auto &cur_val : get_and_pop_res.evicted_items) {
 			cur_val->Close();
 		}
 		if (get_and_pop_res.target_item != nullptr) {
-			GetProfileCollector()->RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit);
+			GetProfileCollector().RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit);
 			DUCKDB_LOG_OPEN_CACHE_HIT((*get_and_pop_res.target_item));
 			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item));
 		}
 
 		// Record stats on cache miss.
-		GetProfileCollector()->RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
+		GetProfileCollector().RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
 
 		// Record cache miss caused by exclusive resource in use.
 		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
 		if (in_use_count > 0) {
-			GetProfileCollector()->RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
+			GetProfileCollector().RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
 		}
 	}
 
 	unique_ptr<FileHandle> file_handle = nullptr;
 	{
-		const auto latency_guard = profile_collector->RecordOperationStart(IoOperation::kOpen);
+		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kOpen);
 		file_handle = internal_filesystem->OpenFile(file, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	}
 	DUCKDB_LOG_OPEN_CACHE_MISS_PTR((file_handle));
 	return CreateCacheFileHandleForRead(std::move(file_handle));
 }
 
+// If the target file is compressed, here we only read and potentially cache compressed content.
+// Based on duckdb virtual filesystem's implementation, decompression happens after raw bytes read over.
+// Same strategy applies for duckdb internal "external file cache".
 unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &file, FileOpenFlags flags,
                                                          optional_ptr<FileOpener> opener) {
+	// Now we handle uncompressed files, which should be cached.
 	InitializeGlobalConfig(opener);
 	if (flags.OpenForReading()) {
 		return GetOrCreateFileHandleForRead(file, flags, opener);
+	}
+
+	// If setting has already been specified to clear cache, we clear it only once at file open.
+	if (instance_state.lock()->config.clear_cache_on_write) {
+		ClearCache(file.path);
 	}
 
 	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
@@ -413,7 +454,7 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 		                                return Stats(*disk_cache_handle.internal_file_handle);
 	                                });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	GetProfileCollector()->RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
 	return metadata->last_modification_time;
 }
 int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
@@ -433,7 +474,7 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 		                                return Stats(*disk_cache_handle.internal_file_handle);
 	                                });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	GetProfileCollector()->RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
 	return metadata->file_size;
 }
 int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {

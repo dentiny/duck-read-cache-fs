@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <csignal>
 
+#include "assert_utils.hpp"
+#include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -23,6 +25,7 @@
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
+#include "temp_profile_collector.hpp"
 
 #include <algorithm>
 
@@ -32,6 +35,8 @@ namespace {
 
 // "httpfs" extension name.
 constexpr const char *HTTPFS_EXTENSION = "httpfs";
+// Query execution success.
+constexpr bool SUCCESS = true;
 
 // Get database instance from expression state.
 // Returned instance ownership lies in the given [`state`].
@@ -62,7 +67,10 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 		cur_cache_fs->ClearCache();
 	}
 
-	constexpr bool SUCCESS = true;
+	// Clear profile collection.
+	CACHE_HTTPFS_ALWAYS_ASSERT(inst_state.profile_collector != nullptr);
+	inst_state.profile_collector->Reset();
+
 	result.Reference(Value(SUCCESS));
 }
 
@@ -82,7 +90,6 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 		cur_cache_fs->ClearCache(filepath);
 	}
 
-	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
 
@@ -112,16 +119,17 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 	uint64_t latest_timestamp = 0;
 	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_filesystem : cache_file_systems) {
-		auto *profile_collector = cur_filesystem->GetProfileCollector();
-		// Profile collector is only initialized after cache filesystem access.
-		if (profile_collector == nullptr) {
+		auto &profile_collector = cur_filesystem->GetProfileCollector();
+		auto stats_pair = profile_collector.GetHumanReadableStats();
+		const auto &cur_profile_stat = stats_pair.first;
+		const auto &cur_timestamp = stats_pair.second;
+		// Skip collectors that have never been accessed.
+		if (cur_timestamp == 0) {
 			continue;
 		}
-
-		auto [cur_profile_stat, cur_timestamp] = profile_collector->GetHumanReadableStats();
 		if (cur_timestamp > latest_timestamp) {
 			latest_timestamp = cur_timestamp;
-			latest_stat = std::move(cur_profile_stat);
+			latest_stat = std::move(stats_pair.first);
 			continue;
 		}
 		if (cur_timestamp == latest_timestamp) {
@@ -138,18 +146,7 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
-
-	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
-	for (auto *cur_filesystem : cache_file_systems) {
-		auto *profile_collector = cur_filesystem->GetProfileCollector();
-		// Profile collector is only initialized after cache filesystem access.
-		if (profile_collector == nullptr) {
-			continue;
-		}
-		profile_collector->Reset();
-	}
-
-	constexpr bool SUCCESS = true;
+	inst_state.ResetProfileCollector();
 	result.Reference(Value(SUCCESS));
 }
 
@@ -165,7 +162,9 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 	auto &vfs = opener_filesystem.GetFileSystem();
 	auto internal_filesystem = vfs.ExtractSubSystem(filesystem_name);
 	if (internal_filesystem == nullptr) {
-		throw InvalidInputException("Filesystem %s hasn't been registered yet!", filesystem_name);
+		throw InvalidInputException("Filesystem %s hasn't been registered yet! Use "
+		                            "cache_httpfs_list_registered_filesystems() to see available filesystems.",
+		                            filesystem_name);
 	}
 
 	auto cache_filesystem =
@@ -173,7 +172,6 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 	vfs.RegisterSubSystem(std::move(cache_filesystem));
 	DUCKDB_LOG_DEBUG(duckdb_instance, StringUtil::Format("Wrap filesystem %s with cache filesystem.", filesystem_name));
 
-	constexpr bool SUCCESS = true;
 	result.Reference(Value(SUCCESS));
 }
 
@@ -188,7 +186,7 @@ unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
 		return make_uniq<HTTPFileSystem>();
 	}
 	auto httpfs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(httpfs != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(httpfs != nullptr);
 	return httpfs;
 }
 
@@ -203,7 +201,7 @@ unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
 		return make_uniq<HuggingFaceFileSystem>();
 	}
 	auto hf_fs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(hf_fs != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(hf_fs != nullptr);
 	return hf_fs;
 }
 
@@ -218,7 +216,7 @@ unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &in
 		return make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
 	}
 	auto s3_fs = vfs.ExtractSubSystem(*iter);
-	D_ASSERT(s3_fs != nullptr);
+	CACHE_HTTPFS_ALWAYS_ASSERT(s3_fs != nullptr);
 	return s3_fs;
 }
 
@@ -233,15 +231,21 @@ bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
 // Extension option callbacks - update instance state config when settings change
 //===--------------------------------------------------------------------===//
 
-void UpdateCacheType(ClientContext &context, SetScope scope, Value &parameter) {
-	auto &inst_state = GetInstanceStateOrThrow(context);
-	auto cache_type_str = parameter.ToString();
-	if (ALL_CACHE_TYPES.find(cache_type_str) == ALL_CACHE_TYPES.end()) {
-		vector<string> valid_types(ALL_CACHE_TYPES.begin(), ALL_CACHE_TYPES.end());
+void SetCacheType(DatabaseInstance &duckdb_instance, string cache_type_str) {
+	if (ALL_CACHE_TYPES->find(cache_type_str) == ALL_CACHE_TYPES->end()) {
+		vector<string> valid_types(ALL_CACHE_TYPES->begin(), ALL_CACHE_TYPES->end());
 		throw InvalidInputException("Invalid cache_httpfs_type '%s'. Valid options are: %s", cache_type_str,
 		                            StringUtil::Join(valid_types, ", "));
 	}
-	inst_state.config.cache_type = std::move(cache_type_str);
+	auto &instance_state = GetInstanceStateOrThrow(duckdb_instance);
+	instance_state.config.cache_type = std::move(cache_type_str);
+	auto state = GetInstanceStateShared(duckdb_instance);
+	instance_state.cache_reader_manager.SetCacheReader(instance_state.config, state);
+}
+
+void UpdateCacheType(ClientContext &context, SetScope scope, Value &parameter) {
+	auto cache_type_str = parameter.ToString();
+	SetCacheType(*context.db, std::move(cache_type_str));
 }
 
 void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &parameter) {
@@ -256,12 +260,7 @@ void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &paramet
 void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	auto profile_type_str = parameter.ToString();
-	if (ALL_PROFILE_TYPES->find(profile_type_str) == ALL_PROFILE_TYPES->end()) {
-		const vector<string> valid_types(ALL_PROFILE_TYPES->begin(), ALL_PROFILE_TYPES->end());
-		throw InvalidInputException("Invalid cache_httpfs_profile_type '%s'. Valid options are: %s", profile_type_str,
-		                            StringUtil::Join(valid_types, ", "));
-	}
-	inst_state.config.profile_type = std::move(profile_type_str);
+	inst_state.SetProfileCollector(std::move(profile_type_str));
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
@@ -276,6 +275,11 @@ void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &pa
 void UpdateEnableCacheValidation(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	inst_state.config.enable_cache_validation = parameter.GetValue<bool>();
+}
+
+void UpdateClearCacheOnWrite(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.clear_cache_on_write = parameter.GetValue<bool>();
 }
 
 // Implementation for check cache directories and create directories if necessary.
@@ -298,7 +302,7 @@ void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &paramet
 
 	// If empty directory is provided, fall back to default directory.
 	if (new_cache_directory.empty()) {
-		new_cache_directory = *DEFAULT_ON_DISK_CACHE_DIRECTORY;
+		new_cache_directory = GetDefaultOnDiskCacheDirectory();
 	}
 
 	vector<string> directories;
@@ -316,7 +320,7 @@ void UpdateCacheDirectoriesConfig(ClientContext &context, SetScope scope, Value 
 	}
 	// If the provided config is set to empty, fall back to default directory.
 	else {
-		directories.emplace_back(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+		directories.emplace_back(GetDefaultOnDiskCacheDirectory());
 	}
 
 	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
@@ -467,6 +471,7 @@ void LoadInternal(ExtensionLoader &loader) {
 
 	// Create per-instance state for this extension
 	auto state = make_shared_ptr<CacheHttpfsInstanceState>();
+	// Register instance state with duckdb database instance.
 	SetInstanceState(instance, state);
 
 	// Ensure cache directory exists
@@ -528,6 +533,9 @@ void LoadInternal(ExtensionLoader &loader) {
 	vfs.RegisterSubSystem(std::move(cache_s3_filesystem));
 	DUCKDB_LOG_DEBUG(instance, "Wrap S3FileSystem with cache filesystem.");
 
+	// Set initial cache reader.
+	SetCacheType(instance, *DEFAULT_CACHE_TYPE);
+
 	// Register extension configuration.
 	auto &config = DBConfig::GetConfig(instance);
 
@@ -556,12 +564,15 @@ void LoadInternal(ExtensionLoader &loader) {
 	    LogicalType {LogicalTypeId::BIGINT}, 0, UpdateMaxFanoutSubrequest);
 
 	// Add configurations to ignore SIGPIPE.
+	// Notice, it only works on unix platform.
 	auto ignore_sigpipe_callback = [](ClientContext &context, SetScope scope, Value &parameter) {
+#if !defined(_WIN32)
 		const bool ignore = parameter.GetValue<bool>();
 		if (ignore) {
 			// Ignore SIGPIPE, reference: https://blog.erratasec.com/2018/10/tcpip-sockets-and-sigpipe.html
 			std::signal(SIGPIPE, SIG_IGN);
 		}
+#endif
 	};
 	config.AddExtensionOption(
 	    "cache_httpfs_ignore_sigpipe",
@@ -575,10 +586,19 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          "modification timestamp to ensure cache consistency. By default disabled.",
 	                          LogicalTypeId::BOOLEAN, DEFAULT_ENABLE_CACHE_VALIDATION, UpdateEnableCacheValidation);
 
+	// Cache invalidation on write config.
+	config.AddExtensionOption(
+	    "cache_httpfs_clear_cache_on_write",
+	    "Whether to clear cache entries on write operations. When enabled, write operations will invalidate cached "
+	    "metadata, file handles, and glob entries for the modified file, which could be expensive."
+	    "Disabling this can improve write performance when many cache entries exist, but may lead to stale cache "
+	    "reads. By default disabled.",
+	    LogicalTypeId::BOOLEAN, DEFAULT_CLEAR_CACHE_ON_WRITE, UpdateClearCacheOnWrite);
+
 	// On disk cache config.
 	// TODO(hjiang): Add a new configurable for on-disk cache staleness.
 	config.AddExtensionOption("cache_httpfs_cache_directory", "The disk cache directory that stores cached data",
-	                          LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_ON_DISK_CACHE_DIRECTORY,
+	                          LogicalType {LogicalTypeId::VARCHAR}, GetDefaultOnDiskCacheDirectory(),
 	                          UpdateCacheDirectory);
 	config.AddExtensionOption("cache_httpfs_min_disk_bytes_for_cache",
 	                          "Min number of bytes on disk for the cache filesystem to enable on-disk cache; if left "
@@ -606,7 +626,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	    "Between different runs, it's expected to provide same cache directories, otherwise it's not guaranteed cache "
 	    "files still exist and accessible."
 	    "Overrides 'cache_httpfs_cache_directory' if set.",
-	    LogicalType {LogicalTypeId::VARCHAR}, std::string {}, UpdateCacheDirectoriesConfig);
+	    LogicalType {LogicalTypeId::VARCHAR}, string {}, UpdateCacheDirectoriesConfig);
 
 	// Memory cache for disk cache reader.
 	config.AddExtensionOption("cache_httpfs_disk_cache_reader_enable_memory_cache",
@@ -746,13 +766,13 @@ void LoadInternal(ExtensionLoader &loader) {
 	loader.RegisterFunction(GetCacheAccessInfoQueryFunc());
 
 	// Create default cache directory.
-	LocalFileSystem::CreateLocal()->CreateDirectory(*DEFAULT_ON_DISK_CACHE_DIRECTORY);
+	LocalFileSystem::CreateLocal()->CreateDirectory(GetDefaultOnDiskCacheDirectory());
 
 	// Register wrapped cache filesystems info.
 	loader.RegisterFunction(GetWrappedCacheFileSystemsFunc());
 
 	// Fill in extension load information.
-	std::string description = StringUtil::Format(
+	string description = StringUtil::Format(
 	    "Adds a read cache filesystem to DuckDB, which acts as a wrapper of duckdb-compatible filesystems.");
 	loader.SetDescription(description);
 }
@@ -762,11 +782,11 @@ void LoadInternal(ExtensionLoader &loader) {
 void CacheHttpfsExtension::Load(ExtensionLoader &loader) {
 	LoadInternal(loader);
 }
-std::string CacheHttpfsExtension::Name() {
+string CacheHttpfsExtension::Name() {
 	return "cache_httpfs";
 }
 
-std::string CacheHttpfsExtension::Version() const {
+string CacheHttpfsExtension::Version() const {
 #ifdef EXT_VERSION_CACHE_HTTPFS
 	return EXT_VERSION_CACHE_HTTPFS;
 #else

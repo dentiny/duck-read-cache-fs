@@ -7,11 +7,12 @@
 
 #pragma once
 
-#include <mutex>
 #include <utility>
 
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/unordered_map.hpp"
+#include "mutex.hpp"
+#include "thread_annotation.hpp"
 
 namespace duckdb {
 
@@ -59,7 +60,7 @@ public:
 	}
 
 private:
-	std::unordered_map<Key, unsigned, KeyHash, KeyEqual> counter;
+	unordered_map<Key, unsigned, KeyHash, KeyEqual> counter;
 };
 
 // Thread-safe implementation.
@@ -79,7 +80,7 @@ public:
 	// Increment the count for the given [key], and return the new count.
 	template <typename KeyLike>
 	unsigned Increment(KeyLike &&key) {
-		const std::lock_guard<std::mutex> lck(mu);
+		const concurrency::lock_guard<concurrency::mutex> lck(mu);
 		return counter.Increment(std::forward<KeyLike>(key));
 	}
 
@@ -87,20 +88,20 @@ public:
 	// Precondition: the key exist in the counter map, otherwise assertion failure.
 	template <typename KeyLike>
 	unsigned Decrement(const KeyLike &key) {
-		const std::lock_guard<std::mutex> lck(mu);
+		const concurrency::lock_guard<concurrency::mutex> lck(mu);
 		return counter.Decrement(key);
 	}
 
 	// Get the count for the given [key].
 	template <typename KeyLike>
 	unsigned GetCount(const KeyLike &key) {
-		const std::lock_guard<std::mutex> lck(mu);
+		const concurrency::lock_guard<concurrency::mutex> lck(mu);
 		return counter.GetCount(key);
 	}
 
 private:
-	std::mutex mu;
-	Counter<Key, KeyHash, KeyEqual> counter;
+	concurrency::mutex mu;
+	Counter<Key, KeyHash, KeyEqual> counter DUCKDB_GUARDED_BY(mu);
 };
 
 } // namespace duckdb

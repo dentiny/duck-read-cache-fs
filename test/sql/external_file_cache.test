@@ -4,6 +4,10 @@
 
 require cache_httpfs
 
+# Clear cache at the beginning to ensure hermaticity.
+statement ok
+SELECT cache_httpfs_clear_cache();
+
 statement ok
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
 
