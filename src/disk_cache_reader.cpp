@@ -281,7 +281,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	idx_t already_read_bytes = 0;
 	// Threads to parallelly perform IO.
 
-	ThreadPool io_threads(GetThreadCountForSubrequests(alignment_info.subrequest_count));
+	ThreadPool io_threads(GetThreadCountForSubrequests(alignment_info.subrequest_count, config.max_subrequest_count));
 	// Get file-level metadata once before processing chunks.
 	string version_tag = config.enable_cache_validation ? handle.Cast<CacheFileSystemHandle>().GetVersionTag() : "";
 

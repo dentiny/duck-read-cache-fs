@@ -7,7 +7,8 @@ set(TARGET_NAME cache_httpfs)
 
 # Suppress warnings.
 set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-c++17-extensions -Wno-c++20-extensions")
+    "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-c++17-extensions -Wno-c++20-extensions"
+)
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)
 set(LOADABLE_EXTENSION_NAME ${TARGET_NAME}_loadable_extension)
@@ -133,6 +134,9 @@ add_executable(test_large_file_inmem_reader
                unit/test_large_file_inmem_reader.cpp)
 target_link_libraries(test_large_file_inmem_reader ${EXTENSION_NAME})
 
+add_executable(test_max_fanout_subrequest unit/test_max_fanout_subrequest.cpp)
+target_link_libraries(test_max_fanout_subrequest ${EXTENSION_NAME})
+
 add_executable(test_chunk_utils unit/test_chunk_utils.cpp)
 target_link_libraries(test_chunk_utils ${EXTENSION_NAME})
 
@@ -191,12 +195,10 @@ add_executable(test_cache_exclusion_manager
                unit/test_cache_exclusion_manager.cpp)
 target_link_libraries(test_cache_exclusion_manager ${EXTENSION_NAME})
 
-add_executable(test_multi_duckdb_instance
-               unit/test_multi_duckdb_instance.cpp)
+add_executable(test_multi_duckdb_instance unit/test_multi_duckdb_instance.cpp)
 target_link_libraries(test_multi_duckdb_instance ${EXTENSION_NAME})
 
-add_executable(test_scoped_directory
-               unit/test_scoped_directory.cpp)
+add_executable(test_scoped_directory unit/test_scoped_directory.cpp)
 target_link_libraries(test_scoped_directory ${EXTENSION_NAME})
 
 # Benchmark
