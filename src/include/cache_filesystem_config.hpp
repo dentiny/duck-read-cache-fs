@@ -131,6 +131,6 @@ std::vector<string> GetCacheDirectoryConfig(optional_ptr<FileOpener> opener);
 
 // Get concurrent IO sub-request count.
 // If max_subrequest_count is 0, uses a default cap of 1024.
-uint64_t GetThreadCountForSubrequests(uint64_t io_request_count, uint64_t max_subrequest_count = 0);
+uint64_t GetThreadCountForSubrequests(uint64_t io_request_count, uint64_t max_subrequest_count);
 
 } // namespace duckdb

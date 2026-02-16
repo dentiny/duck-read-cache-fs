@@ -159,6 +159,7 @@ if(${BUILD_UNITTESTS})
   add_executable(test_large_file_inmem_reader
                  unit/test_large_file_inmem_reader.cpp)
   target_link_libraries(test_large_file_inmem_reader ${EXTENSION_NAME})
+
   add_executable(test_max_fanout_subrequest unit/test_max_fanout_subrequest.cpp)
   target_link_libraries(test_max_fanout_subrequest ${EXTENSION_NAME})
 

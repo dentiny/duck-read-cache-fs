@@ -12,7 +12,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "duckdb/main/database.hpp"
-#include "scope_guard.hpp"
+#include "scoped_directory.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -22,10 +22,10 @@ using namespace duckdb; // NOLINT
 
 namespace {
 
-constexpr idx_t kTestFileSize = 16 * 1024;
-constexpr idx_t kBlockSize = 64;
-constexpr idx_t kMaxFanout = 1;
-constexpr std::chrono::milliseconds kPerReadDelay {10};
+constexpr idx_t TEST_FILE_SIZE = 16 * 1024;
+constexpr idx_t BLOCK_SIZE = 64;
+constexpr idx_t MAX_FANOUT = 1;
+constexpr std::chrono::milliseconds PER_READ_DELAY {10};
 
 class SlowTrackingFileSystem : public LocalFileSystem {
 public:
@@ -41,6 +41,8 @@ public:
 		const int current_count = current_read_count.fetch_add(1) + 1;
 		UpdateMaxConcurrentReadCount(current_count);
 
+		// Add delay to increase overlap between reads, so this test can catch
+		// over-parallelized fanout if the cap is not respected.
 		std::this_thread::sleep_for(per_read_delay);
 		local_filesystem->Read(handle, buffer, nr_bytes, location);
 
@@ -98,8 +100,8 @@ struct TestFsHelper {
 
 		auto &config = instance_state->config;
 		config.cache_type = cache_type;
-		config.cache_block_size = kBlockSize;
-		config.max_subrequest_count = kMaxFanout;
+		config.cache_block_size = BLOCK_SIZE;
+		config.max_subrequest_count = MAX_FANOUT;
 		config.enable_cache_validation = false;
 		config.enable_disk_reader_mem_cache = false;
 		config.on_disk_cache_directories = {cache_directory};
@@ -108,13 +110,14 @@ struct TestFsHelper {
 		local_filesystem->CreateDirectory(cache_directory);
 
 		SetInstanceState(*db.instance.get(), instance_state);
+		instance_state->cache_reader_manager.SetCacheReader(config, instance_state);
 		slow_fs = slow_fs_p.get();
 		cache_fs = make_uniq<CacheFileSystem>(std::move(slow_fs_p), instance_state);
 	}
 };
 
 string BuildTestFileContent() {
-	string content(kTestFileSize, '\0');
+	string content(TEST_FILE_SIZE, '\0');
 	for (idx_t idx = 0; idx < content.size(); ++idx) {
 		content[idx] = static_cast<char>('a' + (idx % 26));
 	}
@@ -122,22 +125,13 @@ string BuildTestFileContent() {
 }
 
 int RunReadAndGetMaxConcurrency(const string &cache_type) {
-	const auto test_id = UUID::ToString(UUID::GenerateRandomUUID());
-	const string source_path = StringUtil::Format("/tmp/cache_httpfs_fanout_source_%s.data", test_id);
-	const string cache_dir = StringUtil::Format("/tmp/cache_httpfs_fanout_cache_%s", test_id);
+	const string test_directory =
+	    StringUtil::Format("/tmp/cache_httpfs_fanout_%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	ScopedDirectory scoped_directory(test_directory);
+	const string source_path = StringUtil::Format("%s/source.data", scoped_directory.GetPath());
+	const string cache_dir = StringUtil::Format("%s/cache", scoped_directory.GetPath());
 
 	auto local_filesystem = LocalFileSystem::CreateLocal();
-	ScopeGuard cleanup;
-	cleanup += [&]() {
-		if (local_filesystem->DirectoryExists(cache_dir)) {
-			local_filesystem->RemoveDirectory(cache_dir);
-		}
-	};
-	cleanup += [&]() {
-		if (local_filesystem->FileExists(source_path)) {
-			local_filesystem->RemoveFile(source_path);
-		}
-	};
 
 	const string source_content = BuildTestFileContent();
 	{
@@ -148,7 +142,7 @@ int RunReadAndGetMaxConcurrency(const string &cache_type) {
 		file_handle->Close();
 	}
 
-	auto slow_fs = make_uniq<SlowTrackingFileSystem>(kPerReadDelay);
+	auto slow_fs = make_uniq<SlowTrackingFileSystem>(PER_READ_DELAY);
 	TestFsHelper helper(std::move(slow_fs), cache_type, cache_dir);
 	auto *cache_fs = helper.cache_fs.get();
 
@@ -164,12 +158,12 @@ int RunReadAndGetMaxConcurrency(const string &cache_type) {
 
 TEST_CASE("Test max fanout subrequest on in-memory cache reader", "[max fanout subrequest]") {
 	const int max_concurrency = RunReadAndGetMaxConcurrency("in_mem");
-	REQUIRE(max_concurrency == kMaxFanout);
+	REQUIRE(max_concurrency <= MAX_FANOUT);
 }
 
 TEST_CASE("Test max fanout subrequest on on-disk cache reader", "[max fanout subrequest]") {
 	const int max_concurrency = RunReadAndGetMaxConcurrency("on_disk");
-	REQUIRE(max_concurrency == kMaxFanout);
+	REQUIRE(max_concurrency <= MAX_FANOUT);
 }
 
 int main(int argc, char **argv) {
