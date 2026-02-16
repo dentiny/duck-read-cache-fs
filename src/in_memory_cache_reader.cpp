@@ -125,7 +125,8 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	idx_t already_read_bytes = 0;
 
 	// Threads to parallelly perform IO.
-	const auto task_count = GetThreadCountForSubrequests(alignment_info.subrequest_count);
+	const auto task_count =
+	    GetThreadCountForSubrequests(alignment_info.subrequest_count, config.max_subrequest_count);
 	ThreadPool io_threads(task_count);
 	vector<std::future<void>> io_task_futures;
 	io_task_futures.reserve(task_count);

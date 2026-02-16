@@ -28,7 +28,7 @@ SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/du
 # // Subrequest number 10, which means little parallelism
 # //===--------------------------------------------------------------------===//
 statement ok
-SET cache_httpfs_max_fanout_subrequest=1
+SET cache_httpfs_max_fanout_subrequest=10
 
 query I
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');

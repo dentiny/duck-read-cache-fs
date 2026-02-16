@@ -22,7 +22,7 @@ const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::Ge
 } // namespace
 
 TEST_CASE("Filesystem config test", "[filesystem config]") {
-	REQUIRE(GetThreadCountForSubrequests(10) == 10);
+	REQUIRE(GetThreadCountForSubrequests(10, 0) == 10);
 	REQUIRE(GetThreadCountForSubrequests(10, 5) == 5);
 }
 
