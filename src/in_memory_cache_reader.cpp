@@ -12,6 +12,7 @@
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/thread_pool.hpp"
 #include "utils/include/thread_utils.hpp"
+#include "utils/include/url_utils.hpp"
 
 #include <cstdint>
 #include <future>
@@ -56,7 +57,7 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 
 	// Check local cache first, see if we could do a cached read.
 	InMemCacheBlock block_key;
-	block_key.fname = handle.GetPath();
+	block_key.fname = URLUtils::StripQueryAndFragment(handle.GetPath());
 	block_key.start_off = cache_read_chunk.aligned_start_offset;
 	block_key.blk_size = cache_read_chunk.chunk_size;
 	auto cache_entry = cache->Get(block_key);
@@ -231,7 +232,8 @@ void InMemoryCacheReader::ClearCache() {
 
 void InMemoryCacheReader::ClearCache(const string &fname) {
 	if (cache != nullptr) {
-		cache->Clear([&fname](const InMemCacheBlock &block) { return block.fname == fname; });
+		const string cache_key = URLUtils::StripQueryAndFragment(fname);
+		cache->Clear([&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key; });
 	}
 }
 

@@ -19,7 +19,7 @@ SELECT cache_httpfs_clear_cache();
 
 # Test uncached query.
 query IIII
-SELECT * FROM read_csv_auto(['https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn1.csv', 'https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn2.csv'] , union_by_name = true) ORDER BY a;
+SELECT * FROM read_csv_auto(['https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn1.csv?cache_test=1', 'https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn2.csv?cache_test=2'] , union_by_name = true) ORDER BY a;
 ----
 1	2	3	NULL
 3	4	5	NULL
@@ -39,7 +39,7 @@ SELECT * FROM cache_httpfs_cache_status_query() ORDER BY remote_filename;
 
 # Test cached query.
 query IIII
-SELECT * FROM read_csv_auto(['https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn1.csv', 'https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn2.csv'] , union_by_name = true) ORDER BY a;
+SELECT * FROM read_csv_auto(['https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn1.csv?cache_test=3', 'https://github.com/duckdb/duckdb/raw/refs/heads/v1.2-histrionicus/data/csv/union-by-name/ubn2.csv?cache_test=4'] , union_by_name = true) ORDER BY a;
 ----
 1	2	3	NULL
 3	4	5	NULL
