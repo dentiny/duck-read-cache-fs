@@ -7,6 +7,7 @@
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/numeric_utils.hpp"
+#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
 #include "duckdb/function/table_function.hpp"
@@ -194,7 +195,7 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 			aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur_cache_access_info.cache_miss_by_in_use;
 
 			// For data file cache, record number of bytes to read and to cache.
-			if (idx == static_cast<idx_t>(IoOperation::kRead)) {
+			if (idx == NumericCast<idx_t>(IoOperation::kRead)) {
 				// Handle number of bytes to read.
 				auto &total_bytes_to_read = aggregated_cache_access_infos[idx].total_bytes_to_read;
 				uint64_t read_value = 0;

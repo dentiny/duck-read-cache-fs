@@ -21,6 +21,7 @@
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/numeric_utils.hpp"
+#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "no_destructor.hpp"
@@ -84,7 +85,7 @@ idx_t GetOverallFileSystemDiskSpace(const string &path) {
 	if (!ok) {
 		return 0;
 	}
-	return static_cast<idx_t>(total_bytes.QuadPart);
+	return NumericCast<idx_t>(total_bytes.QuadPart);
 #else
 	struct statvfs vfs;
 	const auto ret = statvfs(path.c_str(), &vfs);
@@ -94,7 +95,7 @@ idx_t GetOverallFileSystemDiskSpace(const string &path) {
 
 	auto total_blocks = vfs.f_blocks;
 	auto block_size = vfs.f_frsize;
-	return static_cast<idx_t>(total_blocks) * static_cast<idx_t>(block_size);
+	return NumericCast<idx_t>(total_blocks) * NumericCast<idx_t>(block_size);
 #endif
 }
 
@@ -106,13 +107,13 @@ optional_idx GetTotalDiskSpace(const string &path) {
 	if (!GetDiskFreeSpaceExA(path.c_str(), &free_bytes_unused, &total_bytes, &total_free_unused)) {
 		return optional_idx();
 	}
-	return optional_idx(static_cast<idx_t>(total_bytes.QuadPart));
+	return optional_idx(NumericCast<idx_t>(total_bytes.QuadPart));
 #else
 	struct statvfs vfs;
 	if (statvfs(path.c_str(), &vfs) != 0) {
 		return optional_idx();
 	}
-	return optional_idx(static_cast<idx_t>(vfs.f_blocks) * static_cast<idx_t>(vfs.f_frsize));
+	return optional_idx(NumericCast<idx_t>(vfs.f_blocks) * NumericCast<idx_t>(vfs.f_frsize));
 #endif
 }
 
@@ -313,7 +314,7 @@ idx_t GetFileSystemPageSize() {
 #if defined(_WIN32)
 	SYSTEM_INFO si;
 	GetSystemInfo(&si);
-	return static_cast<std::size_t>(si.dwPageSize);
+	return NumericCast<std::size_t>(si.dwPageSize);
 
 #elif defined(_SC_PAGESIZE)
 
@@ -321,7 +322,7 @@ idx_t GetFileSystemPageSize() {
 	if (result <= 0) {
 		return 4096;
 	}
-	return static_cast<idx_t>(result);
+	return NumericCast<idx_t>(result);
 
 #else
 	return 4096; // conservative fallback

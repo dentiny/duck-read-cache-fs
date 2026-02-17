@@ -11,6 +11,7 @@
 #include "crypto.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "utils/include/chunk_utils.hpp"
@@ -67,7 +68,7 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
 
 	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
 	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
-		hash_value ^= static_cast<uint64_t>(remote_file_sha256_val[idx]);
+		hash_value ^= NumericCast<uint64_t>(remote_file_sha256_val[idx]);
 		hash_value *= 0x100000001b3; // FNV prime
 	}
 	const idx_t cache_directory_idx = hash_value % cache_directories.size();
