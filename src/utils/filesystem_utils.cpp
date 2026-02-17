@@ -260,7 +260,7 @@ bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t
 		return false;
 	}
 
-	return NumericCast<double>(avai_fs_bytes.GetIndex()) / total_fs_bytes.GetIndex() >
+	return static_cast<double>(avai_fs_bytes.GetIndex()) / total_fs_bytes.GetIndex() >
 	       MIN_DISK_SPACE_PERCENTAGE_FOR_CACHE;
 }
 

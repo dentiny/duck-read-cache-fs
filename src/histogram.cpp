@@ -39,7 +39,7 @@ size_t Histogram::Bucket(double val) const {
 		return hist_.size() - 1;
 	}
 	const double idx = (val - min_val_) / (max_val_ - min_val_);
-	return NumericCast<size_t>(std::floor(idx * hist_.size()));
+	return static_cast<size_t>(std::floor(idx * hist_.size()));
 }
 
 void Histogram::Add(double val) {
