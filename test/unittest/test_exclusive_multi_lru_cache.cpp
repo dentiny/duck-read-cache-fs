@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -29,7 +28,7 @@ struct MapKeyHash {
 };
 } // namespace
 
-TEST_CASE("PutAndGetSameKey", "[exclusive multi-lru test]") {
+TEST_CASE("ExclusiveMultiLru PutAndGetSameKey", "[exclusive multi-lru test]") {
 	ThreadSafeExclusiveMultiLruCache<std::string, std::string> cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
 
 	// No value initially.
@@ -65,7 +64,7 @@ TEST_CASE("PutAndGetSameKey", "[exclusive multi-lru test]") {
 	REQUIRE(cache.Verify());
 }
 
-TEST_CASE("CustomizedStruct", "[exclusive multi-lru test]") {
+TEST_CASE("ExclusiveMultiLru CustomizedStruct", "[exclusive multi-lru test]") {
 	ThreadSafeExclusiveMultiLruCache<MapKey, std::string, MapKeyHash, MapKeyEqual> cache {/*max_entries_p=*/1,
 	                                                                                      /*timeout_millisec_p=*/0};
 	MapKey key;
@@ -85,7 +84,7 @@ TEST_CASE("CustomizedStruct", "[exclusive multi-lru test]") {
 	REQUIRE(cache.Verify());
 }
 
-TEST_CASE("Put items with the same key", "[exclusive multi-lru test]") {
+TEST_CASE("ExclusiveMultiLru Put items with the same key", "[exclusive multi-lru test]") {
 	ThreadSafeExclusiveMultiLruCache<std::string, std::string> cache {/*max_entries_p=*/2, /*timeout_millisec_p=*/0};
 
 	// No value initially.
@@ -153,7 +152,7 @@ TEST_CASE("Put items with the same key", "[exclusive multi-lru test]") {
 	REQUIRE(cache.Verify());
 }
 
-TEST_CASE("Put and get with timeout test", "[exclusive multi-lru test]") {
+TEST_CASE("ExclusiveMultiLru Put and get with timeout", "[exclusive multi-lru test]") {
 	using CacheType = ThreadSafeExclusiveMultiLruCache<std::string, std::string>;
 
 	CacheType cache {/*max_entries_p=*/4, /*timeout_millisec_p=*/500};
@@ -191,7 +190,7 @@ TEST_CASE("Put and get with timeout test", "[exclusive multi-lru test]") {
 	REQUIRE(cache.Verify());
 }
 
-TEST_CASE("Evicted value test", "[exclusive multi-lru test]") {
+TEST_CASE("ExclusiveMultiLru Evicted value", "[exclusive multi-lru test]") {
 	using CacheType = ThreadSafeExclusiveMultiLruCache<std::string, std::string>;
 
 	CacheType cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
@@ -210,7 +209,7 @@ TEST_CASE("Evicted value test", "[exclusive multi-lru test]") {
 	REQUIRE(cache.Verify());
 }
 
-TEST_CASE("Clear entries with key predicate", "[exclusive multi-lru test]") {
+TEST_CASE("ExclusiveMultiLru Clear entries with key predicate", "[exclusive multi-lru test]") {
 	using CacheType = ThreadSafeExclusiveMultiLruCache<std::string, std::string>;
 
 	CacheType cache {/*max_entries_p=*/3, /*timeout_millisec_p=*/0};
@@ -237,7 +236,7 @@ TEST_CASE("Clear entries with key predicate", "[exclusive multi-lru test]") {
 // - LRU cache has timeout specified
 // - There're multiple key-value pairs in the cache
 // - One of the requested keys have all cache entries timed-out
-TEST_CASE("Issue 249", "[exclusive multi-lru test]") {
+TEST_CASE("ExclusiveMultiLru Issue 249", "[exclusive multi-lru test]") {
 	using CacheType = ThreadSafeExclusiveMultiLruCache<std::string, std::string>;
 
 	// One entry for key-1, another entry for key-2.
@@ -256,9 +255,4 @@ TEST_CASE("Issue 249", "[exclusive multi-lru test]") {
 	auto get_and_pop_result = cache.GetAndPop("key1");
 	REQUIRE(get_and_pop_result.evicted_items.size() == 1);
 	REQUIRE(get_and_pop_result.target_item == nullptr);
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }

@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "duckdb/common/string.hpp"
 #include "no_destructor.hpp"
@@ -48,9 +47,4 @@ TEST_CASE("NoDestructor test", "[no destructor test]") {
 		*content = "worldhello";
 		REQUIRE(*content == "worldhello");
 	}
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }

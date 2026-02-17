@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -29,7 +28,7 @@ struct MapKeyHash {
 };
 } // namespace
 
-TEST_CASE("PutAndGetSameKey", "[exclusive lru test]") {
+TEST_CASE("ExclusiveLru PutAndGetSameKey", "[exclusive lru test]") {
 	ThreadSafeExclusiveLruCache<std::string, std::string> cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
 
 	// No value initially.
@@ -57,7 +56,7 @@ TEST_CASE("PutAndGetSameKey", "[exclusive lru test]") {
 	REQUIRE(cache.Delete("2"));
 }
 
-TEST_CASE("CustomizedStruct", "[exclusive lru test]") {
+TEST_CASE("ExclusiveLru CustomizedStruct", "[exclusive lru test]") {
 	ThreadSafeExclusiveLruCache<MapKey, std::string, MapKeyHash, MapKeyEqual> cache {/*max_entries_p=*/1,
 	                                                                                 /*timeout_millisec_p=*/0};
 	MapKey key;
@@ -74,7 +73,7 @@ TEST_CASE("CustomizedStruct", "[exclusive lru test]") {
 	REQUIRE(*val == "world");
 }
 
-TEST_CASE("Clear with filter test", "[exclusive lru test]") {
+TEST_CASE("ExclusiveLru Clear with filter", "[exclusive lru test]") {
 	ThreadSafeExclusiveLruCache<std::string, std::string> cache {/*max_entries_p=*/3, /*timeout_millisec_p=*/0};
 	auto evicted = cache.Put("key1", make_uniq<std::string>("val1"));
 	REQUIRE(evicted == nullptr);
@@ -96,7 +95,7 @@ TEST_CASE("Clear with filter test", "[exclusive lru test]") {
 	REQUIRE(val == nullptr);
 }
 
-TEST_CASE("Put and get with timeout test", "[exclusive lru test]") {
+TEST_CASE("ExclusiveLru Put and get with timeout", "[exclusive lru test]") {
 	using CacheType = ThreadSafeExclusiveLruCache<std::string, std::string>;
 
 	CacheType cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/500};
@@ -114,7 +113,7 @@ TEST_CASE("Put and get with timeout test", "[exclusive lru test]") {
 	REQUIRE(val == nullptr);
 }
 
-TEST_CASE("Evicted value test", "[exclusive lru test]") {
+TEST_CASE("ExclusiveLru Evicted value", "[exclusive lru test]") {
 	using CacheType = ThreadSafeExclusiveLruCache<std::string, std::string>;
 
 	CacheType cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
@@ -130,9 +129,4 @@ TEST_CASE("Evicted value test", "[exclusive lru test]") {
 	auto values = cache.ClearAndGetValues();
 	REQUIRE(values.size() == 1);
 	REQUIRE(*values[0] == "val3");
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }

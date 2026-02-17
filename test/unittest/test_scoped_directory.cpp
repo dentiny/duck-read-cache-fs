@@ -1,7 +1,6 @@
 // Unit test for ScopedDirectory.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/types/uuid.hpp"
@@ -42,9 +41,4 @@ TEST_CASE("Test ScopedDirectory creation with existing directory", "[scoped dire
 	}
 
 	REQUIRE(!local_filesystem->DirectoryExists(test_dir));
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }

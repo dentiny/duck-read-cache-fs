@@ -14,8 +14,7 @@
 //
 // Adapted from abseil optional unit test implementation.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/vector.hpp"
@@ -243,9 +242,4 @@ TEST_CASE("hash", "[optional]") {
 	size_t c = h(optional<int>(6));
 	REQUIRE(a != b);
 	REQUIRE(b != c);
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }
