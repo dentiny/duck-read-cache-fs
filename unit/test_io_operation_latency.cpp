@@ -5,6 +5,7 @@
 
 #include "cache_filesystem.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "io_operations.hpp"
@@ -97,13 +98,13 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 	const string &profile = stats_pair.first;
 
 	// Verify all operations we performed are present in the profile
-	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kOpen)]));
-	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kRead)]));
-	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kWrite)]));
-	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kFileSync)]));
-	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kFileRemove)]));
-	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kGlob)]));
-	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kFilePathCacheClear)]));
+	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[NumericCast<idx_t>(IoOperation::kOpen)]));
+	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[NumericCast<idx_t>(IoOperation::kRead)]));
+	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[NumericCast<idx_t>(IoOperation::kWrite)]));
+	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[NumericCast<idx_t>(IoOperation::kFileSync)]));
+	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[NumericCast<idx_t>(IoOperation::kFileRemove)]));
+	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[NumericCast<idx_t>(IoOperation::kGlob)]));
+	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[NumericCast<idx_t>(IoOperation::kFilePathCacheClear)]));
 }
 
 int main(int argc, char **argv) {

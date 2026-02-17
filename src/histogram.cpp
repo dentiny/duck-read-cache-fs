@@ -5,6 +5,7 @@
 
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/helper.hpp"
+#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string_util.hpp"
 
 namespace duckdb {
@@ -38,7 +39,7 @@ size_t Histogram::Bucket(double val) const {
 		return hist_.size() - 1;
 	}
 	const double idx = (val - min_val_) / (max_val_ - min_val_);
-	return static_cast<size_t>(std::floor(idx * hist_.size()));
+	return NumericCast<size_t>(std::floor(idx * hist_.size()));
 }
 
 void Histogram::Add(double val) {

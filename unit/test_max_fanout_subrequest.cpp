@@ -9,6 +9,7 @@
 #include "cache_filesystem.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "duckdb/main/database.hpp"
@@ -119,7 +120,7 @@ struct TestFsHelper {
 string BuildTestFileContent() {
 	string content(TEST_FILE_SIZE, '\0');
 	for (idx_t idx = 0; idx < content.size(); ++idx) {
-		content[idx] = static_cast<char>('a' + (idx % 26));
+		content[idx] = NumericCast<char>('a' + (idx % 26));
 	}
 	return content;
 }

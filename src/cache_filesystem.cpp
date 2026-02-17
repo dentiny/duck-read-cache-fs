@@ -4,6 +4,7 @@
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
+#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "temp_profile_collector.hpp"
@@ -481,7 +482,7 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	const auto file_size = GetFileSize(handle);
 
 	// No more bytes to read.
-	if (location >= static_cast<idx_t>(file_size)) {
+	if (location >= NumericCast<idx_t>(file_size)) {
 		return 0;
 	}
 

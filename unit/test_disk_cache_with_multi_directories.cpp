@@ -6,6 +6,7 @@
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
@@ -75,7 +76,7 @@ TEST_CASE("Test for cache directory config with multiple directories", "[on-disk
 	for (idx_t idx = 0; idx < TEST_FILE_COUNT; ++idx) {
 		const auto file_count = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORIES[idx]);
 		file_counts_first_read[idx] = file_count;
-		non_empty_directory_count += static_cast<int>(file_count > 0);
+		non_empty_directory_count += NumericCast<int>(file_count > 0);
 	}
 	REQUIRE(non_empty_directory_count > 1);
 
