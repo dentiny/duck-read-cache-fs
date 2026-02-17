@@ -18,6 +18,7 @@
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/thread_pool.hpp"
 #include "utils/include/thread_utils.hpp"
+#include "utils/include/url_utils.hpp"
 
 #include <cstdint>
 #include <tuple>
@@ -59,11 +60,13 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
                                        idx_t start_offset, idx_t bytes_to_read) {
 	D_ASSERT(!cache_directories.empty());
 
+	const string cache_key = URLUtils::StripQueryAndFragment(remote_file);
+
 	duckdb::hash_bytes remote_file_sha256_val;
 	static_assert(sizeof(remote_file_sha256_val) == 32);
-	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
+	duckdb::sha256(cache_key.data(), cache_key.length(), remote_file_sha256_val);
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
-	const string fname = StringUtil::GetFileName(remote_file);
+	const string fname = StringUtil::GetFileName(cache_key);
 
 	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
 	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
@@ -107,11 +110,13 @@ GetRemoteFileInfo(const string &fname) {
 
 // Used to delete on-disk cache files, which returns the file prefix for the given [remote_file].
 string GetLocalCacheFilePrefix(const string &remote_file) {
+	const string cache_key = URLUtils::StripQueryAndFragment(remote_file);
+
 	duckdb::hash_bytes remote_file_sha256_val;
-	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
+	duckdb::sha256(cache_key.data(), cache_key.length(), remote_file_sha256_val);
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
 
-	const string fname = StringUtil::GetFileName(remote_file);
+	const string fname = StringUtil::GetFileName(cache_key);
 	return StringUtil::Format("%s-%s", remote_file_sha256_str, fname);
 }
 
@@ -265,7 +270,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 	// Attempt in-memory cache block first, so potentially we don't need to access disk storage.
 	InMemCacheBlock block_key;
-	block_key.fname = handle.GetPath();
+	block_key.fname = URLUtils::StripQueryAndFragment(handle.GetPath());
 	block_key.start_off = cache_read_chunk.aligned_start_offset;
 	block_key.blk_size = cache_read_chunk.chunk_size;
 	auto cache_destination = GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(),
@@ -521,7 +526,8 @@ void DiskCacheReader::ClearCache(const string &fname) {
 
 	// Delete in-memory cache for on-disk cache files.
 	if (in_mem_cache_blocks != nullptr) {
-		in_mem_cache_blocks->Clear([&fname](const InMemCacheBlock &block) { return block.fname == fname; });
+		const string cache_key = URLUtils::StripQueryAndFragment(fname);
+		in_mem_cache_blocks->Clear([&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key; });
 	}
 }
 

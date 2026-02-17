@@ -7,6 +7,7 @@
 #include "duckdb/common/types/timestamp.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "temp_profile_collector.hpp"
+#include "utils/include/url_utils.hpp"
 
 namespace duckdb {
 
@@ -139,8 +140,9 @@ void CacheFileSystem::ClearFileHandleCache(const string &filepath) {
 	if (file_handle_cache == nullptr) {
 		return;
 	}
+	const string cache_key = URLUtils::StripQueryAndFragment(filepath);
 	auto file_handles = file_handle_cache->ClearAndGetValues(
-	    [&filepath](const FileHandleCacheKey &handle_key) { return handle_key.path == filepath; });
+	    [&cache_key](const FileHandleCacheKey &handle_key) { return handle_key.path == cache_key; });
 	for (auto &cur_file_handle : file_handles) {
 		cur_file_handle->Close();
 	}
@@ -175,15 +177,16 @@ void CacheFileSystem::ClearCache() {
 
 void CacheFileSystem::ClearCache(const string &filepath) {
 	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFilePathCacheClear);
+	const string cache_key = URLUtils::StripQueryAndFragment(filepath);
 	if (metadata_cache != nullptr) {
-		metadata_cache->Clear([&filepath](const string &key) { return key == filepath; });
+		metadata_cache->Clear([&cache_key](const string &key) { return key == cache_key; });
 	}
 	if (glob_cache != nullptr) {
-		glob_cache->Clear([&filepath](const string &key) { return key == filepath; });
+		glob_cache->Clear([&cache_key](const string &key) { return key == cache_key; });
 	}
-	ClearFileHandleCache(filepath);
+	ClearFileHandleCache(cache_key);
 	// TODO(hjiang): This seems a duplicate function call, extension statement funtion has already cleared the cache.
-	instance_state.lock()->cache_reader_manager.ClearCache(filepath);
+	instance_state.lock()->cache_reader_manager.ClearCache(cache_key);
 }
 
 bool CacheFileSystem::CanHandleFile(const string &fpath) {
@@ -243,7 +246,7 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 	D_ASSERT(flags.OpenForReading());
 
 	CacheFileSystem::FileHandleCacheKey cache_key;
-	cache_key.path = internal_file_handle->GetPath();
+	cache_key.path = URLUtils::StripQueryAndFragment(internal_file_handle->GetPath());
 	cache_key.flags = flags | FileFlags::FILE_FLAGS_PARALLEL_ACCESS;
 	if (in_use_file_handle_counter != nullptr) {
 		in_use_file_handle_counter->Increment(cache_key);
@@ -447,8 +450,9 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 
 	// Stat with cache.
 	bool metadata_cache_hit = true;
+	const string cache_key = URLUtils::StripQueryAndFragment(disk_cache_handle.internal_file_handle->GetPath());
 	auto metadata =
-	    metadata_cache->GetOrCreate(disk_cache_handle.internal_file_handle->GetPath(),
+	    metadata_cache->GetOrCreate(cache_key,
 	                                [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		                                metadata_cache_hit = false;
 		                                return Stats(*disk_cache_handle.internal_file_handle);
@@ -467,8 +471,9 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 
 	// Stat with cache.
 	bool metadata_cache_hit = true;
+	const string cache_key = URLUtils::StripQueryAndFragment(disk_cache_handle.internal_file_handle->GetPath());
 	auto metadata =
-	    metadata_cache->GetOrCreate(disk_cache_handle.internal_file_handle->GetPath(),
+	    metadata_cache->GetOrCreate(cache_key,
 	                                [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		                                metadata_cache_hit = false;
 		                                return Stats(*disk_cache_handle.internal_file_handle);
