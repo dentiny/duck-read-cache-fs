@@ -7,61 +7,56 @@ using namespace duckdb;
 
 TEST_CASE("URLUtils::StripQueryAndFragment - Basic cases", "[url_utils]") {
 	// URL without query or fragment
-	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet") == 
-	        "https://example.com/file.parquet");
-	
+	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet") == "https://example.com/file.parquet");
+
 	// URL with query parameters
-	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet?version=1") == 
+	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet?version=1") ==
 	        "https://example.com/file.parquet");
-	
+
 	// URL with multiple query parameters
-	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet?version=1&format=snappy") == 
+	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet?version=1&format=snappy") ==
 	        "https://example.com/file.parquet");
-	
+
 	// URL with fragment
-	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet#section1") == 
+	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet#section1") ==
 	        "https://example.com/file.parquet");
-	
+
 	// URL with both query and fragment
-	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet?version=1#section1") == 
+	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file.parquet?version=1#section1") ==
 	        "https://example.com/file.parquet");
 }
 
 TEST_CASE("URLUtils::StripQueryAndFragment - S3 URLs", "[url_utils]") {
 	// S3 URL with query parameters
-	REQUIRE(URLUtils::StripQueryAndFragment("s3://bucket/path/file.parquet?versionId=xyz") == 
+	REQUIRE(URLUtils::StripQueryAndFragment("s3://bucket/path/file.parquet?versionId=xyz") ==
 	        "s3://bucket/path/file.parquet");
-	
+
 	// S3 URL without query
-	REQUIRE(URLUtils::StripQueryAndFragment("s3://bucket/path/file.parquet") == 
-	        "s3://bucket/path/file.parquet");
+	REQUIRE(URLUtils::StripQueryAndFragment("s3://bucket/path/file.parquet") == "s3://bucket/path/file.parquet");
 }
 
 TEST_CASE("URLUtils::StripQueryAndFragment - HTTP URLs", "[url_utils]") {
 	// HTTP URL with port and query
-	REQUIRE(URLUtils::StripQueryAndFragment("http://example.com:8080/api/data?format=json") == 
+	REQUIRE(URLUtils::StripQueryAndFragment("http://example.com:8080/api/data?format=json") ==
 	        "http://example.com:8080/api/data");
-	
+
 	// HTTPS URL with nested path
-	REQUIRE(URLUtils::StripQueryAndFragment("https://cdn.example.com/data/2024/01/file.parquet?token=abc123") == 
+	REQUIRE(URLUtils::StripQueryAndFragment("https://cdn.example.com/data/2024/01/file.parquet?token=abc123") ==
 	        "https://cdn.example.com/data/2024/01/file.parquet");
 }
 
 TEST_CASE("URLUtils::StripQueryAndFragment - Edge cases", "[url_utils]") {
 	// Empty string
 	REQUIRE(URLUtils::StripQueryAndFragment("") == "");
-	
+
 	// Just a question mark
-	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file?") == 
-	        "https://example.com/file");
-	
+	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file?") == "https://example.com/file");
+
 	// Just a hash
-	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file#") == 
-	        "https://example.com/file");
-	
+	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file#") == "https://example.com/file");
+
 	// Query with equals but no value
-	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file?key=") == 
-	        "https://example.com/file");
+	REQUIRE(URLUtils::StripQueryAndFragment("https://example.com/file?key=") == "https://example.com/file");
 }
 
 TEST_CASE("URLUtils::ParseURL - Complete URLs", "[url_utils]") {
@@ -137,7 +132,7 @@ TEST_CASE("URLUtils - Real world examples", "[url_utils]") {
 	REQUIRE(parsed_s3.host == "my-bucket");
 	REQUIRE(parsed_s3.path == "/data/2024/file.parquet");
 	REQUIRE(parsed_s3.query == "versionId=abc123&partNumber=1");
-	
+
 	// HTTPS URL with authentication token
 	string https_url = "https://storage.googleapis.com/bucket/file.parquet?token=xyz789&expires=1234567890";
 	REQUIRE(URLUtils::StripQueryAndFragment(https_url) == "https://storage.googleapis.com/bucket/file.parquet");
@@ -146,7 +141,7 @@ TEST_CASE("URLUtils - Real world examples", "[url_utils]") {
 	REQUIRE(parsed_https.host == "storage.googleapis.com");
 	REQUIRE(parsed_https.path == "/bucket/file.parquet");
 	REQUIRE(parsed_https.query == "token=xyz789&expires=1234567890");
-	
+
 	// HTTP URL with port and complex query
 	string http_url = "http://localhost:9000/api/data/file.csv?format=csv&delimiter=%2C&encoding=utf8#results";
 	REQUIRE(URLUtils::StripQueryAndFragment(http_url) == "http://localhost:9000/api/data/file.csv");
