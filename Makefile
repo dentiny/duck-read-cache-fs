@@ -10,7 +10,9 @@ include extension-ci-tools/makefiles/duckdb_extension.Makefile
 format-all: format
 	find unit/ -iname *.hpp -o -iname *.cpp | xargs clang-format --sort-includes=0 -style=file -i
 	find benchmark/ -iname *.hpp -o -iname *.cpp | xargs clang-format --sort-includes=0 -style=file -i
+	find test/unittest/ -iname *.hpp -o -iname *.cpp | xargs clang-format --sort-includes=0 -style=file -i
 	cmake-format -i CMakeLists.txt
+	cmake-format -i test/unittest/CMakeLists.txt
 
 test_unit: all
 	find build/release/extension/cache_httpfs/ -type f -name "test*" -not -name "*.o" -not -name "*.cpp" -not -name "*.d" -exec {} \;

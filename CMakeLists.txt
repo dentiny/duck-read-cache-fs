@@ -128,6 +128,10 @@ install(
 
 # Test cases.
 if(${BUILD_UNITTESTS})
+  # Unit tests.
+  add_subdirectory(test/unittest)
+
+  # Integration tests.
   include_directories(duckdb/third_party/catch)
 
   add_executable(test_noop_cache_reader unit/test_noop_cache_reader.cpp)
@@ -179,32 +183,6 @@ if(${BUILD_UNITTESTS})
   add_executable(test_io_operation_latency unit/test_io_operation_latency.cpp)
   target_link_libraries(test_io_operation_latency ${EXTENSION_NAME})
 
-  add_executable(test_histogram unit/test_histogram.cpp)
-  target_link_libraries(test_histogram ${EXTENSION_NAME})
-
-  add_executable(test_thread_pool unit/test_thread_pool.cpp)
-  target_link_libraries(test_thread_pool ${EXTENSION_NAME})
-
-  add_executable(test_counter unit/test_counter.cpp)
-  target_link_libraries(test_counter ${EXTENSION_NAME})
-
-  add_executable(test_shared_lru_cache unit/test_shared_lru_cache.cpp)
-  target_link_libraries(test_shared_lru_cache ${EXTENSION_NAME})
-
-  add_executable(test_exclusive_lru_cache unit/test_exclusive_lru_cache.cpp)
-  target_link_libraries(test_exclusive_lru_cache ${EXTENSION_NAME})
-
-  add_executable(test_exclusive_multi_lru_cache
-                 unit/test_exclusive_multi_lru_cache.cpp)
-  target_link_libraries(test_exclusive_multi_lru_cache ${EXTENSION_NAME})
-
-  add_executable(test_copiable_value_lru_cache
-                 unit/test_copiable_value_lru_cache.cpp)
-  target_link_libraries(test_copiable_value_lru_cache ${EXTENSION_NAME})
-
-  add_executable(test_size_literals unit/test_size_literals.cpp)
-  target_link_libraries(test_size_literals ${EXTENSION_NAME})
-
   add_executable(test_filesystem_config unit/test_filesystem_config.cpp)
   target_link_libraries(test_filesystem_config ${EXTENSION_NAME})
 
@@ -218,21 +196,12 @@ if(${BUILD_UNITTESTS})
                  unit/test_cache_filesystem_with_mock.cpp)
   target_link_libraries(test_cache_filesystem_with_mock ${EXTENSION_NAME})
 
-  add_executable(test_no_destructor unit/test_no_destructor.cpp)
-  target_link_libraries(test_no_destructor ${EXTENSION_NAME})
-
   add_executable(test_cache_exclusion_manager
                  unit/test_cache_exclusion_manager.cpp)
   target_link_libraries(test_cache_exclusion_manager ${EXTENSION_NAME})
 
   add_executable(test_multi_duckdb_instance unit/test_multi_duckdb_instance.cpp)
   target_link_libraries(test_multi_duckdb_instance ${EXTENSION_NAME})
-
-  add_executable(test_scoped_directory unit/test_scoped_directory.cpp)
-  target_link_libraries(test_scoped_directory ${EXTENSION_NAME})
-
-  add_executable(test_optional unit/test_optional.cpp)
-  target_link_libraries(test_optional ${EXTENSION_NAME})
 endif()
 
 # Benchmark

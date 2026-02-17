@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include <future>
 
@@ -67,9 +66,4 @@ TEST_CASE("Threadpool test", "[threadpool]") {
 			REQUIRE(futures[val].get() == val);
 		}
 	}
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }

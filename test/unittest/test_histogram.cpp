@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "histogram.hpp"
 
@@ -24,9 +23,4 @@ TEST_CASE("Histogram test", "[histogram test]") {
 	REQUIRE(hist.max() == 1);
 	REQUIRE(hist.counts() == 1);
 	REQUIRE(hist.mean() == 1);
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }

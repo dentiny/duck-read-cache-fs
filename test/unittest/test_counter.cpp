@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "counter.hpp"
 #include "duckdb/common/assert.hpp"
@@ -40,9 +39,4 @@ TEST_CASE("CounterWithCustomizedKey", "[counter test]") {
 	REQUIRE(counter.GetCount(key) == 1);
 	REQUIRE(counter.Decrement(key) == 0);
 	REQUIRE(counter.GetCount(key) == 0);
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }
