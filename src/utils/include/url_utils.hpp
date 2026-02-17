@@ -6,12 +6,12 @@ namespace duckdb {
 
 //! Parsed URL components
 struct ParsedURL {
-	string scheme;        // e.g., "http", "https", "s3"
-	string host;          // e.g., "example.com", "bucket.s3.amazonaws.com"
-	string path;          // e.g., "/path/to/file.parquet"
-	string query;         // e.g., "param1=value1&param2=value2"
-	string fragment;      // e.g., "section1"
-	string url_without_query;  // Full URL without query parameters and fragment
+	string scheme;            // e.g., "http", "https", "s3"
+	string host;              // e.g., "example.com", "bucket.s3.amazonaws.com"
+	string path;              // e.g., "/path/to/file.parquet"
+	string query;             // e.g., "param1=value1&param2=value2"
+	string fragment;          // e.g., "section1"
+	string url_without_query; // Full URL without query parameters and fragment
 };
 
 //! URL parsing and manipulation utilities
