@@ -61,7 +61,6 @@ CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, 
 	D_ASSERT(!cache_directories.empty());
 
 	const string cache_key = URLUtils::StripQueryAndFragment(remote_file);
-
 	duckdb::hash_bytes remote_file_sha256_val;
 	static_assert(sizeof(remote_file_sha256_val) == 32);
 	duckdb::sha256(cache_key.data(), cache_key.length(), remote_file_sha256_val);
@@ -111,7 +110,6 @@ GetRemoteFileInfo(const string &fname) {
 // Used to delete on-disk cache files, which returns the file prefix for the given [remote_file].
 string GetLocalCacheFilePrefix(const string &remote_file) {
 	const string cache_key = URLUtils::StripQueryAndFragment(remote_file);
-
 	duckdb::hash_bytes remote_file_sha256_val;
 	duckdb::sha256(cache_key.data(), cache_key.length(), remote_file_sha256_val);
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
