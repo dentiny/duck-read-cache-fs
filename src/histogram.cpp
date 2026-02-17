@@ -5,7 +5,6 @@
 
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/helper.hpp"
-#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string_util.hpp"
 
 namespace duckdb {

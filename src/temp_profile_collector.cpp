@@ -1,6 +1,5 @@
 #include "temp_profile_collector.hpp"
 
-#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "utils/include/no_destructor.hpp"
 #include "utils/include/time_utils.hpp"
@@ -56,14 +55,14 @@ void TempProfileCollector::RecordOperationEnd(IoOperation io_oper, int64_t laten
 	const auto now = GetSteadyNowMilliSecSinceEpoch();
 
 	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
-	auto &cur_histogram = histograms[NumericCast<idx_t>(io_oper)];
+	auto &cur_histogram = histograms[static_cast<idx_t>(io_oper)];
 	cur_histogram->Add(latency_millisec);
 	latest_timestamp = now;
 }
 
 void TempProfileCollector::RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) {
 	const concurrency::lock_guard<concurrency::mutex> lck(stats_mutex);
-	const size_t arr_idx = NumericCast<size_t>(cache_entity) * kCacheAccessCount + NumericCast<size_t>(cache_access);
+	const size_t arr_idx = static_cast<size_t>(cache_entity) * kCacheAccessCount + static_cast<size_t>(cache_access);
 	++cache_access_count[arr_idx];
 }
 
@@ -103,7 +102,7 @@ vector<CacheAccessInfo> TempProfileCollector::GetCacheAccessInfo() const {
 		});
 
 		// Record "bytes to read" and "bytes to cache" for data cache.
-		if (idx == NumericCast<idx_t>(IoOperation::kRead)) {
+		if (idx == static_cast<idx_t>(IoOperation::kRead)) {
 			cache_access_info[idx].total_bytes_to_cache = Value::UBIGINT(total_bytes_to_cache);
 			cache_access_info[idx].total_bytes_to_read = Value::UBIGINT(total_bytes_to_read);
 		}
@@ -129,7 +128,7 @@ std::pair<string, uint64_t> TempProfileCollector::GetHumanReadableStats() {
 		    CACHE_ENTITY_NAMES[cur_entity_idx], cache_access_count[cur_entity_idx * kCacheAccessCount + 2]);
 
 		// Record "bytes to read" and "bytes to cache" for data cache.
-		if (cur_entity_idx == NumericCast<idx_t>(IoOperation::kRead)) {
+		if (cur_entity_idx == static_cast<idx_t>(IoOperation::kRead)) {
 			stats = StringUtil::Format("%s\n"
 			                           "for data cache, "
 			                           "number of bytes to read = %d\n"

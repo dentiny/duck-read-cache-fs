@@ -6,7 +6,6 @@
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
-#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"

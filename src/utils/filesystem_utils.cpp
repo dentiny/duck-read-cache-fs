@@ -21,7 +21,6 @@
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/numeric_utils.hpp"
-#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "no_destructor.hpp"
@@ -49,7 +48,7 @@ vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &
 		}
 
 		const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
-		const idx_t diff_in_microsec = NumericCast<idx_t>(now.value - last_mod_time.value);
+		const idx_t diff_in_microsec = static_cast<idx_t>(now.value - last_mod_time.value);
 		if (diff_in_microsec >= CACHE_FILE_STALENESS_MICROSEC) {
 			if (std::remove(full_name.data()) < -1 && errno != EEXIST) {
 				throw IOException("Fails to delete stale cache file %s", full_name);
@@ -85,7 +84,7 @@ idx_t GetOverallFileSystemDiskSpace(const string &path) {
 	if (!ok) {
 		return 0;
 	}
-	return NumericCast<idx_t>(total_bytes.QuadPart);
+	return static_cast<idx_t>(total_bytes.QuadPart);
 #else
 	struct statvfs vfs;
 	const auto ret = statvfs(path.c_str(), &vfs);
@@ -95,7 +94,7 @@ idx_t GetOverallFileSystemDiskSpace(const string &path) {
 
 	auto total_blocks = vfs.f_blocks;
 	auto block_size = vfs.f_frsize;
-	return NumericCast<idx_t>(total_blocks) * NumericCast<idx_t>(block_size);
+	return static_cast<idx_t>(total_blocks) * static_cast<idx_t>(block_size);
 #endif
 }
 
@@ -107,13 +106,13 @@ optional_idx GetTotalDiskSpace(const string &path) {
 	if (!GetDiskFreeSpaceExA(path.c_str(), &free_bytes_unused, &total_bytes, &total_free_unused)) {
 		return optional_idx();
 	}
-	return optional_idx(NumericCast<idx_t>(total_bytes.QuadPart));
+	return optional_idx(static_cast<idx_t>(total_bytes.QuadPart));
 #else
 	struct statvfs vfs;
 	if (statvfs(path.c_str(), &vfs) != 0) {
 		return optional_idx();
 	}
-	return optional_idx(NumericCast<idx_t>(vfs.f_blocks) * NumericCast<idx_t>(vfs.f_frsize));
+	return optional_idx(static_cast<idx_t>(vfs.f_blocks) * static_cast<idx_t>(vfs.f_frsize));
 #endif
 }
 
@@ -314,7 +313,7 @@ idx_t GetFileSystemPageSize() {
 #if defined(_WIN32)
 	SYSTEM_INFO si;
 	GetSystemInfo(&si);
-	return NumericCast<std::size_t>(si.dwPageSize);
+	return static_cast<std::size_t>(si.dwPageSize);
 
 #elif defined(_SC_PAGESIZE)
 
@@ -322,7 +321,7 @@ idx_t GetFileSystemPageSize() {
 	if (result <= 0) {
 		return 4096;
 	}
-	return NumericCast<idx_t>(result);
+	return static_cast<idx_t>(result);
 
 #else
 	return 4096; // conservative fallback

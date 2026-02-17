@@ -60,6 +60,7 @@ set(EXTENSION_SOURCES
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
     src/utils/time_utils.cpp
+    src/utils/url_utils.cpp
     duckdb-httpfs/src/create_secret_functions.cpp
     duckdb-httpfs/src/crypto.cpp
     duckdb-httpfs/src/hash_functions.cpp
