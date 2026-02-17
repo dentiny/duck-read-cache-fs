@@ -227,6 +227,24 @@ bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
 	return std::find(loaded_extensions.begin(), loaded_extensions.end(), HTTPFS_EXTENSION) != loaded_extensions.end();
 }
 
+// Ensure httpfs extension is loaded, loading it if necessary
+void EnsureHttpfsExtensionLoaded(ExtensionLoader &loader, DatabaseInstance &instance) {
+	const bool httpfs_extension_loaded = IsHttpfsExtensionLoaded(instance);
+	if (httpfs_extension_loaded) {
+		return;
+	}
+	auto httpfs_extension = make_uniq<HttpfsExtension>();
+	httpfs_extension->Load(loader);
+
+	// Register into extension manager to keep compatibility as httpfs.
+	auto &extension_manager = ExtensionManager::Get(instance);
+	auto extension_active_load = extension_manager.BeginLoad(HTTPFS_EXTENSION);
+	// Manually fill in the extension install info to finalize extension load.
+	ExtensionInstallInfo extension_install_info;
+	extension_install_info.mode = ExtensionInstallMode::UNKNOWN;
+	extension_active_load->FinishLoad(extension_install_info);
+}
+
 //===--------------------------------------------------------------------===//
 // Extension option callbacks - update instance state config when settings change
 //===--------------------------------------------------------------------===//
@@ -487,19 +505,7 @@ void LoadInternal(ExtensionLoader &loader) {
 
 	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,
 	// so we load it first if not already loaded.
-	const bool httpfs_extension_loaded = IsHttpfsExtensionLoaded(instance);
-	if (!httpfs_extension_loaded) {
-		auto httpfs_extension = make_uniq<HttpfsExtension>();
-		httpfs_extension->Load(loader);
-
-		// Register into extension manager to keep compatibility as httpfs.
-		auto &extension_manager = ExtensionManager::Get(instance);
-		auto extension_active_load = extension_manager.BeginLoad(HTTPFS_EXTENSION);
-		// Manually fill in the extension install info to finalize extension load.
-		ExtensionInstallInfo extension_install_info;
-		extension_install_info.mode = ExtensionInstallMode::UNKNOWN;
-		extension_active_load->FinishLoad(extension_install_info);
-	}
+	EnsureHttpfsExtensionLoaded(loader, instance);
 
 	// Register filesystem instance to instance.
 	// Here we register both in-memory filesystem and on-disk filesystem, and leverage global configuration to decide
