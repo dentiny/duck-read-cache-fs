@@ -451,12 +451,11 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	// Stat with cache.
 	bool metadata_cache_hit = true;
 	const string cache_key = URLUtils::StripQueryAndFragment(disk_cache_handle.internal_file_handle->GetPath());
-	auto metadata =
-	    metadata_cache->GetOrCreate(cache_key,
-	                                [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
-		                                metadata_cache_hit = false;
-		                                return Stats(*disk_cache_handle.internal_file_handle);
-	                                });
+	auto metadata = metadata_cache->GetOrCreate(
+	    cache_key, [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
+		    metadata_cache_hit = false;
+		    return Stats(*disk_cache_handle.internal_file_handle);
+	    });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
 	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
 	return metadata->last_modification_time;
@@ -472,12 +471,11 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 	// Stat with cache.
 	bool metadata_cache_hit = true;
 	const string cache_key = URLUtils::StripQueryAndFragment(disk_cache_handle.internal_file_handle->GetPath());
-	auto metadata =
-	    metadata_cache->GetOrCreate(cache_key,
-	                                [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
-		                                metadata_cache_hit = false;
-		                                return Stats(*disk_cache_handle.internal_file_handle);
-	                                });
+	auto metadata = metadata_cache->GetOrCreate(
+	    cache_key, [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
+		    metadata_cache_hit = false;
+		    return Stats(*disk_cache_handle.internal_file_handle);
+	    });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
 	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
 	return metadata->file_size;
