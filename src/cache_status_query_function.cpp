@@ -7,7 +7,6 @@
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/numeric_utils.hpp"
-#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
 #include "duckdb/function/table_function.hpp"
@@ -110,10 +109,10 @@ void DataCacheStatusQueryTableFunc(ClientContext &context, TableFunctionInput &d
 		output.SetValue(col++, count, entry.remote_filename);
 
 		// Start offset.
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.start_offset)));
+		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.start_offset)));
 
 		// End offset.
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.end_offset)));
+		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.end_offset)));
 
 		// Cache type.
 		output.SetValue(col++, count, entry.cache_type);
@@ -195,7 +194,7 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 			aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur_cache_access_info.cache_miss_by_in_use;
 
 			// For data file cache, record number of bytes to read and to cache.
-			if (idx == NumericCast<idx_t>(IoOperation::kRead)) {
+			if (idx == static_cast<idx_t>(IoOperation::kRead)) {
 				// Handle number of bytes to read.
 				auto &total_bytes_to_read = aggregated_cache_access_infos[idx].total_bytes_to_read;
 				uint64_t read_value = 0;
@@ -238,13 +237,13 @@ void CacheAccessInfoQueryTableFunc(ClientContext &context, TableFunctionInput &d
 		output.SetValue(col++, count, entry.cache_type);
 
 		// Cache hit count.
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.cache_hit_count)));
+		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.cache_hit_count)));
 
 		// Cache miss count.
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.cache_miss_count)));
+		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.cache_miss_count)));
 
 		// Cache miss by in-use count.
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<uint64_t>(entry.cache_miss_by_in_use)));
+		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.cache_miss_by_in_use)));
 
 		// Used for data cache, total number of bytes to read.
 		output.SetValue(col++, count, entry.total_bytes_to_read);

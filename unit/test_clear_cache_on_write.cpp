@@ -4,7 +4,6 @@
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
-#include "duckdb/common/operator/numeric_cast.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
@@ -55,7 +54,7 @@ TEST_CASE("Test cache cleared on Write with location", "[cache filesystem write 
 	// Verify cache was cleared by reading metadata again, it should reflect the new file size
 	auto verify_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
 	const int64_t new_size = cache_filesystem->GetFileSize(*verify_handle);
-	REQUIRE(new_size == NumericCast<int64_t>(new_content.length()));
+	REQUIRE(new_size == static_cast<int64_t>(new_content.length()));
 	verify_handle->Close();
 }
 
@@ -89,13 +88,13 @@ TEST_CASE("Test cache cleared on Write without location", "[cache filesystem wri
 	auto write_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE);
 	const int64_t bytes_written = cache_filesystem->Write(
 	    *write_handle, const_cast<void *>(static_cast<const void *>(new_content.data())), new_content.length());
-	REQUIRE(bytes_written == NumericCast<int64_t>(new_content.length()));
+	REQUIRE(bytes_written == static_cast<int64_t>(new_content.length()));
 	write_handle->Close();
 
 	// Verify cache was cleared by reading metadata, should reflect new file size
 	auto verify_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
 	const int64_t new_size = cache_filesystem->GetFileSize(*verify_handle);
-	REQUIRE(new_size == NumericCast<int64_t>(new_content.length()));
+	REQUIRE(new_size == static_cast<int64_t>(new_content.length()));
 	verify_handle->Close();
 }
 
