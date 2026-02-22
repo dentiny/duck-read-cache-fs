@@ -199,7 +199,7 @@ void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_d
 
 	// Dump to a temporary location at local filesystem.
 	const auto fname = StringUtil::GetFileName(handle.GetPath());
-	const auto local_temp_file = StringUtil::Format("%s%s.%s.httpfs_local_cache", cache_directory, fname,
+	const auto local_temp_file = StringUtil::Format("%s/%s.%s.httpfs_local_cache", cache_directory, fname,
 	                                                UUID::ToString(UUID::GenerateRandomUUID()));
 	{
 		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;

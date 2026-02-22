@@ -6,8 +6,6 @@ require notwindows
 
 require cache_httpfs
 
-require parquet
-
 statement ok
 SET cache_httpfs_type='on_disk';
 
