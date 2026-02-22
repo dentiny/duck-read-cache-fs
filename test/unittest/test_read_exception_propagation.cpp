@@ -1,7 +1,6 @@
 // Unit test for exception propagation in cache filesystem.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -197,8 +196,4 @@ TEST_CASE("Test exception propagation in parallel reads - in-memory cache", "[re
 	REQUIRE_THROWS_AS(cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
 	                                         bytes_to_read, start_offset),
 	                  IOException);
-}
-
-int main(int argc, char **argv) {
-	return Catch::Session().run(argc, argv);
 }

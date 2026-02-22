@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "chunk_utils.hpp"
 
@@ -117,8 +116,4 @@ TEST_CASE("Test request ending at block boundary", "[chunk utils test]") {
 	REQUIRE(alignment.aligned_start_offset == 0);
 	REQUIRE(alignment.aligned_last_chunk_offset == 0);
 	REQUIRE(alignment.subrequest_count == 1);
-}
-
-int main(int argc, char **argv) {
-	return Catch::Session().run(argc, argv);
 }

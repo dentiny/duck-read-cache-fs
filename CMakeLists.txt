@@ -129,83 +129,56 @@ install(
   EXPORT "${DUCKDB_EXPORT_SET}"
   LIBRARY DESTINATION "${INSTALL_LIB_DIR}")
 
-# Test cases.
-if(${BUILD_UNITTESTS})
-  # Unit tests.
-  add_subdirectory(test/unittest)
+# Unit tests.
+add_subdirectory(test/unittest)
 
-  # Integration tests.
-  include_directories(duckdb/third_party/catch)
+# Integration tests.
+include_directories(duckdb/third_party/catch)
 
-  add_executable(test_noop_cache_reader unit/test_noop_cache_reader.cpp)
-  target_link_libraries(test_noop_cache_reader ${EXTENSION_NAME})
+add_executable(test_noop_cache_reader unit/test_noop_cache_reader.cpp)
+target_link_libraries(test_noop_cache_reader ${EXTENSION_NAME})
 
-  add_executable(test_disk_cache_filesystem unit/test_disk_cache_filesystem.cpp)
-  target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
+add_executable(test_disk_cache_filesystem unit/test_disk_cache_filesystem.cpp)
+target_link_libraries(test_disk_cache_filesystem ${EXTENSION_NAME})
 
-  add_executable(test_disk_cache_validation unit/test_disk_cache_validation.cpp)
-  target_link_libraries(test_disk_cache_validation ${EXTENSION_NAME})
+add_executable(test_disk_cache_validation unit/test_disk_cache_validation.cpp)
+target_link_libraries(test_disk_cache_validation ${EXTENSION_NAME})
 
-  add_executable(test_read_exception_propagation
-                 unit/test_read_exception_propagation.cpp)
-  target_link_libraries(test_read_exception_propagation ${EXTENSION_NAME})
+add_executable(test_large_file_disk_reader unit/test_large_file_disk_reader.cpp)
+target_link_libraries(test_large_file_disk_reader ${EXTENSION_NAME})
 
-  add_executable(test_large_file_disk_reader
-                 unit/test_large_file_disk_reader.cpp)
-  target_link_libraries(test_large_file_disk_reader ${EXTENSION_NAME})
+add_executable(test_disk_cache_with_multi_directories
+               unit/test_disk_cache_with_multi_directories.cpp)
+target_link_libraries(test_disk_cache_with_multi_directories ${EXTENSION_NAME})
 
-  add_executable(test_disk_cache_with_multi_directories
-                 unit/test_disk_cache_with_multi_directories.cpp)
-  target_link_libraries(test_disk_cache_with_multi_directories
-                        ${EXTENSION_NAME})
+add_executable(test_in_memory_cache_filesystem
+               unit/test_in_memory_cache_filesystem.cpp)
+target_link_libraries(test_in_memory_cache_filesystem ${EXTENSION_NAME})
 
-  add_executable(test_in_memory_cache_filesystem
-                 unit/test_in_memory_cache_filesystem.cpp)
-  target_link_libraries(test_in_memory_cache_filesystem ${EXTENSION_NAME})
+add_executable(test_large_file_inmem_reader
+               unit/test_large_file_inmem_reader.cpp)
+target_link_libraries(test_large_file_inmem_reader ${EXTENSION_NAME})
 
-  add_executable(test_large_file_inmem_reader
-                 unit/test_large_file_inmem_reader.cpp)
-  target_link_libraries(test_large_file_inmem_reader ${EXTENSION_NAME})
+add_executable(test_filesystem_utils unit/test_filesystem_utils.cpp)
+target_link_libraries(test_filesystem_utils ${EXTENSION_NAME})
 
-  add_executable(test_max_fanout_subrequest unit/test_max_fanout_subrequest.cpp)
-  target_link_libraries(test_max_fanout_subrequest ${EXTENSION_NAME})
+add_executable(test_cache_filesystem unit/test_cache_filesystem.cpp)
+target_link_libraries(test_cache_filesystem ${EXTENSION_NAME})
 
-  add_executable(test_chunk_utils unit/test_chunk_utils.cpp)
-  target_link_libraries(test_chunk_utils ${EXTENSION_NAME})
+add_executable(test_cache_stats_collection unit/test_cache_stats_collection.cpp)
+target_link_libraries(test_cache_stats_collection ${EXTENSION_NAME})
 
-  add_executable(test_filesystem_utils unit/test_filesystem_utils.cpp)
-  target_link_libraries(test_filesystem_utils ${EXTENSION_NAME})
+add_executable(test_filesystem_config unit/test_filesystem_config.cpp)
+target_link_libraries(test_filesystem_config ${EXTENSION_NAME})
 
-  add_executable(test_cache_filesystem unit/test_cache_filesystem.cpp)
-  target_link_libraries(test_cache_filesystem ${EXTENSION_NAME})
+add_executable(test_set_extension_config unit/test_set_extension_config.cpp)
+target_link_libraries(test_set_extension_config ${EXTENSION_NAME})
 
-  add_executable(test_cache_stats_collection
-                 unit/test_cache_stats_collection.cpp)
-  target_link_libraries(test_cache_stats_collection ${EXTENSION_NAME})
+add_executable(test_base_cache_filesystem unit/test_base_cache_filesystem.cpp)
+target_link_libraries(test_base_cache_filesystem ${EXTENSION_NAME})
 
-  add_executable(test_io_operation_latency unit/test_io_operation_latency.cpp)
-  target_link_libraries(test_io_operation_latency ${EXTENSION_NAME})
-
-  add_executable(test_filesystem_config unit/test_filesystem_config.cpp)
-  target_link_libraries(test_filesystem_config ${EXTENSION_NAME})
-
-  add_executable(test_set_extension_config unit/test_set_extension_config.cpp)
-  target_link_libraries(test_set_extension_config ${EXTENSION_NAME})
-
-  add_executable(test_base_cache_filesystem unit/test_base_cache_filesystem.cpp)
-  target_link_libraries(test_base_cache_filesystem ${EXTENSION_NAME})
-
-  add_executable(test_cache_filesystem_with_mock
-                 unit/test_cache_filesystem_with_mock.cpp)
-  target_link_libraries(test_cache_filesystem_with_mock ${EXTENSION_NAME})
-
-  add_executable(test_cache_exclusion_manager
-                 unit/test_cache_exclusion_manager.cpp)
-  target_link_libraries(test_cache_exclusion_manager ${EXTENSION_NAME})
-
-  add_executable(test_multi_duckdb_instance unit/test_multi_duckdb_instance.cpp)
-  target_link_libraries(test_multi_duckdb_instance ${EXTENSION_NAME})
-endif()
+add_executable(test_multi_duckdb_instance unit/test_multi_duckdb_instance.cpp)
+target_link_libraries(test_multi_duckdb_instance ${EXTENSION_NAME})
 
 # Benchmark
 if(${BUILD_BENCHMARK})

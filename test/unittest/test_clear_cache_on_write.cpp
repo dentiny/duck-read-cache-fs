@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
@@ -96,9 +95,4 @@ TEST_CASE("Test cache cleared on Write without location", "[cache filesystem wri
 	const int64_t new_size = cache_filesystem->GetFileSize(*verify_handle);
 	REQUIRE(new_size == static_cast<int64_t>(new_content.length()));
 	verify_handle->Close();
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }

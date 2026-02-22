@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -279,9 +278,4 @@ TEST_CASE("Test clear cache", "[mock filesystem test]") {
 	perform_io_operation();
 	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 3);
 	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 3);
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }

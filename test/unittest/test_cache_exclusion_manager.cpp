@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_exclusion_manager.hpp"
 
@@ -16,9 +15,4 @@ TEST_CASE("Exclusion test", "[cache exclusion manager test]") {
 	// A match-all regex.
 	exclusion_manager.AddExclusionRegex(".*");
 	REQUIRE(exclusion_manager.MatchAnyExclusion("match-file"));
-}
-
-int main(int argc, char **argv) {
-	int result = Catch::Session().run(argc, argv);
-	return result;
 }
