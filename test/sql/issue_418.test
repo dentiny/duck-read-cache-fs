@@ -1,4 +1,4 @@
-# name: test/sql/test_issue_418.test
+# name: test/sql/issue_418.test
 # description: regression test for issue 418
 # group: [sql]
 

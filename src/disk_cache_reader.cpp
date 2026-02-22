@@ -8,11 +8,10 @@
 #include "cache_filesystem_logger.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "cache_read_chunk.hpp"
-#include "crypto.hpp"
 #include "disk_cache_reader.hpp"
+#include "disk_cache_util.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
-#include "duckdb/common/types/uuid.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/resize_uninitialized.hpp"
@@ -21,123 +20,9 @@
 #include "utils/include/url_utils.hpp"
 
 #include <cstdint>
-#include <tuple>
 #include <utility>
 
 namespace duckdb {
-
-namespace {
-
-// Cache directory and cache filepath for certain request.
-struct CacheFileDestination {
-	// Index for all cache directories.
-	idx_t cache_directory_idx = 0;
-	// Local cache filepath.
-	string cache_filepath;
-};
-
-// Convert SHA256 value to hex string.
-string Sha256ToHexString(const duckdb::hash_bytes &sha256) {
-	static constexpr char kHexChars[] = "0123456789abcdef";
-	string result;
-	// SHA256 has 32 byte, we encode 2 chars for each byte of SHA256.
-	result.reserve(64);
-
-	for (unsigned char byte : sha256) {
-		result += kHexChars[byte >> 4];  // Get high 4 bits
-		result += kHexChars[byte & 0xF]; // Get low 4 bits
-	}
-	return result;
-}
-
-// Get local cache filename for the given [remote_file].
-//
-// Cache filename is formatted as `<cache-directory>/<filename-sha256>-<filename>-<start-offset>-<size>`. So we could
-// get all cache files under one directory, and get all cache files with commands like `ls`.
-//
-// Considering the naming format, it's worth noting it might _NOT_ work for local files, including mounted filesystems.
-CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, const string &remote_file,
-                                       idx_t start_offset, idx_t bytes_to_read) {
-	D_ASSERT(!cache_directories.empty());
-
-	const string cache_key = URLUtils::StripQueryAndFragment(remote_file);
-	duckdb::hash_bytes remote_file_sha256_val;
-	static_assert(sizeof(remote_file_sha256_val) == 32);
-	duckdb::sha256(cache_key.data(), cache_key.length(), remote_file_sha256_val);
-	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
-	const string fname = StringUtil::GetFileName(cache_key);
-
-	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
-	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
-		hash_value ^= static_cast<uint64_t>(remote_file_sha256_val[idx]);
-		hash_value *= 0x100000001b3; // FNV prime
-	}
-	const idx_t cache_directory_idx = hash_value % cache_directories.size();
-	const auto &cur_cache_dir = cache_directories[cache_directory_idx];
-
-	auto cache_filepath = StringUtil::Format("%s/%s-%s-%llu-%llu", cur_cache_dir, remote_file_sha256_str, fname,
-	                                         start_offset, bytes_to_read);
-	return CacheFileDestination {
-	    .cache_directory_idx = cache_directory_idx,
-	    .cache_filepath = std::move(cache_filepath),
-	};
-}
-
-// Get remote file information from the given local cache [fname].
-std::tuple<string /*remote_filename*/, uint64_t /*start_offset*/, uint64_t /*end_offset*/>
-GetRemoteFileInfo(const string &fname) {
-	// [fname] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
-	vector<string> tokens = StringUtil::Split(fname, "-");
-	D_ASSERT(tokens.size() >= 4);
-
-	// Get tokens for remote paths.
-	vector<string> remote_path_tokens;
-	remote_path_tokens.reserve(tokens.size() - 3);
-
-	for (idx_t idx = 1; idx < tokens.size() - 2; ++idx) {
-		remote_path_tokens.emplace_back(std::move(tokens[idx]));
-	}
-	string remote_filename = StringUtil::Join(remote_path_tokens, "/");
-
-	const string &start_offset_str = tokens[tokens.size() - 2];
-	const string &block_size_str = tokens[tokens.size() - 1];
-	const idx_t start_offset = StringUtil::ToUnsigned(start_offset_str);
-	const idx_t block_size = StringUtil::ToUnsigned(block_size_str);
-
-	return std::make_tuple(std::move(remote_filename), start_offset, start_offset + block_size);
-}
-
-// Used to delete on-disk cache files, which returns the file prefix for the given [remote_file].
-string GetLocalCacheFilePrefix(const string &remote_file) {
-	const string cache_key = URLUtils::StripQueryAndFragment(remote_file);
-	duckdb::hash_bytes remote_file_sha256_val;
-	duckdb::sha256(cache_key.data(), cache_key.length(), remote_file_sha256_val);
-	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
-
-	const string fname = StringUtil::GetFileName(cache_key);
-	return StringUtil::Format("%s-%s", remote_file_sha256_str, fname);
-}
-
-// Attempt to evict cache files, if file size threshold reached.
-void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, const string &cache_directory,
-                     const string &eviction_policy) {
-	// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
-	// because on unix platform files are only deleted physically when their last reference count goes away.
-	//
-	// For timestamp-based eviction, we simply return all the files which reaches certain threshold.
-	if (eviction_policy == *ON_DISK_CREATION_TIMESTAMP_EVICTION) {
-		EvictStaleCacheFiles(local_filesystem, cache_directory);
-		return;
-	}
-
-	// For LRU-based eviction, get the entry to remove and delete the file to release storage space.
-	D_ASSERT(eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION);
-	const auto filepath_to_evict = reader.EvictCacheBlockLru();
-	// Intentionally ignore return value.
-	local_filesystem.TryRemoveFile(filepath_to_evict);
-}
-
-} // namespace
 
 DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p,
                                  BaseProfileCollector &profile_collector_p)
@@ -161,67 +46,12 @@ string DiskCacheReader::EvictCacheBlockLru() {
 	return filepath;
 }
 
-bool DiskCacheReader::ValidateCacheFile(const string &cache_filepath, const string &version_tag) {
-	// Empty version tags means cache validation is disabled.
-	if (version_tag.empty()) {
-		return true;
-	}
-	const string cached_version_tag = GetCacheVersion(cache_filepath);
-	// If cached version tag is empty, the file might have been created before validation was enabled.
-	// In this case, we should treat it as invalid to be safe.
-	if (cached_version_tag.empty()) {
-		return false;
-	}
-	return cached_version_tag == version_tag;
-}
-
 bool DiskCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag) {
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;
 	}
 	return cache_entry->version_tag == version_tag;
-}
-
-void DiskCacheReader::CacheLocal(const FileHandle &handle, const string &cache_directory,
-                                 const string &local_cache_file, const string &content, const string &version_tag) {
-	auto instance_state_locked = GetInstanceConfig(instance_state);
-	const auto &config = instance_state_locked->config;
-
-	// Skip local cache if insufficient disk space.
-	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
-	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
-	// cache chunk size.
-	if (!CanCacheOnDisk(cache_directory, config.cache_block_size, config.min_disk_bytes_for_cache)) {
-		EvictCacheFiles(*this, *local_filesystem, cache_directory, config.on_disk_eviction_policy);
-		return;
-	}
-
-	// Dump to a temporary location at local filesystem.
-	const auto fname = StringUtil::GetFileName(handle.GetPath());
-	const auto local_temp_file = StringUtil::Format("%s/%s.%s.httpfs_local_cache", cache_directory, fname,
-	                                                UUID::ToString(UUID::GenerateRandomUUID()));
-	{
-		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
-		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
-		// Notice direct IO requires IO size to be aligned with page size.
-		if (config.enable_disk_reader_mem_cache && content.length() % GetFileSystemPageSize() == 0) {
-			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
-		}
-		auto file_handle = local_filesystem->OpenFile(local_temp_file, file_open_flags);
-		local_filesystem->Write(*file_handle, const_cast<char *>(content.data()),
-		                        /*nr_bytes=*/content.length(),
-		                        /*location=*/0);
-		file_handle->Sync();
-	}
-
-	// Then atomically move to the target postion to prevent data corruption due to concurrent write.
-	local_filesystem->MoveFile(/*source=*/local_temp_file, /*target=*/local_cache_file);
-	//
-	// Store version tag in extended attributes for validation.
-	if (!version_tag.empty()) {
-		SetCacheVersion(local_cache_file, version_tag);
-	}
 }
 
 vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
@@ -248,12 +78,12 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	for (const auto &cur_cache_dir : cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir,
 		                            [&cache_entries_info, cur_cache_dir](const string &fname, bool /*unused*/) {
-			                            auto remote_file_info = GetRemoteFileInfo(fname);
+			                            auto remote_file_info = DiskCacheUtil::GetRemoteFileInfo(fname);
 			                            cache_entries_info.emplace_back(DataCacheEntryInfo {
 			                                .cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname),
-			                                .remote_filename = std::get<0>(remote_file_info),
-			                                .start_offset = std::get<1>(remote_file_info),
-			                                .end_offset = std::get<2>(remote_file_info),
+			                                .remote_filename = std::move(remote_file_info.remote_filename),
+			                                .start_offset = remote_file_info.start_offset,
+			                                .end_offset = remote_file_info.end_offset,
 			                                .cache_type = "on-disk",
 			                            });
 		                            });
@@ -271,8 +101,9 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	block_key.fname = URLUtils::StripQueryAndFragment(handle.GetPath());
 	block_key.start_off = cache_read_chunk.aligned_start_offset;
 	block_key.blk_size = cache_read_chunk.chunk_size;
-	auto cache_destination = GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(),
-	                                           cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
+	auto cache_destination =
+	    DiskCacheUtil::GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(),
+	                                     cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
 
 	if (in_mem_cache_blocks != nullptr) {
 		auto cache_entry = in_mem_cache_blocks->Get(block_key);
@@ -290,59 +121,38 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 		}
 	}
 
-	// Create cache content.
-	auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
-	void *addr = const_cast<char *>(content.data());
-
-	// Attempt to open the file directly, so a successfully opened file handle won't be deleted by cleanup
-	// thread and lead to data race.
+	// Attempt to open and read local cache file directly, so a successfully opened file handle won't be
+	// deleted by cleanup thread and lead to data race.
 	//
 	// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
-	auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
-	// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double
-	// caching.
-	if (config.enable_disk_reader_mem_cache) {
-		file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
-	}
+	{
+		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kDiskCacheRead);
+		auto read_result =
+		    DiskCacheUtil::ReadLocalCacheFile(cache_destination.cache_filepath, cache_read_chunk.chunk_size,
+		                                      config.enable_disk_reader_mem_cache, version_tag);
+		if (read_result.cache_hit) {
+			GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+			DUCKDB_LOG_READ_CACHE_HIT((handle));
+			cache_read_chunk.CopyBufferToRequestedMemory(read_result.content);
 
-	auto file_handle = local_filesystem->OpenFile(cache_destination.cache_filepath, file_open_flags);
-
-	// Check cache validity and clear if necessary.
-	if (file_handle != nullptr && !ValidateCacheFile(cache_destination.cache_filepath, version_tag)) {
-		local_filesystem->TryRemoveFile(cache_destination.cache_filepath);
-		file_handle = nullptr;
-	}
-
-	if (file_handle != nullptr) {
-		GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
-		DUCKDB_LOG_READ_CACHE_HIT((handle));
-		{
-			const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kDiskCacheRead);
-			local_filesystem->Read(*file_handle, addr, cache_read_chunk.chunk_size, /*location=*/0);
+			// Update in-memory cache if applicable.
+			if (in_mem_cache_blocks != nullptr) {
+				InMemCacheEntry new_cache_entry {
+				    .data = std::move(read_result.content),
+				    .version_tag = version_tag,
+				};
+				in_mem_cache_blocks->Put(std::move(block_key),
+				                         make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
+			}
+			return;
 		}
-		cache_read_chunk.CopyBufferToRequestedMemory(content);
-
-		// Update in-memory cache if applicable.
-		if (in_mem_cache_blocks != nullptr) {
-			InMemCacheEntry new_cache_entry {
-			    .data = std::move(content),
-			    .version_tag = version_tag,
-			};
-			in_mem_cache_blocks->Put(std::move(block_key),
-			                         make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
-		}
-
-		// Update access and modification timestamp for the cache file, so it won't get evicted.
-		// Intentionally ignore the return value, since it's possible the cache file has been requested to
-		// delete by another eviction thread.
-		// TODO(hjiang): Revisit deadline-based eviction policy with in-memory cache involved.
-		UpdateFileTimestamps(cache_destination.cache_filepath);
-		return;
 	}
 
 	// We suffer a cache loss, fallback to remote access then local filesystem write.
 	GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
 	DUCKDB_LOG_READ_CACHE_MISS((handle));
+	auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
+	void *addr = const_cast<char *>(content.data());
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
 
@@ -359,7 +169,8 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// We're tolerate of local cache file write failure, which doesn't affect returned content correctness.
 	try {
 		const auto &cache_directory = config.on_disk_cache_directories[cache_destination.cache_directory_idx];
-		CacheLocal(handle, cache_directory, cache_destination.cache_filepath, content, version_tag);
+		DiskCacheUtil::StoreLocalCacheFile(handle.GetPath(), cache_directory, cache_destination.cache_filepath, content,
+		                                   version_tag, config, [this]() { return EvictCacheBlockLru(); });
 
 		// Update in-memory cache if applicable.
 		if (in_mem_cache_blocks != nullptr) {
@@ -497,7 +308,7 @@ void DiskCacheReader::ClearCache() {
 void DiskCacheReader::ClearCache(const string &fname) {
 	// Delete on-disk files.
 	vector<string> cache_files_to_remove;
-	const string cache_file_prefix = GetLocalCacheFilePrefix(fname);
+	const string cache_file_prefix = DiskCacheUtil::GetLocalCacheFilePrefix(fname);
 	auto instance_state_locked = GetInstanceConfig(instance_state);
 	const auto &config = instance_state_locked->config;
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
