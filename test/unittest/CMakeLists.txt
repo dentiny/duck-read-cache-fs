@@ -2,12 +2,34 @@ include_directories(include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/third_party)
 include_directories(${CMAKE_SOURCE_DIR}/src/include)
+include_directories(${CMAKE_SOURCE_DIR}/src/utils/include)
 include_directories(${DuckDB_SOURCE_DIR}/third_party)
 include_directories(${DuckDB_SOURCE_DIR}/test/include)
 
-file(GLOB_RECURSE CATCHFS_UNITTEST_OBJECTS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+set(CATCHFS_UNITTEST_OBJECTS
+    main.cpp
+    test_cache_exclusion_manager.cpp
+    test_cache_filesystem_with_mock.cpp
+    test_chunk_utils.cpp
+    test_clear_cache_on_write.cpp
+    test_copiable_value_lru_cache.cpp
+    test_counter.cpp
+    test_disk_cache_util.cpp
+    test_exclusive_lru_cache.cpp
+    test_exclusive_multi_lru_cache.cpp
+    test_histogram.cpp
+    test_io_operation_latency.cpp
+    test_max_fanout_subrequest.cpp
+    test_no_destructor.cpp
+    test_optional.cpp
+    test_read_exception_propagation.cpp
+    test_scoped_directory.cpp
+    test_shared_lru_cache.cpp
+    test_size_literals.cpp
+    test_thread_pool.cpp
+    test_url_utils.cpp)
 
-add_executable(unittest_cache_httpfs main.cpp ${CATCHFS_UNITTEST_OBJECTS})
+add_executable(unittest_cache_httpfs ${CATCHFS_UNITTEST_OBJECTS})
 
 if(NOT WIN32
    AND NOT SUN

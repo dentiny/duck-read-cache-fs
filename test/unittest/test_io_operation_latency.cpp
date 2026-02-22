@@ -1,7 +1,6 @@
 // Unit test to verify IO operation latency recording does reflect in the profile output.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_filesystem.hpp"
 #include "duckdb/common/local_file_system.hpp"
@@ -104,8 +103,4 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kFileRemove)]));
 	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kGlob)]));
 	REQUIRE(ProfileContainsOperation(profile, OPER_NAMES[static_cast<idx_t>(IoOperation::kFilePathCacheClear)]));
-}
-
-int main(int argc, char **argv) {
-	return Catch::Session().run(argc, argv);
 }

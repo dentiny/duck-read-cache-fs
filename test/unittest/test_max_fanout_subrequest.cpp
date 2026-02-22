@@ -1,10 +1,8 @@
 // Unit test for cache_httpfs_max_fanout_subrequest.
 //
-// This verifies that a single read request does not fan out more concurrent
-// subrequests than the configured limit.
+// This verifies that a single read request does not fan out more concurrent subrequests than the configured limit.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_filesystem.hpp"
 #include "cache_httpfs_instance_state.hpp"
@@ -164,8 +162,4 @@ TEST_CASE("Test max fanout subrequest on in-memory cache reader", "[max fanout s
 TEST_CASE("Test max fanout subrequest on on-disk cache reader", "[max fanout subrequest]") {
 	const int max_concurrency = RunReadAndGetMaxConcurrency("on_disk");
 	REQUIRE(max_concurrency <= MAX_FANOUT);
-}
-
-int main(int argc, char **argv) {
-	return Catch::Session().run(argc, argv);
 }
