@@ -42,6 +42,7 @@ set(EXTENSION_SOURCES
     src/cache_status_query_function.cpp
     src/cache_read_chunk.cpp
     src/disk_cache_reader.cpp
+    src/disk_cache_util.cpp
     src/extension_config_query_function.cpp
     src/in_memory_cache_reader.cpp
     src/histogram.cpp
