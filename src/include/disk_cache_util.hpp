@@ -74,7 +74,7 @@ private:
 	// Attempt to evict cache files, if file size threshold reached.
 	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
 	static void EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
-		const string &eviction_policy, const std::function<string()> &lru_eviction_decider);
+	                            const string &eviction_policy, const std::function<string()> &lru_eviction_decider);
 };
 
 } // namespace duckdb

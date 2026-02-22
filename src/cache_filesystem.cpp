@@ -371,7 +371,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 	// Cache is exclusive, so we don't need to acquire lock for avoid repeated access.
 	if (file_handle_cache != nullptr) {
 		FileHandleCacheKey key;
-		key.path = file.path;
+		key.path = URLUtils::StripQueryAndFragment(file.path);
 		key.flags = flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS;
 		auto get_and_pop_res = file_handle_cache->GetAndPop(key);
 		for (auto &cur_val : get_and_pop_res.evicted_items) {

@@ -1,0 +1,47 @@
+# name: test/sql/issue_412.test
+# description: regression test for issue 412
+# group: [sql]
+
+require notwindows
+
+require cache_httpfs
+
+statement ok
+SET cache_httpfs_type='on_disk';
+
+statement ok
+SET cache_httpfs_cache_directory='/tmp/duckdb_cache_issue_412';
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+statement ok
+SET cache_httpfs_profile_type='temp';
+
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
+----
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?query=cache-test');
+----
+251
+
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query() ORDER BY cache_filepath;
+----
+(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem-disk-cache
+/tmp/duckdb_cache_issue_412/c1b7e15bc8fe00a09fd6ea693ca6bdf109f622f26f4c6b34ad568a300854b5e2-stock-exchanges.csv-0-16222	stock/exchanges.csv	0	16222	on-disk
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?query=cache-test');
+----
+251
+
+query IIIIII
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	5	1	0	NULL	NULL
+data	1	1	0	32444	32444
+file handle	1	1	0	NULL	NULL
+glob	1	1	0	NULL	NULL
