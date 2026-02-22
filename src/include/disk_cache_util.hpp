@@ -8,11 +8,11 @@
 #include "duckdb/common/vector.hpp"
 
 #include <cstdint>
+#include <functional>
 
 namespace duckdb {
 
 // Forward declarations.
-class DiskCacheReader;
 class FileSystem;
 struct InstanceConfig;
 
@@ -49,15 +49,12 @@ public:
 	// Used to delete on-disk cache files, which returns the file prefix for the given [remote_file].
 	static string GetLocalCacheFilePrefix(const string &remote_file);
 
-	// Attempt to evict cache files, if file size threshold reached.
-	static void EvictCacheFiles(DiskCacheReader &reader, FileSystem &local_filesystem, const string &cache_directory,
-	                            const string &eviction_policy);
-
 	// Store content to a local cache file.
-	// Disk space availability is validated, and eviction is triggered eviction if needed.
-	static void StoreLocalCacheFile(DiskCacheReader &reader, const InstanceConfig &config,
-	                                const string &remote_filepath, const string &cache_directory,
-	                                const string &local_cache_file, const string &content, const string &version_tag);
+	// Disk space availability is validated, and eviction is triggered if needed.
+	// [lru_eviction_functor] is used to obtain the filepath to remove under LRU eviction policy.
+	static void StoreLocalCacheFile(const string &remote_filepath, const string &cache_directory,
+	                                const string &local_cache_file, const string &content, const string &version_tag,
+	                                const InstanceConfig &config, const std::function<string()> &lru_eviction_functor);
 
 	// Result of a local cache file read attempt.
 	struct LocalCacheReadResult {
@@ -73,6 +70,11 @@ private:
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
 	// Empty version tag means cache validation is disabled.
 	static bool ValidateCacheFile(const string &cache_filepath, const string &version_tag);
+
+	// Attempt to evict cache files, if file size threshold reached.
+	// [lru_eviction_functor] is used to obtain the filepath to remove under LRU eviction policy.
+	static void EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
+		const string &eviction_policy, const std::function<string()> &lru_eviction_functor);
 };
 
 } // namespace duckdb
