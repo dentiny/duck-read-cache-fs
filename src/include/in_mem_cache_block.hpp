@@ -6,6 +6,7 @@
 #include <tuple>
 
 #include "duckdb/common/string.hpp"
+#include "duckdb/common/typedefs.hpp"
 
 namespace duckdb {
 
@@ -13,6 +14,8 @@ struct InMemCacheBlock {
 	string fname;
 	idx_t start_off = 0;
 	idx_t blk_size = 0;
+
+	InMemCacheBlock(const string &path, idx_t start_off_p, idx_t blk_size_p);
 };
 
 struct InMemCacheBlockEqual {

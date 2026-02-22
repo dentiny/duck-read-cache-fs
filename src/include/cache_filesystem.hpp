@@ -235,6 +235,9 @@ private:
 	struct FileHandleCacheKey {
 		string path;
 		FileOpenFlags flags; // flags have parallel access enabled.
+
+		FileHandleCacheKey(const string &path_arg, FileOpenFlags flags_arg);
+
 		friend std::ostream &operator<<(std::ostream &os, const FileHandleCacheKey &key) {
 			os << "path: " << key.path << ", open flags: " << key.flags.GetFlagsInternal();
 			return os;
