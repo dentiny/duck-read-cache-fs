@@ -11,6 +11,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_cache_exclusion_manager.cpp
     test_cache_filesystem_with_mock.cpp
     test_chunk_utils.cpp
+    test_clear_cache_on_delete.cpp
     test_clear_cache_on_write.cpp
     test_copiable_value_lru_cache.cpp
     test_counter.cpp
