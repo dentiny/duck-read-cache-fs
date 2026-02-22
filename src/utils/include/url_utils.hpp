@@ -37,6 +37,7 @@ struct SanitizedCachePath {
 	}
 
 private:
+	// TODO(hjiang): we could potentially use string view in certain cases.
 	string path;
 };
 
