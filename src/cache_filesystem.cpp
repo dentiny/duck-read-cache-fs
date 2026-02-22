@@ -407,15 +407,15 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 // Same strategy applies for duckdb internal "external file cache".
 unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &file, FileOpenFlags flags,
                                                          optional_ptr<FileOpener> opener) {
-	// Now we handle uncompressed files, which should be cached.
 	InitializeGlobalConfig(opener);
-	if (flags.OpenForReading()) {
-		return GetOrCreateFileHandleForRead(file, flags, opener);
-	}
 
 	// If setting has already been specified to clear cache, we clear it only once at file open.
 	if (instance_state.lock()->config.clear_cache_on_write) {
 		ClearCache(file.path);
+	}
+
+	if (flags.OpenForReading()) {
+		return GetOrCreateFileHandleForRead(file, flags, opener);
 	}
 
 	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
