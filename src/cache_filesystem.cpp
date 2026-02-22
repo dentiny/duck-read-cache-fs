@@ -18,6 +18,10 @@ constexpr const char *FILE_SIZE_INFO_KEY = "file_size";
 constexpr const char *LAST_MOD_TIMESTAMP_KEY = "last_modified";
 } // namespace
 
+CacheFileSystem::FileHandleCacheKey::FileHandleCacheKey(const string &path_arg, FileOpenFlags flags_arg)
+    : path(SanitizedCachePath(path_arg).Path()), flags(flags_arg | FileFlags::FILE_FLAGS_PARALLEL_ACCESS) {
+}
+
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
                                              std::function<void(CacheFileSystemHandle &)> dtor_callback_p)
     : FileHandle(fs, internal_file_handle_p->GetPath(), internal_file_handle_p->GetFlags()),
@@ -140,9 +144,9 @@ void CacheFileSystem::ClearFileHandleCache(const string &filepath) {
 	if (file_handle_cache == nullptr) {
 		return;
 	}
-	const string cache_key = URLUtils::StripQueryAndFragment(filepath);
+	const SanitizedCachePath cache_key(filepath);
 	auto file_handles = file_handle_cache->ClearAndGetValues(
-	    [&cache_key](const FileHandleCacheKey &handle_key) { return handle_key.path == cache_key; });
+	    [&cache_key](const FileHandleCacheKey &handle_key) { return handle_key.path == cache_key.Path(); });
 	for (auto &cur_file_handle : file_handles) {
 		cur_file_handle->Close();
 	}
@@ -177,12 +181,12 @@ void CacheFileSystem::ClearCache() {
 
 void CacheFileSystem::ClearCache(const string &filepath) {
 	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFilePathCacheClear);
-	const string cache_key = URLUtils::StripQueryAndFragment(filepath);
+	const SanitizedCachePath cache_key(filepath);
 	if (metadata_cache != nullptr) {
-		metadata_cache->Clear([&cache_key](const string &key) { return key == cache_key; });
+		metadata_cache->Clear([&cache_key](const string &key) { return key == cache_key.Path(); });
 	}
 	if (glob_cache != nullptr) {
-		glob_cache->Clear([&cache_key](const string &key) { return key == cache_key; });
+		glob_cache->Clear([&cache_key](const string &key) { return key == cache_key.Path(); });
 	}
 	ClearFileHandleCache(cache_key);
 	// TODO(hjiang): This seems a duplicate function call, extension statement funtion has already cleared the cache.
@@ -245,9 +249,7 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 	const auto flags = internal_file_handle->GetFlags();
 	D_ASSERT(flags.OpenForReading());
 
-	CacheFileSystem::FileHandleCacheKey cache_key;
-	cache_key.path = URLUtils::StripQueryAndFragment(internal_file_handle->GetPath());
-	cache_key.flags = flags | FileFlags::FILE_FLAGS_PARALLEL_ACCESS;
+	CacheFileSystem::FileHandleCacheKey cache_key {internal_file_handle->GetPath(), flags};
 	if (in_use_file_handle_counter != nullptr) {
 		in_use_file_handle_counter->Increment(cache_key);
 	}
@@ -370,9 +372,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 
 	// Cache is exclusive, so we don't need to acquire lock for avoid repeated access.
 	if (file_handle_cache != nullptr) {
-		FileHandleCacheKey key;
-		key.path = URLUtils::StripQueryAndFragment(file.path);
-		key.flags = flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS;
+		FileHandleCacheKey key {file.path, flags};
 		auto get_and_pop_res = file_handle_cache->GetAndPop(key);
 		for (auto &cur_val : get_and_pop_res.evicted_items) {
 			cur_val->Close();
@@ -450,7 +450,7 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 
 	// Stat with cache.
 	bool metadata_cache_hit = true;
-	const string cache_key = URLUtils::StripQueryAndFragment(disk_cache_handle.internal_file_handle->GetPath());
+	const SanitizedCachePath cache_key(disk_cache_handle.internal_file_handle->GetPath());
 	auto metadata = metadata_cache->GetOrCreate(
 	    cache_key, [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		    metadata_cache_hit = false;
@@ -470,7 +470,7 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 
 	// Stat with cache.
 	bool metadata_cache_hit = true;
-	const string cache_key = URLUtils::StripQueryAndFragment(disk_cache_handle.internal_file_handle->GetPath());
+	const SanitizedCachePath cache_key(disk_cache_handle.internal_file_handle->GetPath());
 	auto metadata = metadata_cache->GetOrCreate(
 	    cache_key, [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		    metadata_cache_hit = false;

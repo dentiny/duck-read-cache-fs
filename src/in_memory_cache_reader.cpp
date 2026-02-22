@@ -56,10 +56,8 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	SetThreadName("RdCachRdThd");
 
 	// Check local cache first, see if we could do a cached read.
-	InMemCacheBlock block_key;
-	block_key.fname = URLUtils::StripQueryAndFragment(handle.GetPath());
-	block_key.start_off = cache_read_chunk.aligned_start_offset;
-	block_key.blk_size = cache_read_chunk.chunk_size;
+	const InMemCacheBlock block_key(handle.GetPath(), cache_read_chunk.aligned_start_offset,
+	                                cache_read_chunk.chunk_size);
 	auto cache_entry = cache->Get(block_key);
 
 	// Check cache entry validity and clear if necessary.
@@ -232,8 +230,8 @@ void InMemoryCacheReader::ClearCache() {
 
 void InMemoryCacheReader::ClearCache(const string &fname) {
 	if (cache != nullptr) {
-		const string cache_key = URLUtils::StripQueryAndFragment(fname);
-		cache->Clear([&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key; });
+		const SanitizedCachePath cache_key(fname);
+		cache->Clear([&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
 	}
 }
 

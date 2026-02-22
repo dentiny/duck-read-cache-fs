@@ -6,6 +6,7 @@
 #include <tuple>
 
 #include "duckdb/common/string.hpp"
+#include "duckdb/common/typedefs.hpp"
 
 namespace duckdb {
 
@@ -13,6 +14,9 @@ struct InMemCacheBlock {
 	string fname;
 	idx_t start_off = 0;
 	idx_t blk_size = 0;
+
+	// Build block key from raw path/URL; fname is sanitized (query and fragment stripped) in constructor.
+	InMemCacheBlock(const string &path, idx_t start_off_arg, idx_t blk_size_arg);
 };
 
 struct InMemCacheBlockEqual {

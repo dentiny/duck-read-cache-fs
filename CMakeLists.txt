@@ -44,6 +44,7 @@ set(EXTENSION_SOURCES
     src/disk_cache_reader.cpp
     src/disk_cache_util.cpp
     src/extension_config_query_function.cpp
+    src/in_mem_cache_block.cpp
     src/in_memory_cache_reader.cpp
     src/histogram.cpp
     src/filesystem_status_query_function.cpp

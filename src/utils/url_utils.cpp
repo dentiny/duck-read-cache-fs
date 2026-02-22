@@ -26,6 +26,9 @@ string URLUtils::StripQueryAndFragment(const string &url) {
 	return url;
 }
 
+SanitizedCachePath::SanitizedCachePath(const string &url) : path(URLUtils::StripQueryAndFragment(url)) {
+}
+
 ParsedURL URLUtils::ParseURL(const string &url) {
 	ParsedURL result;
 

@@ -27,4 +27,17 @@ public:
 	static ParsedURL ParseURL(const string &url);
 };
 
+struct SanitizedCachePath {
+	explicit SanitizedCachePath(const string &url);
+	const string &Path() const {
+		return path;
+	}
+	operator const string &() const {
+		return path;
+	}
+
+private:
+	string path;
+};
+
 } // namespace duckdb

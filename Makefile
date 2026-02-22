@@ -4,11 +4,6 @@ PROJ_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 EXT_NAME=cache_httpfs
 EXT_CONFIG=${PROJ_DIR}extension_config.cmake
 
-ifneq (${BUILD_UNITTESTS},)
-	EXT_FLAGS ?=
-	EXT_FLAGS += -DBUILD_UNITTESTS=${BUILD_UNITTESTS}
-endif
-
 # Include the Makefile from extension-ci-tools
 include extension-ci-tools/makefiles/duckdb_extension.Makefile
 

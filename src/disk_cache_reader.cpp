@@ -97,10 +97,8 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	SetThreadName("RdCachRdThd");
 
 	// Attempt in-memory cache block first, so potentially we don't need to access disk storage.
-	InMemCacheBlock block_key;
-	block_key.fname = URLUtils::StripQueryAndFragment(handle.GetPath());
-	block_key.start_off = cache_read_chunk.aligned_start_offset;
-	block_key.blk_size = cache_read_chunk.chunk_size;
+	const InMemCacheBlock block_key(handle.GetPath(), cache_read_chunk.aligned_start_offset,
+	                                cache_read_chunk.chunk_size);
 	auto cache_destination =
 	    DiskCacheUtil::GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(),
 	                                     cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
@@ -335,8 +333,9 @@ void DiskCacheReader::ClearCache(const string &fname) {
 
 	// Delete in-memory cache for on-disk cache files.
 	if (in_mem_cache_blocks != nullptr) {
-		const string cache_key = URLUtils::StripQueryAndFragment(fname);
-		in_mem_cache_blocks->Clear([&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key; });
+		const SanitizedCachePath cache_key(fname);
+		in_mem_cache_blocks->Clear(
+		    [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
 	}
 }
 

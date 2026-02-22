@@ -35,12 +35,12 @@ DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vecto
                                                                      idx_t bytes_to_read) {
 	D_ASSERT(!cache_directories.empty());
 
-	const string cache_key = URLUtils::StripQueryAndFragment(remote_file);
+	const SanitizedCachePath cache_key(remote_file);
 	duckdb::hash_bytes remote_file_sha256_val;
 	static_assert(sizeof(remote_file_sha256_val) == 32);
-	duckdb::sha256(cache_key.data(), cache_key.length(), remote_file_sha256_val);
+	duckdb::sha256(cache_key.Path().data(), cache_key.Path().length(), remote_file_sha256_val);
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
-	const string fname = StringUtil::GetFileName(cache_key);
+	const string fname = StringUtil::GetFileName(cache_key.Path());
 
 	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
 	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
@@ -84,12 +84,12 @@ DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &fna
 }
 
 string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
-	const string cache_key = URLUtils::StripQueryAndFragment(remote_file);
+	const SanitizedCachePath cache_key(remote_file);
 	duckdb::hash_bytes remote_file_sha256_val;
-	duckdb::sha256(cache_key.data(), cache_key.length(), remote_file_sha256_val);
+	duckdb::sha256(cache_key.Path().data(), cache_key.Path().length(), remote_file_sha256_val);
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
 
-	const string fname = StringUtil::GetFileName(cache_key);
+	const string fname = StringUtil::GetFileName(cache_key.Path());
 	return StringUtil::Format("%s-%s", remote_file_sha256_str, fname);
 }
 
