@@ -206,6 +206,10 @@ if(${BUILD_UNITTESTS})
   target_link_libraries(test_multi_duckdb_instance ${EXTENSION_NAME})
 endif()
 
+add_executable(test_clear_cache_on_write_policy
+               unit/test_clear_cache_on_write_policy.cpp)
+target_link_libraries(test_clear_cache_on_write_policy ${EXTENSION_NAME})
+
 # Benchmark
 if(${BUILD_BENCHMARK})
   add_executable(read_s3_object benchmark/read_s3_object.cpp)

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "cache_filesystem.hpp"
+#include "cache_filesystem_config.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/main/database.hpp"
@@ -31,6 +32,9 @@ struct TestCacheConfig {
 	idx_t max_in_mem_cache_block_count = 8192;
 	idx_t max_disk_reader_mem_cache_block_count = 8192;
 	idx_t min_disk_bytes_for_cache = 0; // 0 means use default behavior
+
+	// Clear cache on write option
+	string clear_cache_on_write_option = *DISABLE_CLEAR_CACHE_ON_WRITE;
 };
 
 // Helper class to create a properly configured CacheFileSystem for testing.
@@ -52,6 +56,11 @@ public:
 
 	// Get the instance state
 	CacheHttpfsInstanceState &GetInstanceStateOrThrow();
+
+	// Get the shared_ptr to instance state
+	shared_ptr<CacheHttpfsInstanceState> GetInstanceStateSharedPtr() {
+		return instance_state;
+	}
 
 	// Get the config for inspection/modification
 	InstanceConfig &GetConfig();

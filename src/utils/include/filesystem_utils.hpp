@@ -7,6 +7,7 @@
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/string.hpp"
+#include "duckdb/common/unordered_set.hpp"
 #include "duckdb/common/vector.hpp"
 
 namespace duckdb {
@@ -26,6 +27,9 @@ int GetFileCountUnder(const string &folder);
 // Get all files under the given local filesystem [folder] in alphabetically
 // ascending order.
 vector<string> GetSortedFilesUnder(const string &folder);
+
+// Get all files under the given local filesystem [folder].
+unordered_set<string> GetFilesUnder(const string &folder);
 
 // Get all disk space in bytes for the filesystem indicated by the given [path].
 idx_t GetOverallFileSystemDiskSpace(const string &path);
