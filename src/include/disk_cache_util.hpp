@@ -51,10 +51,10 @@ public:
 
 	// Store content to a local cache file.
 	// Disk space availability is validated, and eviction is triggered if needed.
-	// [lru_eviction_functor] is used to obtain the filepath to remove under LRU eviction policy.
+	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
 	static void StoreLocalCacheFile(const string &remote_filepath, const string &cache_directory,
 	                                const string &local_cache_file, const string &content, const string &version_tag,
-	                                const InstanceConfig &config, const std::function<string()> &lru_eviction_functor);
+	                                const InstanceConfig &config, const std::function<string()> &lru_eviction_decider);
 
 	// Result of a local cache file read attempt.
 	struct LocalCacheReadResult {
@@ -72,9 +72,9 @@ private:
 	static bool ValidateCacheFile(const string &cache_filepath, const string &version_tag);
 
 	// Attempt to evict cache files, if file size threshold reached.
-	// [lru_eviction_functor] is used to obtain the filepath to remove under LRU eviction policy.
+	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
 	static void EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
-		const string &eviction_policy, const std::function<string()> &lru_eviction_functor);
+		const string &eviction_policy, const std::function<string()> &lru_eviction_decider);
 };
 
 } // namespace duckdb

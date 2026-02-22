@@ -95,7 +95,7 @@ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
 
 void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
                                     const string &eviction_policy,
-                                    const std::function<string()> &lru_eviction_functor) {
+                                    const std::function<string()> &lru_eviction_decider) {
 	// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
 	// because on unix platform files are only deleted physically when their last reference count goes away.
 	//
@@ -107,7 +107,7 @@ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &
 
 	// For LRU-based eviction, get the entry to remove and delete the file to release storage space.
 	D_ASSERT(eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION);
-	const auto filepath_to_evict = lru_eviction_functor();
+	const auto filepath_to_evict = lru_eviction_decider();
 	// Intentionally ignore return value.
 	local_filesystem.TryRemoveFile(filepath_to_evict);
 }
@@ -115,7 +115,7 @@ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &
 void DiskCacheUtil::StoreLocalCacheFile(const string &remote_filepath, const string &cache_directory,
                                         const string &local_cache_file, const string &content,
                                         const string &version_tag, const InstanceConfig &config,
-                                        const std::function<string()> &lru_eviction_functor) {
+                                        const std::function<string()> &lru_eviction_decider) {
 	LocalFileSystem local_filesystem {};
 
 	// Skip local cache if insufficient disk space.
@@ -123,7 +123,7 @@ void DiskCacheUtil::StoreLocalCacheFile(const string &remote_filepath, const str
 	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
 	// cache chunk size.
 	if (!CanCacheOnDisk(cache_directory, config.cache_block_size, config.min_disk_bytes_for_cache)) {
-		EvictCacheFiles(local_filesystem, cache_directory, config.on_disk_eviction_policy, lru_eviction_functor);
+		EvictCacheFiles(local_filesystem, cache_directory, config.on_disk_eviction_policy, lru_eviction_decider);
 		return;
 	}
 
