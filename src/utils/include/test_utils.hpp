@@ -31,6 +31,9 @@ struct TestCacheConfig {
 	idx_t max_in_mem_cache_block_count = 8192;
 	idx_t max_disk_reader_mem_cache_block_count = 8192;
 	idx_t min_disk_bytes_for_cache = 0; // 0 means use default behavior
+
+	// Cache behavior
+	bool clear_cache_on_write = false;
 };
 
 // Helper class to create a properly configured CacheFileSystem for testing.

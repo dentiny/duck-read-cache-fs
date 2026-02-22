@@ -26,6 +26,7 @@ TEST_CASE("Test cache cleared on Write with location", "[cache filesystem write 
 	config.enable_glob_cache = true;
 	config.enable_file_handle_cache = true;
 	config.enable_metadata_cache = true;
+	config.clear_cache_on_write = true;
 	TestCacheFileSystemHelper helper(config);
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
@@ -40,14 +41,17 @@ TEST_CASE("Test cache cleared on Write with location", "[cache filesystem write 
 
 	// Perform read operations to populate cache (metadata, file handle, glob)
 	auto read_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-	[[maybe_unused]] const int64_t original_size = cache_filesystem->GetFileSize(*read_handle);
+	const int64_t original_size = cache_filesystem->GetFileSize(*read_handle);
+	REQUIRE(original_size == TEST_FILE_SIZE);
 	read_handle->Close();
 
 	// Write to the file, this should clear all cache entries for this file
 	const string new_content = "new content after write";
-	auto write_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE);
+	auto write_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
+	                                                                  FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 	cache_filesystem->Write(*write_handle, const_cast<void *>(static_cast<const void *>(new_content.data())),
 	                        new_content.length(), /*location=*/0);
+	write_handle->Sync();
 	write_handle->Close();
 
 	// Verify cache was cleared by reading metadata again, it should reflect the new file size
@@ -65,6 +69,7 @@ TEST_CASE("Test cache cleared on Write without location", "[cache filesystem wri
 	config.enable_glob_cache = true;
 	config.enable_file_handle_cache = true;
 	config.enable_metadata_cache = true;
+	config.clear_cache_on_write = true;
 	TestCacheFileSystemHelper helper(config);
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
@@ -79,15 +84,18 @@ TEST_CASE("Test cache cleared on Write without location", "[cache filesystem wri
 
 	// Perform read operations to populate cache
 	auto read_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
-	[[maybe_unused]] const int64_t original_size = cache_filesystem->GetFileSize(*read_handle);
+	const int64_t original_size = cache_filesystem->GetFileSize(*read_handle);
+	REQUIRE(original_size == TEST_FILE_SIZE);
 	read_handle->Close();
 
 	// Write to the file using Write without location parameter, this should clear cache
 	const string new_content = "different content";
-	auto write_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE);
+	auto write_handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
+	                                                                  FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 	const int64_t bytes_written = cache_filesystem->Write(
 	    *write_handle, const_cast<void *>(static_cast<const void *>(new_content.data())), new_content.length());
 	REQUIRE(bytes_written == static_cast<int64_t>(new_content.length()));
+	write_handle->Sync();
 	write_handle->Close();
 
 	// Verify cache was cleared by reading metadata, should reflect new file size
