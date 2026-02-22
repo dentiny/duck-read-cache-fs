@@ -236,7 +236,6 @@ private:
 		string path;
 		FileOpenFlags flags; // flags have parallel access enabled.
 
-		// Build key from raw path/URL; path is sanitized (query and fragment stripped) in constructor.
 		FileHandleCacheKey(const string &path_arg, FileOpenFlags flags_arg);
 
 		friend std::ostream &operator<<(std::ostream &os, const FileHandleCacheKey &key) {
