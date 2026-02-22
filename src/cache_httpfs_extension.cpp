@@ -302,6 +302,16 @@ void UpdateClearCacheOnWrite(ClientContext &context, SetScope scope, Value &para
 
 // Implementation for check cache directories and create directories if necessary.
 void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<string> directories) {
+	// Sanitize directories, to make sure they're not suffixed with trailing slash.
+	for (auto &dir : directories) {
+		if (dir.empty()) {
+			throw InvalidInputException("cache_httpfs_cache_directory cannot be empty");
+		}
+		if (dir.back() == '/') {
+			dir.pop_back();
+		}
+	}
+
 	std::sort(directories.begin(), directories.end());
 	if (directories == inst_state.config.on_disk_cache_directories) {
 		return;
