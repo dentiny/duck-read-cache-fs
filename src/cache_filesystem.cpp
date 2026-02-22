@@ -144,7 +144,7 @@ void CacheFileSystem::ClearFileHandleCache(const string &filepath) {
 	if (file_handle_cache == nullptr) {
 		return;
 	}
-	const SanitizedCachePath cache_key(filepath);
+	const SanitizedCachePath cache_key {filepath};
 	auto file_handles = file_handle_cache->ClearAndGetValues(
 	    [&cache_key](const FileHandleCacheKey &handle_key) { return handle_key.path == cache_key.Path(); });
 	for (auto &cur_file_handle : file_handles) {
@@ -181,7 +181,7 @@ void CacheFileSystem::ClearCache() {
 
 void CacheFileSystem::ClearCache(const string &filepath) {
 	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFilePathCacheClear);
-	const SanitizedCachePath cache_key(filepath);
+	const SanitizedCachePath cache_key {filepath};
 	if (metadata_cache != nullptr) {
 		metadata_cache->Clear([&cache_key](const string &key) { return key == cache_key.Path(); });
 	}
@@ -450,7 +450,7 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 
 	// Stat with cache.
 	bool metadata_cache_hit = true;
-	const SanitizedCachePath cache_key(disk_cache_handle.internal_file_handle->GetPath());
+	const SanitizedCachePath cache_key {disk_cache_handle.internal_file_handle->GetPath()};
 	auto metadata = metadata_cache->GetOrCreate(
 	    cache_key, [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		    metadata_cache_hit = false;
@@ -470,7 +470,7 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 
 	// Stat with cache.
 	bool metadata_cache_hit = true;
-	const SanitizedCachePath cache_key(disk_cache_handle.internal_file_handle->GetPath());
+	const SanitizedCachePath cache_key {disk_cache_handle.internal_file_handle->GetPath()};
 	auto metadata = metadata_cache->GetOrCreate(
 	    cache_key, [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		    metadata_cache_hit = false;
