@@ -167,8 +167,8 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// We're tolerate of local cache file write failure, which doesn't affect returned content correctness.
 	try {
 		const auto &cache_directory = config.on_disk_cache_directories[cache_destination.cache_directory_idx];
-		DiskCacheUtil::StoreLocalCacheFile(handle.GetPath(), cache_directory, cache_destination.cache_filepath, content,
-		                                   version_tag, config, [this]() { return EvictCacheBlockLru(); });
+		DiskCacheUtil::StoreLocalCacheFile(cache_directory, cache_destination.cache_filepath, content, version_tag,
+		                                   config, [this]() { return EvictCacheBlockLru(); });
 
 		// Update in-memory cache if applicable.
 		if (in_mem_cache_blocks != nullptr) {
