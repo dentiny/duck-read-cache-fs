@@ -41,7 +41,7 @@ map<timestamp_t, string> GetOnDiskFilesUnder(const vector<string> &folders);
 // Return whether the update operation succeeds.
 bool UpdateFileTimestamps(const string &filepath);
 
-// Store the version string in the file's extended attributes
+// Store the version string in the file's extended attributes.
 // Returns whether the operation succeeds.
 bool SetCacheVersion(const string &filepath, const string &version);
 
@@ -49,7 +49,7 @@ bool SetCacheVersion(const string &filepath, const string &version);
 // Returns empty string if missing or error.
 string GetCacheVersion(const string &filepath);
 
-// Set extended attributes on a file.
+// Set extended attributes on a file; if the attribute key already exists, it will be overwritten.
 // Return whether the operation succeeds.
 // Notice, this function doesn't provide transaction guarantee.
 bool SetFileAttributes(const string &filepath, const unordered_map<string, string> &attrs);
@@ -77,6 +77,10 @@ struct MaxFileNameLength {
 
 // Get the platform maximum for full file path length and single filename component length.
 MaxFileNameLength GetMaxFileNameLength();
+
+// Read a single extended attribute value from a file.
+// Returns the value as a string, or empty string if missing or on error.
+string GetFileAttribute(const string &filepath, const string &key);
 
 // Get the maximum size in bytes for a single extended attribute value.
 idx_t GetMaxXattrValueSize();

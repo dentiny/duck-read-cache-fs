@@ -9,6 +9,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "cache_filesystem_config.hpp"
 #include "filesystem_utils.hpp"
+#include "scoped_directory.hpp"
 
 #include <utime.h>
 
@@ -92,6 +93,46 @@ TEST_CASE("Cache version roundtrip", "[utils test]") {
 
 	// Test cleanup.
 	local_filesystem->RemoveFile(test_file);
+}
+
+TEST_CASE("SetFileAttributes and GetFileAttribute roundtrip", "[utils test]") {
+	ScopedDirectory scoped_dir("/tmp/duckdb_test_attr_roundtrip");
+	const auto &dir = scoped_dir.GetPath();
+
+	auto local_filesystem = LocalFileSystem::CreateLocal();
+	const string test_file = StringUtil::Format("%s/attr_roundtrip_file", dir);
+
+	// Create a test file.
+	{
+		auto fh = local_filesystem->OpenFile(test_file, FileOpenFlags::FILE_FLAGS_WRITE |
+		                                                    FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		local_filesystem->Write(*fh, const_cast<void *>(static_cast<const void *>("payload")), 7, /*location=*/0);
+		fh->Sync();
+		fh->Close();
+	}
+
+	// Set multiple attributes and read them back individually.
+	unordered_map<string, string> attrs;
+	attrs["user.test_key_a"] = "value_alpha";
+	attrs["user.test_key_b"] = "value_beta";
+	REQUIRE(SetFileAttributes(test_file, attrs));
+
+	REQUIRE(GetFileAttribute(test_file, "user.test_key_a") == "value_alpha");
+	REQUIRE(GetFileAttribute(test_file, "user.test_key_b") == "value_beta");
+
+	// Overwrite one attribute and verify.
+	unordered_map<string, string> updated;
+	updated["user.test_key_a"] = "value_updated";
+	REQUIRE(SetFileAttributes(test_file, updated));
+	REQUIRE(GetFileAttribute(test_file, "user.test_key_a") == "value_updated");
+	// The other attribute should be untouched.
+	REQUIRE(GetFileAttribute(test_file, "user.test_key_b") == "value_beta");
+
+	// Reading a non-existent attribute returns empty.
+	REQUIRE(GetFileAttribute(test_file, "user.no_such_key").empty());
+
+	// Reading from a non-existent file returns empty.
+	REQUIRE(GetFileAttribute(StringUtil::Format("%s/no_such_file", dir), "user.test_key_a").empty());
 }
 
 int main(int argc, char **argv) {

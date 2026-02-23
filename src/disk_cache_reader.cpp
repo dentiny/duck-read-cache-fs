@@ -81,9 +81,10 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	for (const auto &cur_cache_dir : cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir,
 		                            [&cache_entries_info, cur_cache_dir](const string &fname, bool /*unused*/) {
-			                            auto remote_file_info = DiskCacheUtil::GetRemoteFileInfo(fname);
+			                            auto cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname);
+			                            auto remote_file_info = DiskCacheUtil::GetRemoteFileInfo(cache_filepath);
 			                            cache_entries_info.emplace_back(DataCacheEntryInfo {
-			                                .cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname),
+			                                .cache_filepath = std::move(cache_filepath),
 			                                .remote_filename = std::move(remote_file_info.remote_filename),
 			                                .start_offset = remote_file_info.start_offset,
 			                                .end_offset = remote_file_info.end_offset,

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "base_cache_reader.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/file_system.hpp"
@@ -59,6 +60,9 @@ public:
 
 	// Get the instance state
 	CacheHttpfsInstanceState &GetInstanceStateOrThrow();
+
+	// Get the cache reader
+	BaseCacheReader &GetCacheReader();
 
 	// Get the config for inspection/modification
 	InstanceConfig &GetConfig();
