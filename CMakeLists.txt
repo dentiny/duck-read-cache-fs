@@ -58,8 +58,6 @@ set(EXTENSION_SOURCES
     src/utils/hash_utils.cpp
     src/utils/mock_filesystem.cpp
     src/utils/scoped_directory.cpp
-    src/utils/test_constants.cpp
-    src/utils/test_utils.cpp
     src/utils/thread_pool.cpp
     src/utils/thread_utils.cpp
     src/utils/time_utils.cpp

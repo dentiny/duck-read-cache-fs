@@ -1,4 +1,3 @@
-
 #include "catch/catch.hpp"
 
 #include "base_profile_collector.hpp"

@@ -8,6 +8,8 @@ include_directories(${DuckDB_SOURCE_DIR}/test/include)
 
 set(CATCHFS_UNITTEST_OBJECTS
     main.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/test_constants.cpp
+    ${CMAKE_SOURCE_DIR}/src/utils/test_utils.cpp
     test_base_cache_filesystem_from_unit.cpp
     test_cache_exclusion_manager.cpp
     test_cache_filesystem_from_unit.cpp

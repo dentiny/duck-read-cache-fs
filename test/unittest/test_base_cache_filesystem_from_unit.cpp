@@ -1,4 +1,3 @@
-
 #include "catch/catch.hpp"
 
 #include "cache_filesystem.hpp"
