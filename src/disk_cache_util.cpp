@@ -30,7 +30,7 @@ string Sha256ToHexString(const hash_bytes &sha256) {
 
 } // namespace
 
-DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vector<string> &cache_directories,
+/*static*/ DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vector<string> &cache_directories,
                                                                      const string &remote_file, idx_t start_offset,
                                                                      idx_t bytes_to_read) {
 	D_ASSERT(!cache_directories.empty());
@@ -58,7 +58,7 @@ DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vecto
 	};
 }
 
-DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &fname) {
+/*static*/ DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &fname) {
 	// [fname] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
 	vector<string> tokens = StringUtil::Split(fname, "-");
 	D_ASSERT(tokens.size() >= 4);
@@ -83,7 +83,7 @@ DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &fna
 	};
 }
 
-string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
+/*static*/ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
 	const SanitizedCachePath cache_key {remote_file};
 	duckdb::hash_bytes remote_file_sha256_val;
 	duckdb::sha256(cache_key.Path().data(), cache_key.Path().length(), remote_file_sha256_val);
@@ -93,7 +93,7 @@ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
 	return StringUtil::Format("%s-%s", remote_file_sha256_str, fname);
 }
 
-void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
+/*static*/ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
                                     const string &eviction_policy,
                                     const std::function<string()> &lru_eviction_decider) {
 	// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
@@ -112,7 +112,7 @@ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &
 	local_filesystem.TryRemoveFile(filepath_to_evict);
 }
 
-void DiskCacheUtil::StoreLocalCacheFile(const string &remote_filepath, const string &cache_directory,
+/*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &remote_filepath, const string &cache_directory,
                                         const string &local_cache_file, const string &content,
                                         const string &version_tag, const InstanceConfig &config,
                                         const std::function<string()> &lru_eviction_decider) {
@@ -157,7 +157,7 @@ void DiskCacheUtil::StoreLocalCacheFile(const string &remote_filepath, const str
 	}
 }
 
-DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size,
+/*static*/ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size,
                                                                       bool use_direct_io, const string &version_tag) {
 	auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
 	if (use_direct_io) {
@@ -191,7 +191,7 @@ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const stri
 	};
 }
 
-bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string &version_tag) {
+/*static*/ bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string &version_tag) {
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;
@@ -203,6 +203,10 @@ bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string
 		return false;
 	}
 	return cached_version_tag == version_tag;
+}
+
+/*static*/ LocalCacheFile DiskCacheUtil::GetLocalFilePath(const string &cache_directory, const string &local_cache_file) {
+	
 }
 
 } // namespace duckdb

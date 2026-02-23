@@ -64,4 +64,12 @@ const string &GetFakeOnDiskCacheDirectory();
 // Get filesystem page size.
 idx_t GetFileSystemPageSize();
 
+struct MaxFileNameLength {
+	idx_t max_filepath_len = 0;
+	idx_t max_filename_len = 0;
+};
+
+// Get the platform maximum for full file path length and single filename component length.
+MaxFileNameLength GetMaxFileNameLength();
+
 } // namespace duckdb

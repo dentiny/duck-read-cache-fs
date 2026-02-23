@@ -8,6 +8,7 @@
 
 #if !defined(_WIN32)
 #include <cerrno>
+#include <climits>
 #include <cstring>
 #include <cstdlib>
 #include <utime.h>
@@ -326,6 +327,21 @@ idx_t GetFileSystemPageSize() {
 #else
 	return 4096; // conservative fallback
 #endif
+}
+
+MaxFileNameLength GetMaxFileNameLength() {
+	MaxFileNameLength result;
+#if defined(_WIN32)
+	result.max_filepath_len = MAX_PATH;       // 260
+	result.max_filename_len = 255;
+#elif defined(__APPLE__)
+	result.max_filepath_len = PATH_MAX;       // 1024
+	result.max_filename_len = NAME_MAX;       // 255
+#else
+	result.max_filepath_len = PATH_MAX;       // 4096
+	result.max_filename_len = NAME_MAX;       // 255
+#endif
+	return result;
 }
 
 } // namespace duckdb

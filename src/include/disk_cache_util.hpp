@@ -5,6 +5,7 @@
 
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 
 #include <cstdint>
@@ -67,6 +68,18 @@ public:
 	                                               const string &version_tag);
 
 private:
+	struct LocalCacheFile {
+		// Local filepath.
+		string local_filepath;
+		// Temporary local filepath (persisting local cache files are implemented by swapping temp files).
+		string temp_local_filepath; 
+		// File attributes, which will be assigned for oversized filepath or filename.
+		unordered_map<string, string> file_attrs;
+	};
+
+	// Util function to get local cache filepath, which handles oversized filepath and filename.
+	static LocalCacheFile GetLocalFilePath(const string &cache_directory, const string &local_cache_file);
+
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
 	// Empty version tag means cache validation is disabled.
 	static bool ValidateCacheFile(const string &cache_filepath, const string &version_tag);
