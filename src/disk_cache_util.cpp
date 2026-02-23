@@ -229,9 +229,11 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	// If there's no oversized filepath or filename, no special handling.
 	if (local_temp_filename.length() <= filepath_limit.max_filename_len &&
 	    local_temp_filepath.length() <= filepath_limit.max_filepath_len) {
-		LocalCacheDestination local_cache_dest;
-		local_cache_dest.dest_local_filepath = local_cache_file;
-		local_cache_dest.temp_local_filepath = std::move(local_temp_filepath);
+		LocalCacheDestination local_cache_dest {
+			.dest_local_filepath = local_cache_file,
+			.temp_local_filepath = std::move(local_temp_filepath),
+			.file_attrs = {},
+		};
 		return local_cache_dest;
 	}
 
