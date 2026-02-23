@@ -35,6 +35,38 @@ namespace {
 // Used to set file attribute for on-disk cache version.
 // Linux requires the "user." namespace.
 constexpr const char *CACHE_VERSION_ATTR_KEY = "user.cache_version";
+
+// Util function to set key-value pair as the file attribute.
+bool SetSingleFileAttribute(const string &filepath, const string &key, const string &value) {
+	// Validate the requested file attribute is shorter than upper limit.
+	const idx_t max_attr_len = GetMaxXattrValueSize();
+	if (key.length() > max_attr_len) {
+		throw InternalException("File attribute key %s is longer than upper limit", key);
+	}
+	if (value.length() > max_attr_len) {
+		throw InternalException("File attribute value %s is longer than upper limit", value);
+	}
+
+#if defined(_WIN32)
+	const string ads_path = StringUtil::Format("%s:%s", filepath, key);
+	std::ofstream ads(ads_path, std::ios::binary);
+	if (!ads.is_open()) {
+		return false;
+	}
+	ads << value;
+	return ads.good();
+#elif defined(__APPLE__)
+	const int res =
+	    setxattr(filepath.c_str(), key.c_str(), value.c_str(), value.size(), /*position=*/0, /*options=*/0);
+	return res == 0;
+#elif defined(__linux__)
+	const int res = setxattr(filepath.c_str(), key.c_str(), value.c_str(), value.size(), /*flags=*/0);
+	return res == 0;
+#else
+	return false;
+#endif
+}
+
 } // namespace
 
 vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &cache_directory) {
@@ -176,27 +208,18 @@ bool UpdateFileTimestamps(const string &filepath) {
 #endif
 }
 
-bool SetCacheVersion(const string &filepath, const string &version) {
-#if defined(_WIN32)
-	// WINDOWS: Open the Alternate Data Stream "file.ext:streamname"
-	// MSVC's implementation of std::ofstream handles ADS paths correctly.
-	const string ads_path = StringUtil::Format("%s:%s", filepath, CACHE_VERSION_ATTR_KEY);
-	std::ofstream ads(ads_path, std::ios::binary);
-	if (!ads.is_open()) {
-		return false;
+bool SetFileAttributes(const string &filepath, const unordered_map<string, string> &attrs) {
+	bool all_ok = true;
+	for (const auto &attr : attrs) {
+		if (!SetSingleFileAttribute(filepath, attr.first, attr.second)) {
+			all_ok = false;
+		}
 	}
-	ads << version;
-	return ads.good();
-#elif defined(__APPLE__)
-	const int res = setxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY, version.c_str(), version.size(), /*position=*/0,
-	                         /*options=*/0);
-	return res == 0;
-#elif defined(__linux__)
-	const int res = setxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY, version.c_str(), version.size(), /*flags=*/0);
-	return res == 0;
-#else
-	return false;
-#endif
+	return all_ok;
+}
+
+bool SetCacheVersion(const string &filepath, const string &version) {
+	return SetSingleFileAttribute(filepath, CACHE_VERSION_ATTR_KEY, version);
 }
 
 string GetCacheVersion(const string &filepath) {

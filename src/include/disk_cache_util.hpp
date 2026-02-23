@@ -50,23 +50,6 @@ public:
 	// Used to delete on-disk cache files, which returns the file prefix for the given [remote_file].
 	static string GetLocalCacheFilePrefix(const string &remote_file);
 
-	// Store content to a local cache file.
-	// Disk space availability is validated, and eviction is triggered if needed.
-	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
-	static void StoreLocalCacheFile(const string &cache_directory, const string &local_cache_file,
-	                                const string &content, const string &version_tag, const InstanceConfig &config,
-	                                const std::function<string()> &lru_eviction_decider);
-
-	// Result of a local cache file read attempt.
-	struct LocalCacheReadResult {
-		bool cache_hit = false;
-		string content;
-	};
-
-	// Attempt to open, validate, and read a local cache file.
-	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size, bool use_direct_io,
-	                                               const string &version_tag);
-
 	struct LocalCacheDestination {
 		// Local filepath.
 		string dest_local_filepath;
@@ -76,9 +59,27 @@ public:
 		unordered_map<string, string> file_attrs;
 	};
 
-	// Util function to get local cache destination, which handles oversized filepath and filename.
-	static LocalCacheDestination GetLocalCacheDestination(const string &cache_directory,
-	                                                      const string &local_cache_file);
+	// Resolve local cache destination, which handles oversized filepath and filename.
+	static LocalCacheDestination ResolveLocalCacheDestination(const string &cache_directory,
+	                                                          const string &local_cache_file);
+
+	// Store content to a local cache file using the pre-resolved [cache_dest].
+	// Disk space availability is validated, and eviction is triggered if needed.
+	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
+	static void StoreLocalCacheFile(const string &cache_directory, const LocalCacheDestination &cache_dest,
+	                                const string &content, const string &version_tag, const InstanceConfig &config,
+	                                const std::function<string()> &lru_eviction_decider);
+
+	// Result of a local cache file read attempt.
+	struct LocalCacheReadResult {
+		bool cache_hit = false;
+		string content;
+	};
+
+	// Attempt to open, validate, and read a local cache file at the already-resolved [cache_filepath].
+	// If the local cache file doesn't match requested [version_tag], it will be deleted.
+	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size, bool use_direct_io,
+	                                               const string &version_tag);
 
 private:
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
