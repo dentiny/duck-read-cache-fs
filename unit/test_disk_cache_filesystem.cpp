@@ -65,7 +65,7 @@ TEST_CASE("Test on default cache directory", "[on-disk cache filesystem test]") 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
 	config.cache_directories = {GetDefaultOnDiskCacheDirectory()};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// Uncached read.
@@ -93,7 +93,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first meanwhil
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
@@ -130,7 +130,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first and last
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
@@ -166,7 +166,7 @@ TEST_CASE("Test on disk cache filesystem with request for the last part of the f
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read
@@ -206,7 +206,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk the first, middle 
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
@@ -243,7 +243,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk first and last one
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
@@ -279,7 +279,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at last of file", 
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
@@ -321,7 +321,7 @@ TEST_CASE("Test on disk cache filesystem with requested chunk at middle of file"
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
@@ -363,7 +363,7 @@ TEST_CASE("Test on disk cache filesystem no new cache file after a full cache", 
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
@@ -402,7 +402,7 @@ TEST_CASE("Test on reading non-existent file", "[on-disk cache filesystem test]"
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	REQUIRE_THROWS(disk_cache_fs->OpenFile("non-existent-file", FileOpenFlags::FILE_FLAGS_READ));
@@ -429,7 +429,7 @@ TEST_CASE("Test on zero-byte cache file", "[on-disk cache filesystem test]") {
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// Check the empty file and verify no cache files are created.
@@ -455,7 +455,7 @@ TEST_CASE("Test on concurrent access", "[on-disk cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
 	config.cache_block_size = 5;
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *on_disk_cache_fs = helper.GetCacheFileSystem();
 
 	auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
@@ -510,7 +510,7 @@ TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") 
 		config.enable_disk_reader_mem_cache = false;
 		// Pretend there's no sufficient disk space by setting a very high min_disk_bytes_for_cache
 		config.min_disk_bytes_for_cache = static_cast<idx_t>(-1); // UINT64_MAX
-		TestCacheFileSystemHelper helper(config);
+		TestCacheFileSystemHelper helper(std::move(config));
 		auto *on_disk_cache_fs = helper.GetCacheFileSystem();
 
 		auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
@@ -530,7 +530,7 @@ TEST_CASE("Test on insufficient disk space", "[on-disk cache filesystem test]") 
 		config.cache_type = "on_disk";
 		config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
 		config.enable_disk_reader_mem_cache = false;
-		TestCacheFileSystemHelper helper(config);
+		TestCacheFileSystemHelper helper(std::move(config));
 		auto *on_disk_cache_fs = helper.GetCacheFileSystem();
 
 		auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
@@ -552,7 +552,7 @@ TEST_CASE("Test on file removal", "[on-disk cache filesystem test]") {
 	config.cache_type = "on_disk";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.
@@ -625,7 +625,7 @@ TEST_CASE("Test on lru eviction", "[on-disk cache filesystem test]") {
 		config.eviction_policy = "lru_sp";
 		config.enable_disk_reader_mem_cache = false;
 		config.min_disk_bytes_for_cache = static_cast<idx_t>(-1); // UINT64_MAX
-		TestCacheFileSystemHelper helper(config);
+		TestCacheFileSystemHelper helper(std::move(config));
 		auto *on_disk_cache_fs = helper.GetCacheFileSystem();
 
 		auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |
@@ -648,7 +648,7 @@ TEST_CASE("Test on lru eviction", "[on-disk cache filesystem test]") {
 		config.eviction_policy = "lru_sp";
 		config.enable_disk_reader_mem_cache = false;
 		config.min_disk_bytes_for_cache = static_cast<idx_t>(-1); // UINT64_MAX
-		TestCacheFileSystemHelper helper(config);
+		TestCacheFileSystemHelper helper(std::move(config));
 		auto *on_disk_cache_fs = helper.GetCacheFileSystem();
 
 		auto handle = on_disk_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ |

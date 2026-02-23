@@ -27,7 +27,7 @@ TEST_CASE("Test cache cleared on RemoveFile", "[cache filesystem delete test]") 
 	config.enable_file_handle_cache = true;
 	config.enable_metadata_cache = true;
 	// Intentionally not clearing cache on write to test cache invalidation on delete.
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 

@@ -32,7 +32,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		// Test noop cache reader
 		TestCacheConfig config;
 		config.cache_type = "noop";
-		TestCacheFileSystemHelper helper(config);
+		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
@@ -45,7 +45,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		// Test in-memory cache reader
 		TestCacheConfig config;
 		config.cache_type = "in_mem";
-		TestCacheFileSystemHelper helper(config);
+		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
@@ -58,7 +58,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		// Test disk cache reader
 		TestCacheConfig config;
 		config.cache_type = "on_disk";
-		TestCacheFileSystemHelper helper(config);
+		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
@@ -73,7 +73,7 @@ TEST_CASE("Filesystem profile config test", "[filesystem config]") {
 	{
 		TestCacheConfig config;
 		config.profile_type = "noop";
-		TestCacheFileSystemHelper helper(config);
+		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
@@ -85,7 +85,7 @@ TEST_CASE("Filesystem profile config test", "[filesystem config]") {
 	{
 		TestCacheConfig config;
 		config.profile_type = "temp";
-		TestCacheFileSystemHelper helper(config);
+		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);

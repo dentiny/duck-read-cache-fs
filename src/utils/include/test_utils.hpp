@@ -14,6 +14,7 @@ namespace duckdb {
 struct TestCacheConfig {
 	// Optional internal filesystem to inject (e.g. MockFileSystem); when null, LocalFileSystem is used.
 	unique_ptr<FileSystem> internal_filesystem;
+
 	string cache_type = "noop";       // "noop", "on_disk", "in_mem"
 	idx_t cache_block_size = 512_KiB; // Block size for caching
 	string profile_type = "noop";     // "noop", "temp"

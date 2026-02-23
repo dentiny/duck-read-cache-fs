@@ -48,7 +48,7 @@ TEST_CASE("Test multiple instances with different cache types", "[multi-instance
 	config1.cache_type = "on_disk";
 	config1.cache_block_size = 5;
 	config1.cache_directories = {cache_dir_1};
-	TestCacheFileSystemHelper helper1(config1);
+	TestCacheFileSystemHelper helper1(std::move(config1));
 	auto *cache_fs1 = helper1.GetCacheFileSystem();
 	auto &inst_state1 = helper1.GetInstanceStateOrThrow();
 	auto &config1_ref = helper1.GetConfig();
@@ -58,7 +58,7 @@ TEST_CASE("Test multiple instances with different cache types", "[multi-instance
 	config2.cache_type = "in_mem";
 	config2.cache_block_size = 8;
 	config2.cache_directories = {cache_dir_2};
-	TestCacheFileSystemHelper helper2(config2);
+	TestCacheFileSystemHelper helper2(std::move(config2));
 	auto *cache_fs2 = helper2.GetCacheFileSystem();
 	auto &inst_state2 = helper2.GetInstanceStateOrThrow();
 	auto &config2_ref = helper2.GetConfig();
@@ -68,7 +68,7 @@ TEST_CASE("Test multiple instances with different cache types", "[multi-instance
 	config3.cache_type = "noop";
 	config3.cache_block_size = 10;
 	config3.cache_directories = {cache_dir_3};
-	TestCacheFileSystemHelper helper3(config3);
+	TestCacheFileSystemHelper helper3(std::move(config3));
 	auto *cache_fs3 = helper3.GetCacheFileSystem();
 	auto &inst_state3 = helper3.GetInstanceStateOrThrow();
 	auto &config3_ref = helper3.GetConfig();

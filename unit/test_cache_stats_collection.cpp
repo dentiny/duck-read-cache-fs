@@ -44,7 +44,7 @@ TEST_CASE("Test cache stats collection disabled", "[profile collector]") {
 	config.cache_type = "noop";
 	config.profile_type = "noop";
 	config.enable_file_handle_cache = true;
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// First access, there're no cache entries inside of cache filesystem.
@@ -69,7 +69,7 @@ TEST_CASE("Test cache stats collection", "[profile collector]") {
 	config.cache_type = "noop";
 	config.profile_type = "temp";
 	config.enable_file_handle_cache = true;
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// First access, there're no cache entries inside of cache filesystem.

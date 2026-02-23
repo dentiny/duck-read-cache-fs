@@ -37,7 +37,7 @@ TEST_CASE("Test glob operation", "[cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
 	config.enable_glob_cache = true;
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// Glob by filename.
@@ -60,7 +60,7 @@ TEST_CASE("Test clear cache", "[cache filesystem test]") {
 	config.enable_glob_cache = true;
 	config.enable_file_handle_cache = true;
 	config.enable_metadata_cache = true;
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// Perform a series of IO operations without cache.

@@ -230,12 +230,14 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	if (local_temp_filename.length() <= filepath_limit.max_filename_len &&
 	    local_temp_filepath.length() <= filepath_limit.max_filepath_len) {
 		LocalCacheDestination local_cache_dest {
-			.dest_local_filepath = local_cache_file,
-			.temp_local_filepath = std::move(local_temp_filepath),
-			.file_attrs = {},
+		    .dest_local_filepath = local_cache_file,
+		    .temp_local_filepath = std::move(local_temp_filepath),
+		    .file_attrs = {},
 		};
 		return local_cache_dest;
 	}
+
+	std::cerr << "oversized!!!!" << std::endl;
 
 	// Otherwise, special handle oversized filepath and filename: use the hash value as filename.
 	auto local_cache_filepath_sha256 = GetSha256(local_cache_file);
