@@ -23,6 +23,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_max_fanout_subrequest.cpp
     test_no_destructor.cpp
     test_optional.cpp
+    test_oversized_cache_filepath.cpp
     test_read_exception_propagation.cpp
     test_scoped_directory.cpp
     test_shared_lru_cache.cpp
