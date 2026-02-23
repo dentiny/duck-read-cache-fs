@@ -1,4 +1,3 @@
-// Migrated from unit/test_base_cache_filesystem.cpp
 
 #include "catch/catch.hpp"
 

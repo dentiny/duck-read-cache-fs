@@ -1,4 +1,4 @@
-// Unit test for no-op cache filesystem (migrated from unit/).
+// Unit test for no-op cache filesystem.
 
 #include "catch/catch.hpp"
 

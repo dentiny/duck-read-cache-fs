@@ -1,4 +1,4 @@
-// Unit test for setting extension config. Migrated from unit/.
+// Unit test for setting extension config.
 
 #include "catch/catch.hpp"
 

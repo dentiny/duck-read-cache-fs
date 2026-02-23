@@ -1,5 +1,5 @@
 // Similar to on-disk reader unit test, this unit test also checks in-memory cache reader; but we write large file so
-// threading issues and memory issues are easier to detect. Migrated from unit/.
+// threading issues and memory issues are easier to detect.
 
 #include "catch/catch.hpp"
 
@@ -53,7 +53,7 @@ struct LargeFileInmemReaderFixture {
 
 } // namespace
 
-TEST_CASE_METHOD(LargeFileInmemReaderFixture, "Read all bytes in one read operation",
+TEST_CASE_METHOD(LargeFileInmemReaderFixture, "Read all bytes in one read operation - in-memory cache",
                  "[in-memory cache filesystem test]") {
 	constexpr uint64_t test_block_size = 22; // Intentionally not a divisor of file size.
 

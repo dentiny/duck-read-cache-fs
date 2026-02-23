@@ -1,4 +1,4 @@
-// Unit test for multiple DuckDB instances in a single process. Migrated from unit/.
+// Unit test for multiple DuckDB instances in a single process.
 
 #include "catch/catch.hpp"
 

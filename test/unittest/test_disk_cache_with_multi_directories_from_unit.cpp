@@ -1,5 +1,4 @@
 // Similar to on-disk reader unit test, this unit test checks situations where multiple cache directories are specified.
-// Migrated from unit/.
 
 #include "catch/catch.hpp"
 

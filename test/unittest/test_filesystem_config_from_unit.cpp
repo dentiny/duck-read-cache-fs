@@ -1,4 +1,3 @@
-// Migrated from unit/test_filesystem_config.cpp
 
 #include "catch/catch.hpp"
 

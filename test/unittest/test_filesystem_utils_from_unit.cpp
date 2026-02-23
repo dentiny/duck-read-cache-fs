@@ -1,4 +1,4 @@
-// This file tests the stale file deletion (migrated from unit/).
+// This file tests the stale file deletion.
 
 #include "catch/catch.hpp"
 

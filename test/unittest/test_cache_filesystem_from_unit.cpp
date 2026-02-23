@@ -1,4 +1,3 @@
-// Migrated from unit/test_cache_filesystem.cpp
 
 #include "catch/catch.hpp"
 
@@ -73,7 +72,7 @@ TEST_CASE_METHOD(CacheFilesystemFixture, "Test glob operation", "[cache filesyst
 	}
 }
 
-TEST_CASE_METHOD(CacheFilesystemFixture, "Test clear cache", "[cache filesystem test]") {
+TEST_CASE_METHOD(CacheFilesystemFixture, "Test clear cache on disk cache filesystem", "[cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
 	config.enable_glob_cache = true;

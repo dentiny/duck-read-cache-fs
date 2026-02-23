@@ -1,4 +1,3 @@
-// Migrated from unit/test_disk_cache_validation.cpp
 
 #include "catch/catch.hpp"
 

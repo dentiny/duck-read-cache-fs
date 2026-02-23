@@ -1,4 +1,4 @@
-// This test file validates cache hit, cache miss and cache in-use count (migrated from unit/).
+// This test file validates cache hit, cache miss and cache in-use count.
 
 #include "catch/catch.hpp"
 

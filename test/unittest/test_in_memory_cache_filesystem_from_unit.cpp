@@ -1,4 +1,4 @@
-// Unit test for in-memory cache filesystem. Migrated from unit/.
+// Unit test for in-memory cache filesystem.
 
 #include "catch/catch.hpp"
 
@@ -126,7 +126,8 @@ TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test on in-memory cache filesy
 	}
 }
 
-TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test on concurrent access", "[in-memory cache filesystem test]") {
+TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test on concurrent access - in-memory cache",
+                 "[in-memory cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "in_mem";
 	config.cache_block_size = 5;

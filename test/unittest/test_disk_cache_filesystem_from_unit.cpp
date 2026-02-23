@@ -1,4 +1,4 @@
-// Unit test for disk cache filesystem. Migrated from unit/.
+// Unit test for disk cache filesystem.
 //
 // IO operations are performed in chunks, testing senarios are listed as follows:
 // (1) There're one or more chunks to read;
@@ -463,7 +463,8 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on zero-byte cache file", "[o
 	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 0);
 }
 
-TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on concurrent access", "[on-disk cache filesystem test]") {
+TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on concurrent access - disk cache",
+                 "[on-disk cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
 	config.cache_block_size = 5;
