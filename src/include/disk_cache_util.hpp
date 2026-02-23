@@ -44,8 +44,8 @@ public:
 		uint64_t end_offset = 0;
 	};
 
-	// Get remote file information from the given local cache [fname].
-	static RemoteFileInfo GetRemoteFileInfo(const string &fname);
+	// Get remote file information from the given local cache [cache_filepath].
+	static RemoteFileInfo GetRemoteFileInfo(const string &cache_filepath);
 
 	// Used to delete on-disk cache files, which returns the file prefix for the given [remote_file].
 	static string GetLocalCacheFilePrefix(const string &remote_file);

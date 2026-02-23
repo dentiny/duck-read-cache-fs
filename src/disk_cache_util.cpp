@@ -27,6 +27,21 @@ string GetTempCacheFilePath(const string &cache_filepath) {
 // Zero-padded indices (e.g. .001, .002) ensure lexicographic sort matches chunk order.
 constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_filepath";
 
+// Try to reconstruct the original (non-shortened) local cache filepath from chunked xattr entries.
+// Returns empty string if no attributes are found (i.e. the filepath was never shortened).
+string TryGetOriginalCacheFilepath(const string &filepath) {
+	string result;
+	for (idx_t idx = 0;; ++idx) {
+		const string key = StringUtil::Format("%s.%03llu", CACHE_FILEPATH_ATTR_PREFIX, idx);
+		string chunk = GetFileAttribute(filepath, key);
+		if (chunk.empty()) {
+			break;
+		}
+		result += chunk;
+	}
+	return result;
+}
+
 } // namespace
 
 /*static*/ DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vector<string> &cache_directories,
@@ -61,9 +76,18 @@ constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_file
 	};
 }
 
-/*static*/ DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &fname) {
-	// [fname] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
-	vector<string> tokens = StringUtil::Split(fname, "-");
+/*static*/ DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &cache_filepath) {
+	// The on-disk filename may have been shortened to a SHA256 hash when it exceeded platform limits. In that case the
+	// original full local cache filepath is stored in chunked xattr entries.  Recover it first so the split below works
+	// correctly.
+	string local_filename = StringUtil::GetFileName(cache_filepath);
+	const string original_filepath = TryGetOriginalCacheFilepath(cache_filepath);
+	if (!original_filepath.empty()) {
+		local_filename = StringUtil::GetFileName(original_filepath);
+	}
+
+	// [local_filename] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
+	vector<string> tokens = StringUtil::Split(local_filename, "-");
 	D_ASSERT(tokens.size() >= 4);
 
 	// Get tokens for remote paths.
@@ -236,8 +260,6 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 		};
 		return local_cache_dest;
 	}
-
-	std::cerr << "oversized!!!!" << std::endl;
 
 	// Otherwise, special handle oversized filepath and filename: use the hash value as filename.
 	auto local_cache_filepath_sha256 = GetSha256(local_cache_file);

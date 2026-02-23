@@ -262,6 +262,46 @@ string GetCacheVersion(const string &filepath) {
 #endif
 }
 
+string GetFileAttribute(const string &filepath, const string &key) {
+#if defined(_WIN32)
+	const string ads_path = StringUtil::Format("%s:%s", filepath, key);
+	std::ifstream ads(ads_path, std::ios::binary);
+	if (!ads.is_open()) {
+		return "";
+	}
+	return string((std::istreambuf_iterator<char>(ads)), std::istreambuf_iterator<char>());
+#elif defined(__APPLE__)
+	ssize_t size = getxattr(filepath.c_str(), key.c_str(), nullptr, /*size=*/0, /*position=*/0, /*options=*/0);
+	if (size <= 0) {
+		return "";
+	}
+	string buffer(size, '\0');
+	ssize_t res = getxattr(filepath.c_str(), key.c_str(), const_cast<void *>(static_cast<const void *>(buffer.data())),
+	                       size, /*position=*/0,
+	                       /*options=*/0);
+	if (res > 0) {
+		buffer.resize(res);
+		return buffer;
+	}
+	return "";
+#elif defined(__linux__)
+	ssize_t size = getxattr(filepath.c_str(), key.c_str(), /*value=*/nullptr, /*size=*/0);
+	if (size <= 0) {
+		return "";
+	}
+	string buffer(size, '\0');
+	ssize_t res =
+	    getxattr(filepath.c_str(), key.c_str(), const_cast<void *>(static_cast<const void *>(buffer.data())), size);
+	if (res > 0) {
+		buffer.resize(res);
+		return buffer;
+	}
+	return "";
+#else
+	return "";
+#endif
+}
+
 bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t min_disk_bytes_for_cache) {
 	// Check available disk space
 	auto avai_fs_bytes = FileSystem::GetAvailableDiskSpace(cache_directory);

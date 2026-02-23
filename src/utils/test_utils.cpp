@@ -59,6 +59,12 @@ CacheHttpfsInstanceState &TestCacheFileSystemHelper::GetInstanceStateOrThrow() {
 	return *instance_state;
 }
 
+BaseCacheReader &TestCacheFileSystemHelper::GetCacheReader() {
+	auto *reader = instance_state->cache_reader_manager.GetCacheReader();
+	D_ASSERT(reader);
+	return *reader;
+}
+
 InstanceConfig &TestCacheFileSystemHelper::GetConfig() {
 	return instance_state->config;
 }
