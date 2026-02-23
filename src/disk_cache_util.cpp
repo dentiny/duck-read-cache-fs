@@ -241,7 +241,7 @@ DiskCacheUtil::GetLocalCacheDestination(const string &cache_directory, const str
 
 	local_cache_dest.file_attrs.reserve(chunk_count);
 	for (idx_t idx = 0; idx < chunk_count; ++idx) {
-		const idx_t offset = i * max_xattr_val_size;
+		const idx_t offset = idx * max_xattr_val_size;
 		const idx_t len = MinValue(max_xattr_val_size, filepath_len - offset);
 		const string key = StringUtil::Format("%s.%03llu", CACHE_FILEPATH_ATTR_PREFIX, idx);
 		local_cache_dest.file_attrs[key] = local_cache_file.substr(offset, len);

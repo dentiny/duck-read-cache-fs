@@ -55,6 +55,7 @@ set(EXTENSION_SOURCES
     src/utils/chunk_utils.cpp
     src/utils/fake_filesystem.cpp
     src/utils/filesystem_utils.cpp
+    src/utils/hash_utils.cpp
     src/utils/mock_filesystem.cpp
     src/utils/scoped_directory.cpp
     src/utils/test_constants.cpp

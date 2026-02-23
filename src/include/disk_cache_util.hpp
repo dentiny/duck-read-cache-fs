@@ -67,7 +67,6 @@ public:
 	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size, bool use_direct_io,
 	                                               const string &version_tag);
 
-private:
 	struct LocalCacheDestination {
 		// Local filepath.
 		string dest_local_filepath;
@@ -81,6 +80,7 @@ private:
 	static LocalCacheDestination GetLocalCacheDestination(const string &cache_directory,
 	                                                      const string &local_cache_file);
 
+private:
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
 	// Empty version tag means cache validation is disabled.
 	static bool ValidateCacheFile(const string &cache_filepath, const string &version_tag);
