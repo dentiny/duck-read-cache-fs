@@ -56,8 +56,7 @@ bool SetSingleFileAttribute(const string &filepath, const string &key, const str
 	ads << value;
 	return ads.good();
 #elif defined(__APPLE__)
-	const int res =
-	    setxattr(filepath.c_str(), key.c_str(), value.c_str(), value.size(), /*position=*/0, /*options=*/0);
+	const int res = setxattr(filepath.c_str(), key.c_str(), value.c_str(), value.size(), /*position=*/0, /*options=*/0);
 	return res == 0;
 #elif defined(__linux__)
 	const int res = setxattr(filepath.c_str(), key.c_str(), value.c_str(), value.size(), /*flags=*/0);

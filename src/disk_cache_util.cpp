@@ -173,9 +173,9 @@ constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_file
 	}
 
 	LocalFileSystem local_filesystem {};
-	// On all platform, DuckDB opens option guarantee reference counting, which means even if the file is requested to delete, already-opened file handle could still be 
-	// accessed with no problem.
-	// Reference: https://github.com/duckdb/duckdb/pull/19782
+	// On all platform, DuckDB opens option guarantee reference counting, which means even if the file is requested to
+	// delete, already-opened file handle could still be accessed with no problem. Reference:
+	// https://github.com/duckdb/duckdb/pull/19782
 	auto file_handle = local_filesystem.OpenFile(cache_filepath, file_open_flags);
 
 	// Check cache validity and clear if necessary.

@@ -36,8 +36,10 @@ TEST_CASE("Oversized filename caching roundtrip", "[disk_cache_util]") {
 
 	const string test_filename = MakeOversizedFilename();
 
-	auto close_cb = []() {};
-	auto dtor_cb = []() {};
+	auto close_cb = []() {
+	};
+	auto dtor_cb = []() {
+	};
 	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_cb), std::move(dtor_cb));
 	mock_filesystem->SetFileSize(TEST_FILESIZE);
 	auto *mock_fs_ptr = mock_filesystem.get();

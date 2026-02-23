@@ -58,7 +58,8 @@ TEST_CASE("DiskCacheUtil::GetLocalCacheFilePrefix - query and fragment stripped"
 	        DiskCacheUtil::GetLocalCacheFilePrefix(url_with_query));
 }
 
-TEST_CASE("ResolveLocalCacheDestination - normal filepath, no fallback for oversized filepath and filename", "[disk_cache_util]") {
+TEST_CASE("ResolveLocalCacheDestination - normal filepath, no fallback for oversized filepath and filename",
+          "[disk_cache_util]") {
 	const string cache_dir = "/tmp/cache";
 	const string local_cache_file = "/tmp/cache/abc123-file.parquet-0-4096";
 
