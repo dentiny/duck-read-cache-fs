@@ -72,10 +72,7 @@ struct MaxFileNameLength {
 // Get the platform maximum for full file path length and single filename component length.
 MaxFileNameLength GetMaxFileNameLength();
 
-// Get the maximum size in bytes for a single extended attribute value on the current platform.
-// Linux: XATTR_SIZE_MAX from <linux/xattr.h> (64 KiB on ext2/3/4).
-// macOS: XATTR_MAXSIZE from <sys/xattr.h> (INT32_MAX on APFS/HFS+).
-// Windows: No platform constant; ADS have no fixed small-size limit, 64 KiB used as practical chunk size.
+// Get the maximum size in bytes for a single extended attribute value.
 idx_t GetMaxXattrValueSize();
 
 } // namespace duckdb
