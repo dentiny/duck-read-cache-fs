@@ -8,8 +8,6 @@ include_directories(${DuckDB_SOURCE_DIR}/test/include)
 
 set(CATCHFS_UNITTEST_OBJECTS
     main.cpp
-    ${CMAKE_SOURCE_DIR}/src/utils/test_constants.cpp
-    ${CMAKE_SOURCE_DIR}/src/utils/test_utils.cpp
     test_base_cache_filesystem_from_unit.cpp
     test_cache_exclusion_manager.cpp
     test_cache_filesystem_from_unit.cpp
@@ -19,6 +17,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_clear_cache_on_delete.cpp
     test_clear_cache_on_write.cpp
     test_copiable_value_lru_cache.cpp
+    test_constants.cpp
     test_counter.cpp
     test_disk_cache_filesystem_from_unit.cpp
     test_disk_cache_util.cpp
@@ -45,7 +44,8 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_shared_lru_cache.cpp
     test_size_literals.cpp
     test_thread_pool.cpp
-    test_url_utils.cpp)
+    test_url_utils.cpp
+    test_utils.cpp)
 
 add_executable(unittest_cache_httpfs ${CATCHFS_UNITTEST_OBJECTS})
 
