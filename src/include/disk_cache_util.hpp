@@ -68,17 +68,18 @@ public:
 	                                               const string &version_tag);
 
 private:
-	struct LocalCacheFile {
+	struct LocalCacheDestination {
 		// Local filepath.
-		string local_filepath;
+		string dest_local_filepath;
 		// Temporary local filepath (persisting local cache files are implemented by swapping temp files).
-		string temp_local_filepath; 
+		string temp_local_filepath;
 		// File attributes, which will be assigned for oversized filepath or filename.
 		unordered_map<string, string> file_attrs;
 	};
 
-	// Util function to get local cache filepath, which handles oversized filepath and filename.
-	static LocalCacheFile GetLocalFilePath(const string &cache_directory, const string &local_cache_file);
+	// Util function to get local cache destination, which handles oversized filepath and filename.
+	static LocalCacheDestination GetLocalCacheDestination(const string &cache_directory,
+	                                                      const string &local_cache_file);
 
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
 	// Empty version tag means cache validation is disabled.
