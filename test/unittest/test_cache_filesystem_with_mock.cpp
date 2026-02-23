@@ -224,7 +224,7 @@ TEST_CASE("Test in-memory cache reader with mock filesystem", "[mock filesystem 
 	TestReadWithMockFileSystem(std::move(config));
 }
 
-TEST_CASE("Test clear cache", "[mock filesystem test]") {
+TEST_CASE("Test clear cache with mock filesystem", "[mock filesystem test]") {
 	uint64_t close_invocation = 0;
 	uint64_t dtor_invocation = 0;
 	auto close_callback = [&close_invocation]() {

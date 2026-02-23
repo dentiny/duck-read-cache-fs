@@ -1,7 +1,6 @@
 // This file tests the stale file deletion.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string.hpp"
@@ -17,9 +16,20 @@ using namespace duckdb; // NOLINT
 
 namespace {
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
+
+struct FilesystemUtilsDirFixture {
+	FilesystemUtilsDirFixture() {
+		auto fs = LocalFileSystem::CreateLocal();
+		fs->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+		fs->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	}
+	~FilesystemUtilsDirFixture() {
+		LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	}
+};
 } // namespace
 
-TEST_CASE("Stale file deletion", "[utils test]") {
+TEST_CASE_METHOD(FilesystemUtilsDirFixture, "Stale file deletion", "[utils test]") {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	const string fname1 = StringUtil::Format("%s/file1", TEST_ON_DISK_CACHE_DIRECTORY);
 	const string fname2 = StringUtil::Format("%s/file2", TEST_ON_DISK_CACHE_DIRECTORY);
@@ -60,7 +70,7 @@ TEST_CASE("Stale file deletion", "[utils test]") {
 	REQUIRE(fresh_files == vector<string> {fname1});
 }
 
-TEST_CASE("Cache version roundtrip", "[utils test]") {
+TEST_CASE_METHOD(FilesystemUtilsDirFixture, "Cache version roundtrip", "[utils test]") {
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	const string test_file = StringUtil::Format("%s/version_test_file", TEST_ON_DISK_CACHE_DIRECTORY);
 	const string test_version = "v1.2.3-test-version";
@@ -133,13 +143,4 @@ TEST_CASE("SetFileAttributes and GetFileAttribute roundtrip", "[utils test]") {
 
 	// Reading from a non-existent file returns empty.
 	REQUIRE(GetFileAttribute(StringUtil::Format("%s/no_such_file", dir), "user.test_key_a").empty());
-}
-
-int main(int argc, char **argv) {
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	local_filesystem->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	local_filesystem->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	int result = Catch::Session().run(argc, argv);
-	local_filesystem->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	return result;
 }

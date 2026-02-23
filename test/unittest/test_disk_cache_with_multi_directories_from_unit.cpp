@@ -1,7 +1,6 @@
 // Similar to on-disk reader unit test, this unit test checks situations where multiple cache directories are specified.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
@@ -10,7 +9,7 @@
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
-#include "scope_guard.hpp"
+#include "scoped_directory.hpp"
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
@@ -20,14 +19,6 @@ using namespace duckdb; // NOLINT
 
 namespace {
 constexpr idx_t TEST_FILE_COUNT = 100;
-const auto TEST_FILES = []() {
-	vector<string> test_files;
-	test_files.reserve(TEST_FILE_COUNT);
-	for (idx_t idx = 0; idx < TEST_FILE_COUNT; ++idx) {
-		test_files.emplace_back(StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID())));
-	}
-	return test_files;
-}();
 const auto TEST_ON_DISK_CACHE_DIRECTORIES = []() {
 	vector<string> cache_directories;
 	cache_directories.reserve(TEST_FILE_COUNT);
@@ -36,19 +27,41 @@ const auto TEST_ON_DISK_CACHE_DIRECTORIES = []() {
 	}
 	return cache_directories;
 }();
+
+struct DiskCacheMultiDirsFixture {
+	ScopedDirectory scoped_dir;
+	vector<string> test_files;
+	DiskCacheMultiDirsFixture()
+	    : scoped_dir(StringUtil::Format("/tmp/duckdb_test_multi_dirs_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_files.reserve(TEST_FILE_COUNT);
+		for (idx_t idx = 0; idx < TEST_FILE_COUNT; ++idx) {
+			test_files.emplace_back(StringUtil::Format("%s/file_%d", scoped_dir.GetPath(), idx));
+		}
+		auto local_filesystem = LocalFileSystem::CreateLocal();
+		local_filesystem->RemoveDirectory(GetDefaultOnDiskCacheDirectory());
+		for (const auto &cur_file : test_files) {
+			auto file_handle = local_filesystem->OpenFile(cur_file, FileOpenFlags::FILE_FLAGS_WRITE |
+			                                                            FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+			local_filesystem->Write(*file_handle,
+			                        const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
+			                        TEST_FILE_SIZE, /*location=*/0);
+			file_handle->Sync();
+			file_handle->Close();
+		}
+	}
+};
 } // namespace
 
-TEST_CASE("Test for cache directory config with multiple directories", "[on-disk cache filesystem test]") {
-	auto delete_cache_directories = []() {
-		for (const auto &cur_cache_dir : TEST_ON_DISK_CACHE_DIRECTORIES) {
-			LocalFileSystem::CreateLocal()->RemoveDirectory(cur_cache_dir);
-		}
-	};
-
-	delete_cache_directories();
-	SCOPE_EXIT {
-		delete_cache_directories();
-	};
+TEST_CASE_METHOD(DiskCacheMultiDirsFixture, "Test for cache directory config with multiple directories",
+                 "[on-disk cache filesystem test]") {
+	for (const auto &cur_cache_dir : TEST_ON_DISK_CACHE_DIRECTORIES) {
+		LocalFileSystem::CreateLocal()->RemoveDirectory(cur_cache_dir);
+	}
+	vector<unique_ptr<ScopedDirectory>> scoped_cache_dirs;
+	scoped_cache_dirs.reserve(TEST_FILE_COUNT);
+	for (idx_t idx = 0; idx < TEST_FILE_COUNT; ++idx) {
+		scoped_cache_dirs.emplace_back(make_uniq<ScopedDirectory>(TEST_ON_DISK_CACHE_DIRECTORIES[idx]));
+	}
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -60,7 +73,7 @@ TEST_CASE("Test for cache directory config with multiple directories", "[on-disk
 	// First uncached read.
 	{
 		string content(TEST_FILE_SIZE, '\0');
-		for (const auto &cur_file : TEST_FILES) {
+		for (const auto &cur_file : test_files) {
 			auto handle = disk_cache_fs->OpenFile(cur_file, FileOpenFlags::FILE_FLAGS_READ);
 			disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
 			                    /*nr_bytes=*/TEST_FILE_SIZE,
@@ -86,7 +99,7 @@ TEST_CASE("Test for cache directory config with multiple directories", "[on-disk
 	// Second cached read.
 	{
 		string content(TEST_FILE_SIZE, '\0');
-		for (const auto &cur_file : TEST_FILES) {
+		for (const auto &cur_file : test_files) {
 			auto handle = disk_cache_fs->OpenFile(cur_file, FileOpenFlags::FILE_FLAGS_READ);
 			disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
 			                    /*nr_bytes=*/TEST_FILE_SIZE,
@@ -106,29 +119,4 @@ TEST_CASE("Test for cache directory config with multiple directories", "[on-disk
 	// Check default cache directory is not accessed.
 	default_file_count = GetFileCountUnder(GetDefaultOnDiskCacheDirectory());
 	REQUIRE(default_file_count == 0);
-}
-
-int main(int argc, char **argv) {
-	// Remove default cache directory.
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	local_filesystem->RemoveDirectory(GetDefaultOnDiskCacheDirectory());
-
-	// Create test files.
-	for (const auto &cur_file : TEST_FILES) {
-		auto file_handle = local_filesystem->OpenFile(cur_file, FileOpenFlags::FILE_FLAGS_WRITE |
-		                                                            FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-		local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
-		                        TEST_FILE_SIZE, /*location=*/0);
-		file_handle->Sync();
-		file_handle->Close();
-	}
-
-	int result = Catch::Session().run(argc, argv);
-
-	// Delete test files.
-	for (const auto &cur_file : TEST_FILES) {
-		local_filesystem->RemoveFile(cur_file);
-	}
-
-	return result;
 }

@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -11,24 +10,31 @@
 #include "duckdb/main/database.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
+#include "scoped_directory.hpp"
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
 namespace {
-const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 
-void CreateSourceTestFile() {
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
-	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-	local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
-	                        TEST_FILE_SIZE, /*location=*/0);
-	file_handle->Sync();
-	file_handle->Close();
-}
+struct DiskCacheValidationFixture {
+	ScopedDirectory scoped_dir;
+	string test_filename;
+	DiskCacheValidationFixture()
+	    : scoped_dir(StringUtil::Format("/tmp/duckdb_test_disk_cache_validation_%s",
+	                                    UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
+		auto local_filesystem = LocalFileSystem::CreateLocal();
+		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
+		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
+		                        TEST_FILE_SIZE, /*location=*/0);
+		file_handle->Sync();
+		file_handle->Close();
+	}
+};
 
 // A filesystem wrapper that extends LocalFileSystem but allows setting version tags
 class VersionTagFileSystem : public LocalFileSystem {
@@ -87,10 +93,12 @@ struct ValidationTestHelper {
 } // namespace
 
 // Testing scenario: cache validation with matching version tags should use cached file.
-TEST_CASE("Test disk cache validation with matching version tags", "[disk cache validation test]") {
+TEST_CASE_METHOD(DiskCacheValidationFixture, "Test disk cache validation with matching version tags",
+                 "[disk cache validation test]") {
 	constexpr uint64_t test_block_size = 10;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	ValidationTestHelper helper(test_block_size, /*enable_validation=*/true);
 	const string test_version_tag = "version-1.0";
@@ -99,7 +107,7 @@ TEST_CASE("Test disk cache validation with matching version tags", "[disk cache 
 
 	// First read: should cache the file with version tag
 	{
-		auto handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = cache_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		string content(test_block_size, '\0');
 		cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), test_block_size,
 		                       /*location=*/0);
@@ -115,7 +123,7 @@ TEST_CASE("Test disk cache validation with matching version tags", "[disk cache 
 
 	// Second read with same version tag: should use cache
 	{
-		auto handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = cache_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		string content(test_block_size, '\0');
 		cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), test_block_size,
 		                       /*location=*/0);
@@ -124,10 +132,12 @@ TEST_CASE("Test disk cache validation with matching version tags", "[disk cache 
 }
 
 // Testing scenario: cache validation with mismatched version tags should invalidate cache.
-TEST_CASE("Test disk cache validation with mismatched version tags", "[disk cache validation test]") {
+TEST_CASE_METHOD(DiskCacheValidationFixture, "Test disk cache validation with mismatched version tags",
+                 "[disk cache validation test]") {
 	constexpr uint64_t test_block_size = 10;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	ValidationTestHelper helper(test_block_size, /*enable_validation=*/true);
 	const string initial_version_tag = "version-1.0";
@@ -136,7 +146,7 @@ TEST_CASE("Test disk cache validation with mismatched version tags", "[disk cach
 
 	// First read: cache the file
 	{
-		auto handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = cache_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		string content(test_block_size, '\0');
 		cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), test_block_size,
 		                       /*location=*/0);
@@ -158,7 +168,7 @@ TEST_CASE("Test disk cache validation with mismatched version tags", "[disk cach
 
 	// Second read with different version tag: should invalidate cache and re-fetch
 	{
-		auto handle = new_cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = new_cache_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		string content(test_block_size, '\0');
 		new_cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
 		                           test_block_size, /*location=*/0);
@@ -174,10 +184,12 @@ TEST_CASE("Test disk cache validation with mismatched version tags", "[disk cach
 }
 
 // Testing scenario: cache file without version tag should be invalidated when validation is enabled.
-TEST_CASE("Test disk cache validation with missing version tag in cache file", "[disk cache validation test]") {
+TEST_CASE_METHOD(DiskCacheValidationFixture, "Test disk cache validation with missing version tag in cache file",
+                 "[disk cache validation test]") {
 	constexpr uint64_t test_block_size = 10;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	// Create cache file without version tag (simulating old cache) by disabling validation
 	ValidationTestHelper helper(test_block_size, /*enable_validation=*/false);
@@ -186,7 +198,7 @@ TEST_CASE("Test disk cache validation with missing version tag in cache file", "
 
 	// First read: cache the file without version tag
 	{
-		auto handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = cache_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		string content(test_block_size, '\0');
 		cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), test_block_size,
 		                       /*location=*/0);
@@ -208,7 +220,7 @@ TEST_CASE("Test disk cache validation with missing version tag in cache file", "
 
 	// Read again: cache file without version tag should be invalidated and re-fetched
 	{
-		auto handle = new_cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = new_cache_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		string content(test_block_size, '\0');
 		new_cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
 		                           test_block_size, /*location=*/0);
@@ -224,10 +236,12 @@ TEST_CASE("Test disk cache validation with missing version tag in cache file", "
 }
 
 // Testing scenario: cache validation disabled should always use cache regardless of version tags.
-TEST_CASE("Test disk cache with validation disabled", "[disk cache validation test]") {
+TEST_CASE_METHOD(DiskCacheValidationFixture, "Test disk cache with validation disabled",
+                 "[disk cache validation test]") {
 	constexpr uint64_t test_block_size = 10;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	ValidationTestHelper helper(test_block_size, /*enable_validation=*/false);
 	helper.SetVersionTag("version-1.0");
@@ -235,7 +249,7 @@ TEST_CASE("Test disk cache with validation disabled", "[disk cache validation te
 
 	// First read: cache the file
 	{
-		auto handle = cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = cache_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		string content(test_block_size, '\0');
 		cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), test_block_size,
 		                       /*location=*/0);
@@ -253,18 +267,10 @@ TEST_CASE("Test disk cache with validation disabled", "[disk cache validation te
 
 	// Second read: should use cache even though version changed (validation disabled)
 	{
-		auto handle = new_cache_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = new_cache_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		string content(test_block_size, '\0');
 		new_cache_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())),
 		                           test_block_size, /*location=*/0);
 		REQUIRE(content == TEST_FILE_CONTENT.substr(0, test_block_size));
 	}
-}
-
-int main(int argc, char **argv) {
-	CreateSourceTestFile();
-
-	int result = Catch::Session().run(argc, argv);
-	LocalFileSystem::CreateLocal()->RemoveFile(TEST_FILENAME);
-	return result;
 }

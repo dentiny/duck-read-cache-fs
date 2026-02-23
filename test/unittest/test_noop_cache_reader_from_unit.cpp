@@ -1,7 +1,6 @@
 // Unit test for no-op cache filesystem.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -10,17 +9,33 @@
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "noop_cache_reader.hpp"
-#include "scope_guard.hpp"
+#include "scoped_directory.hpp"
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
 namespace {
-const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+
+struct NoopCacheReaderFixture {
+	ScopedDirectory scoped_dir;
+	string test_filename;
+	NoopCacheReaderFixture()
+	    : scoped_dir(StringUtil::Format("/tmp/duckdb_test_noop_cache_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
+		auto local_filesystem = LocalFileSystem::CreateLocal();
+		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
+		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
+		                        TEST_FILE_SIZE, /*location=*/0);
+		file_handle->Sync();
+		file_handle->Close();
+	}
+};
+
 } // namespace
 
-TEST_CASE("Test on noop cache filesystem", "[noop cache filesystem test]") {
+TEST_CASE_METHOD(NoopCacheReaderFixture, "Test on noop cache filesystem", "[noop cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "noop";
 	config.cache_block_size = TEST_FILE_SIZE;
@@ -29,7 +44,7 @@ TEST_CASE("Test on noop cache filesystem", "[noop cache filesystem test]") {
 
 	// First uncached read.
 	{
-		auto handle = noop_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = noop_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 1;
 		const uint64_t bytes_to_read = TEST_FILE_SIZE - 2;
 		string content(bytes_to_read, '\0');
@@ -40,7 +55,7 @@ TEST_CASE("Test on noop cache filesystem", "[noop cache filesystem test]") {
 
 	// Second uncached read.
 	{
-		auto handle = noop_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = noop_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 1;
 		const uint64_t bytes_to_read = TEST_FILE_SIZE - 2;
 		string content(bytes_to_read, '\0');
@@ -50,32 +65,18 @@ TEST_CASE("Test on noop cache filesystem", "[noop cache filesystem test]") {
 	}
 }
 
-TEST_CASE("Test noop read whole file", "[noop cache filesystem test]") {
+TEST_CASE_METHOD(NoopCacheReaderFixture, "Test noop read whole file", "[noop cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "noop";
 	config.cache_block_size = TEST_FILE_SIZE;
 	TestCacheFileSystemHelper helper(std::move(config));
 	auto *noop_filesystem = helper.GetCacheFileSystem();
 
-	auto handle = noop_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+	auto handle = noop_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 	const uint64_t start_offset = 0;
 	const uint64_t bytes_to_read = TEST_FILE_SIZE;
 	string content(bytes_to_read, '\0');
 	noop_filesystem->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
 	                      start_offset);
 	REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
-}
-
-int main(int argc, char **argv) {
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
-	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-	local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
-	                        TEST_FILE_SIZE, /*location=*/0);
-	file_handle->Sync();
-	file_handle->Close();
-
-	int result = Catch::Session().run(argc, argv);
-	local_filesystem->RemoveFile(TEST_FILENAME);
-	return result;
 }

@@ -1,7 +1,6 @@
 // Unit test for in-memory cache filesystem.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/local_file_system.hpp"
@@ -11,13 +10,30 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "duckdb/main/database.hpp"
 #include "mock_filesystem.hpp"
+#include "scoped_directory.hpp"
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
 namespace {
-const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+
+struct InMemoryCacheFilesystemFixture {
+	ScopedDirectory scoped_dir;
+	string test_filename;
+	InMemoryCacheFilesystemFixture()
+	    : scoped_dir(
+	          StringUtil::Format("/tmp/duckdb_test_in_memory_cache_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
+		auto local_filesystem = LocalFileSystem::CreateLocal();
+		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
+		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
+		                        TEST_FILE_SIZE, /*location=*/0);
+		file_handle->Sync();
+		file_handle->Close();
+	}
+};
 
 // Helper struct to create a CacheFileSystem with a custom internal filesystem
 struct CustomFsHelper {
@@ -80,7 +96,8 @@ struct MockFsHelper {
 };
 } // namespace
 
-TEST_CASE("Test on in-memory cache filesystem", "[in-memory cache filesystem test]") {
+TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test on in-memory cache filesystem",
+                 "[in-memory cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "in_mem";
 	config.cache_block_size = TEST_FILE_SIZE;
@@ -89,7 +106,7 @@ TEST_CASE("Test on in-memory cache filesystem", "[in-memory cache filesystem tes
 
 	// First uncached read.
 	{
-		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = in_mem_cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 1;
 		const uint64_t bytes_to_read = TEST_FILE_SIZE - 2;
 		string content(bytes_to_read, '\0');
@@ -100,7 +117,7 @@ TEST_CASE("Test on in-memory cache filesystem", "[in-memory cache filesystem tes
 
 	// Second cached read.
 	{
-		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = in_mem_cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 1;
 		const uint64_t bytes_to_read = TEST_FILE_SIZE - 2;
 		string content(bytes_to_read, '\0');
@@ -110,14 +127,15 @@ TEST_CASE("Test on in-memory cache filesystem", "[in-memory cache filesystem tes
 	}
 }
 
-TEST_CASE("Test on concurrent access", "[in-memory cache filesystem test]") {
+TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test on concurrent access - in-memory cache",
+                 "[in-memory cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "in_mem";
 	config.cache_block_size = 5;
 	TestCacheFileSystemHelper helper(std::move(config));
 	auto *in_mem_cache_fs = helper.GetCacheFileSystem();
 
-	auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME,
+	auto handle = in_mem_cache_fs->OpenFile(test_filename,
 	                                        FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
 	const uint64_t start_offset = 0;
 	const uint64_t bytes_to_read = TEST_FILE_SIZE;
@@ -140,7 +158,8 @@ TEST_CASE("Test on concurrent access", "[in-memory cache filesystem test]") {
 	}
 }
 
-TEST_CASE("Test cache validation disabled", "[in-memory cache filesystem test]") {
+TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test cache validation disabled",
+                 "[in-memory cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "in_mem";
 	config.cache_block_size = TEST_FILE_SIZE;
@@ -151,7 +170,7 @@ TEST_CASE("Test cache validation disabled", "[in-memory cache filesystem test]")
 
 	// First read, should cache.
 	{
-		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = in_mem_cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 0;
 		const uint64_t bytes_to_read = TEST_FILE_SIZE;
 		string content(bytes_to_read, '\0');
@@ -162,7 +181,7 @@ TEST_CASE("Test cache validation disabled", "[in-memory cache filesystem test]")
 
 	// Second read, should use cache even if file metadata changes (validation disabled).
 	{
-		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = in_mem_cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 0;
 		const uint64_t bytes_to_read = TEST_FILE_SIZE;
 		string content(bytes_to_read, '\0');
@@ -172,7 +191,8 @@ TEST_CASE("Test cache validation disabled", "[in-memory cache filesystem test]")
 	}
 }
 
-TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem test]") {
+TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test cache validation with version tag",
+                 "[in-memory cache filesystem test]") {
 	TestCacheConfig config;
 	config.cache_type = "in_mem";
 	config.cache_block_size = TEST_FILE_SIZE;
@@ -193,7 +213,7 @@ TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem
 
 	// First read, should cache with version tag "v1".
 	{
-		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = in_mem_cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 0;
 		const uint64_t bytes_to_read = TEST_FILE_SIZE;
 		string content(bytes_to_read, '\0');
@@ -206,7 +226,7 @@ TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem
 	// Second read with same version tag, should use cache.
 	{
 		mock_filesystem_ptr->SetVersionTag("v1");
-		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = in_mem_cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 0;
 		const uint64_t bytes_to_read = TEST_FILE_SIZE;
 		string content(bytes_to_read, '\0');
@@ -221,7 +241,7 @@ TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem
 	{
 		mock_filesystem_ptr->SetVersionTag("v2");
 		mock_filesystem_ptr->ClearReadOperations();
-		auto handle = in_mem_cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		auto handle = in_mem_cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		const uint64_t start_offset = 0;
 		const uint64_t bytes_to_read = TEST_FILE_SIZE;
 		string content(bytes_to_read, '\0');
@@ -235,18 +255,4 @@ TEST_CASE("Test cache validation with version tag", "[in-memory cache filesystem
 		REQUIRE(read_operations[0].start_offset == 0);
 		REQUIRE(read_operations[0].bytes_to_read == TEST_FILE_SIZE);
 	}
-}
-
-int main(int argc, char **argv) {
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
-	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-	local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
-	                        TEST_FILE_SIZE, /*location=*/0);
-	file_handle->Sync();
-	file_handle->Close();
-
-	int result = Catch::Session().run(argc, argv);
-	local_filesystem->RemoveFile(TEST_FILENAME);
-	return result;
 }
