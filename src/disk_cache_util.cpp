@@ -6,6 +6,7 @@
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/hash_utils.hpp"
@@ -22,6 +23,12 @@ string GetTempCacheFilePath(const string &cache_filepath) {
 	// file for the same remote file.
 	return StringUtil::Format("%s.%s.httpfs_local_cache", cache_filepath, UUID::ToString(UUID::GenerateRandomUUID()));
 }
+
+// Suffix for temporary cache files.
+constexpr const char *TEMP_CACHE_FILE_SUFFIX = ".httpfs_local_cache";
+
+// Staleness threshold for dead temp file cleanup: 10 minutes in microseconds.
+constexpr idx_t DEAD_TEMP_STALENESS_MICROSEC = 10 * 60 * 1000 * 1000;
 
 // xattr key prefix for storing chunked original cache filepath.
 // Zero-padded indices (e.g. .001, .002) ensure lexicographic sort matches chunk order.
@@ -282,6 +289,33 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	}
 
 	return local_cache_dest;
+}
+
+/*static*/ idx_t DiskCacheUtil::CleanupDeadTempFiles(const vector<string> &cache_directories) {
+	LocalFileSystem local_filesystem {};
+	idx_t deleted_count = 0;
+	const timestamp_t now = Timestamp::GetCurrentTimestamp();
+
+	for (const auto &cache_directory : cache_directories) {
+		local_filesystem.ListFiles(cache_directory, [&local_filesystem, &cache_directory, &deleted_count,
+		                                             now](const string &fname, bool /*unused*/) {
+			if (!StringUtil::EndsWith(fname, TEMP_CACHE_FILE_SUFFIX)) {
+				return;
+			}
+			const string full_path = StringUtil::Format("%s/%s", cache_directory, fname);
+			auto file_handle = local_filesystem.OpenFile(full_path, FileOpenFlags::FILE_FLAGS_READ |
+			                                                            FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+			if (file_handle == nullptr) {
+				return;
+			}
+			const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
+			const idx_t diff_microsec = static_cast<idx_t>(now.value - last_mod_time.value);
+			if (diff_microsec >= DEAD_TEMP_STALENESS_MICROSEC && local_filesystem.TryRemoveFile(full_path)) {
+				++deleted_count;
+			}
+		});
+	}
+	return deleted_count;
 }
 
 } // namespace duckdb

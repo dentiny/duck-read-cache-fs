@@ -81,6 +81,10 @@ public:
 	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size, bool use_direct_io,
 	                                               const string &version_tag);
 
+	// Remove dead temporary cache files (write-to-temp-then-swap leftovers) under [cache_directories].
+	// Returns the number of files deleted.
+	static idx_t CleanupDeadTempFiles(const vector<string> &cache_directories);
+
 private:
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
 	// Empty version tag means cache validation is disabled.
