@@ -1,7 +1,6 @@
-// Unit test for setting extension config.
+// Unit test for setting extension config. Migrated from unit/.
 
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+#include "catch/catch.hpp"
 
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
@@ -21,18 +20,26 @@ const std::string TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_
 const std::string TEST_SECOND_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache_second";
 const std::string TEST_ON_DISK_CACHE_FILE = "/tmp/test-config.parquet";
 
-void CleanupTestDirectory() {
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	if (local_filesystem->DirectoryExists(TEST_ON_DISK_CACHE_DIRECTORY)) {
-		local_filesystem->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+struct SetExtensionConfigFixture {
+	SetExtensionConfigFixture() {
+		CleanupTestDirectory();
 	}
-	if (local_filesystem->DirectoryExists(TEST_SECOND_ON_DISK_CACHE_DIRECTORY)) {
-		local_filesystem->RemoveDirectory(TEST_SECOND_ON_DISK_CACHE_DIRECTORY);
+	~SetExtensionConfigFixture() {
+		CleanupTestDirectory();
 	}
-	if (local_filesystem->FileExists(TEST_ON_DISK_CACHE_FILE)) {
-		local_filesystem->RemoveFile(TEST_ON_DISK_CACHE_FILE);
+	static void CleanupTestDirectory() {
+		auto local_filesystem = LocalFileSystem::CreateLocal();
+		if (local_filesystem->DirectoryExists(TEST_ON_DISK_CACHE_DIRECTORY)) {
+			local_filesystem->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+		}
+		if (local_filesystem->DirectoryExists(TEST_SECOND_ON_DISK_CACHE_DIRECTORY)) {
+			local_filesystem->RemoveDirectory(TEST_SECOND_ON_DISK_CACHE_DIRECTORY);
+		}
+		if (local_filesystem->FileExists(TEST_ON_DISK_CACHE_FILE)) {
+			local_filesystem->RemoveFile(TEST_ON_DISK_CACHE_FILE);
+		}
 	}
-}
+};
 } // namespace
 
 TEST_CASE("Test on incorrect config", "[extension config test]") {
@@ -66,7 +73,8 @@ TEST_CASE("Test on correct config", "[extension config test]") {
 	REQUIRE(!result->HasError());
 }
 
-TEST_CASE("Test on changing extension config change default cache dir path setting", "[extension config test]") {
+TEST_CASE_METHOD(SetExtensionConfigFixture, "Test on changing extension config change default cache dir path setting",
+                 "[extension config test]") {
 	DuckDB db(nullptr);
 	auto &instance = db.instance;
 
@@ -107,11 +115,4 @@ TEST_CASE("Test on changing extension config change default cache dir path setti
 	// Files should remain the same after cached read
 	const int files_after_cached_read = GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY);
 	REQUIRE(files_after_cached_read == 1);
-};
-
-int main(int argc, char **argv) {
-	CleanupTestDirectory();
-	int result = Catch::Session().run(argc, argv);
-	CleanupTestDirectory();
-	return result;
 }

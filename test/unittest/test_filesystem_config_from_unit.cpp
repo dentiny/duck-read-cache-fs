@@ -1,5 +1,6 @@
-#define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
+// Migrated from unit/test_filesystem_config.cpp
+
+#include "catch/catch.hpp"
 
 #include "base_profile_collector.hpp"
 #include "cache_filesystem.hpp"
@@ -18,7 +19,22 @@
 using namespace duckdb; // NOLINT
 
 namespace {
-const auto TEST_FILENAME = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+
+struct FilesystemConfigFixture {
+	string test_filename;
+	FilesystemConfigFixture() {
+		test_filename = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+		auto local_filesystem = LocalFileSystem::CreateLocal();
+		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
+		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		// File created (empty); original main() just created empty file
+		file_handle->Close();
+	}
+	~FilesystemConfigFixture() {
+		LocalFileSystem::CreateLocal()->RemoveFile(test_filename);
+	}
+};
+
 } // namespace
 
 TEST_CASE("Filesystem config test", "[filesystem config]") {
@@ -26,7 +42,7 @@ TEST_CASE("Filesystem config test", "[filesystem config]") {
 	REQUIRE(GetThreadCountForSubrequests(10, 5) == 5);
 }
 
-TEST_CASE("Filesystem cache config test", "[filesystem config]") {
+TEST_CASE_METHOD(FilesystemConfigFixture, "Filesystem cache config test", "[filesystem config]") {
 	// Test that different cache types can be configured via per-instance configuration
 	{
 		// Test noop cache reader
@@ -35,7 +51,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
-		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		auto *cache_reader = helper.GetInstanceStateOrThrow().cache_reader_manager.GetCacheReader();
 		REQUIRE(cache_reader != nullptr);
 		[[maybe_unused]] auto &noop_handle = cache_reader->Cast<NoopCacheReader>();
@@ -48,7 +64,7 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
-		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		auto *cache_reader = helper.GetInstanceStateOrThrow().cache_reader_manager.GetCacheReader();
 		REQUIRE(cache_reader != nullptr);
 		[[maybe_unused]] auto &in_mem_handle = cache_reader->Cast<InMemoryCacheReader>();
@@ -61,14 +77,14 @@ TEST_CASE("Filesystem cache config test", "[filesystem config]") {
 		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
-		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		auto *cache_reader = helper.GetInstanceStateOrThrow().cache_reader_manager.GetCacheReader();
 		REQUIRE(cache_reader != nullptr);
 		[[maybe_unused]] auto &disk_handle = cache_reader->Cast<DiskCacheReader>();
 	}
 }
 
-TEST_CASE("Filesystem profile config test", "[filesystem config]") {
+TEST_CASE_METHOD(FilesystemConfigFixture, "Filesystem profile config test", "[filesystem config]") {
 	// Check noop profiler.
 	{
 		TestCacheConfig config;
@@ -76,7 +92,7 @@ TEST_CASE("Filesystem profile config test", "[filesystem config]") {
 		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
-		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		auto &profiler = cache_fs->GetProfileCollector();
 		[[maybe_unused]] auto &noop_profiler = profiler.Cast<NoopProfileCollector>();
 	}
@@ -88,17 +104,8 @@ TEST_CASE("Filesystem profile config test", "[filesystem config]") {
 		TestCacheFileSystemHelper helper(std::move(config));
 		auto *cache_fs = helper.GetCacheFileSystem();
 
-		cache_fs->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_READ);
+		cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
 		auto &profiler = cache_fs->GetProfileCollector();
 		[[maybe_unused]] auto &temp_profiler = profiler.Cast<TempProfileCollector>();
 	}
-}
-
-int main(int argc, char **argv) {
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	auto file_handle = local_filesystem->OpenFile(TEST_FILENAME, FileOpenFlags::FILE_FLAGS_WRITE |
-	                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-	int result = Catch::Session().run(argc, argv);
-	local_filesystem->RemoveFile(TEST_FILENAME);
-	return result;
 }
