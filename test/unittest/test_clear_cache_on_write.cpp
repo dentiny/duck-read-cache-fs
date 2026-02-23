@@ -27,7 +27,7 @@ TEST_CASE("Test cache cleared on Write with location", "[cache filesystem write 
 	config.enable_file_handle_cache = true;
 	config.enable_metadata_cache = true;
 	config.clear_cache_on_write = true;
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// Create test file
@@ -70,7 +70,7 @@ TEST_CASE("Test cache cleared on Write without location", "[cache filesystem wri
 	config.enable_file_handle_cache = true;
 	config.enable_metadata_cache = true;
 	config.clear_cache_on_write = true;
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// Create test file

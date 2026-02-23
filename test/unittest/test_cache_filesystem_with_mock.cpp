@@ -16,7 +16,7 @@ const std::string TEST_GLOB_NAME = "*"; // Need to contain glob characters.
 constexpr int64_t TEST_FILESIZE = 26;
 constexpr int64_t TEST_CHUNK_SIZE = 5;
 
-void TestReadWithMockFileSystem(const TestCacheConfig &base_config) {
+void TestReadWithMockFileSystem(TestCacheConfig base_config) {
 	uint64_t close_invocation = 0;
 	uint64_t dtor_invocation = 0;
 	auto close_callback = [&close_invocation]() {
@@ -31,7 +31,7 @@ void TestReadWithMockFileSystem(const TestCacheConfig &base_config) {
 	auto *mock_filesystem_ptr = mock_filesystem.get();
 
 	// Create test helper which sets up the instance state
-	TestCacheConfig config = base_config;
+	TestCacheConfig config = std::move(base_config);
 	config.cache_block_size = TEST_CHUNK_SIZE;
 	config.max_file_handle_cache_entry = 1;
 
@@ -209,7 +209,7 @@ TEST_CASE("Test disk cache reader with mock filesystem", "[mock filesystem test]
 	config.cache_type = "on_disk";
 	config.cache_block_size = TEST_CHUNK_SIZE;
 	config.max_file_handle_cache_entry = 1;
-	TestReadWithMockFileSystem(config);
+	TestReadWithMockFileSystem(std::move(config));
 }
 
 TEST_CASE("Test in-memory cache reader with mock filesystem", "[mock filesystem test]") {
@@ -221,7 +221,7 @@ TEST_CASE("Test in-memory cache reader with mock filesystem", "[mock filesystem 
 	config.cache_type = "in_mem";
 	config.cache_block_size = TEST_CHUNK_SIZE;
 	config.max_file_handle_cache_entry = 1;
-	TestReadWithMockFileSystem(config);
+	TestReadWithMockFileSystem(std::move(config));
 }
 
 TEST_CASE("Test clear cache", "[mock filesystem test]") {

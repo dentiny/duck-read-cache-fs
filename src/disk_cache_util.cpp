@@ -115,9 +115,9 @@ constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_file
 	local_filesystem.TryRemoveFile(filepath_to_evict);
 }
 
-/*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory, const string &local_cache_file,
-                                                   const string &content, const string &version_tag,
-                                                   const InstanceConfig &config,
+/*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory,
+                                                   const LocalCacheDestination &cache_dest, const string &content,
+                                                   const string &version_tag, const InstanceConfig &config,
                                                    const std::function<string()> &lru_eviction_decider) {
 	LocalFileSystem local_filesystem {};
 
@@ -132,7 +132,6 @@ constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_file
 
 	// Dump to a unique temporary location at local filesystem, since there could be multiple processes writing cache
 	// file for the same remote file.
-	const auto local_temp_file = GetTempCacheFilePath(local_cache_file);
 	{
 		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
 		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
@@ -140,7 +139,7 @@ constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_file
 		if (config.enable_disk_reader_mem_cache && content.length() % GetFileSystemPageSize() == 0) {
 			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
 		}
-		auto file_handle = local_filesystem.OpenFile(local_temp_file, file_open_flags);
+		auto file_handle = local_filesystem.OpenFile(cache_dest.temp_local_filepath, file_open_flags);
 		local_filesystem.Write(*file_handle, const_cast<char *>(content.data()),
 		                       /*nr_bytes=*/content.length(),
 		                       /*location=*/0);
@@ -151,11 +150,17 @@ constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_file
 	//
 	// TODO(hjiang): Provide a way to cleanup temporary files.
 	// Issue reference: https://github.com/dentiny/duck-read-cache-fs/issues/422
-	local_filesystem.MoveFile(/*source=*/local_temp_file, /*target=*/local_cache_file);
-	//
+	local_filesystem.MoveFile(/*source=*/cache_dest.temp_local_filepath,
+	                          /*target=*/cache_dest.dest_local_filepath);
+
 	// Store version tag in extended attributes for validation.
 	if (!version_tag.empty()) {
-		SetCacheVersion(local_cache_file, version_tag);
+		SetCacheVersion(cache_dest.dest_local_filepath, version_tag);
+	}
+
+	// Store chunked filepath attributes for original local cache access.
+	if (!cache_dest.file_attrs.empty()) {
+		SetFileAttributes(cache_dest.dest_local_filepath, cache_dest.file_attrs);
 	}
 }
 
@@ -168,6 +173,9 @@ constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_file
 	}
 
 	LocalFileSystem local_filesystem {};
+	// On all platform, DuckDB opens option guarantee reference counting, which means even if the file is requested to
+	// delete, already-opened file handle could still be accessed with no problem.
+	// Reference: https://github.com/duckdb/duckdb/pull/19782
 	auto file_handle = local_filesystem.OpenFile(cache_filepath, file_open_flags);
 
 	// Check cache validity and clear if necessary.
@@ -209,7 +217,7 @@ constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_file
 }
 
 /*static*/ DiskCacheUtil::LocalCacheDestination
-DiskCacheUtil::GetLocalCacheDestination(const string &cache_directory, const string &local_cache_file) {
+DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const string &local_cache_file) {
 	if (StringUtil::EndsWith(cache_directory, "/")) {
 		throw InvalidInputException("Cache directory %s cannot ends with '/'", cache_directory);
 	}
@@ -221,11 +229,15 @@ DiskCacheUtil::GetLocalCacheDestination(const string &cache_directory, const str
 	// If there's no oversized filepath or filename, no special handling.
 	if (local_temp_filename.length() <= filepath_limit.max_filename_len &&
 	    local_temp_filepath.length() <= filepath_limit.max_filepath_len) {
-		LocalCacheDestination local_cache_dest;
-		local_cache_dest.dest_local_filepath = local_cache_file;
-		local_cache_dest.temp_local_filepath = std::move(local_temp_filepath);
+		LocalCacheDestination local_cache_dest {
+		    .dest_local_filepath = local_cache_file,
+		    .temp_local_filepath = std::move(local_temp_filepath),
+		    .file_attrs = {},
+		};
 		return local_cache_dest;
 	}
+
+	std::cerr << "oversized!!!!" << std::endl;
 
 	// Otherwise, special handle oversized filepath and filename: use the hash value as filename.
 	auto local_cache_filepath_sha256 = GetSha256(local_cache_file);

@@ -4,6 +4,7 @@
 
 #include "cache_filesystem.hpp"
 #include "cache_httpfs_instance_state.hpp"
+#include "duckdb/common/file_system.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/main/database.hpp"
 
@@ -11,6 +12,9 @@ namespace duckdb {
 
 // Test configuration options for creating test filesystems
 struct TestCacheConfig {
+	// Optional internal filesystem to inject (e.g. MockFileSystem); when null, LocalFileSystem is used.
+	unique_ptr<FileSystem> internal_filesystem;
+
 	string cache_type = "noop";       // "noop", "on_disk", "in_mem"
 	idx_t cache_block_size = 512_KiB; // Block size for caching
 	string profile_type = "noop";     // "noop", "temp"
@@ -40,7 +44,7 @@ struct TestCacheConfig {
 // This creates a DuckDB instance with the extension state properly initialized.
 class TestCacheFileSystemHelper {
 public:
-	explicit TestCacheFileSystemHelper(const TestCacheConfig &config = TestCacheConfig {});
+	explicit TestCacheFileSystemHelper(TestCacheConfig config = TestCacheConfig {});
 	~TestCacheFileSystemHelper();
 
 	// Get the cache filesystem for testing

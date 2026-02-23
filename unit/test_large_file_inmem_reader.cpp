@@ -45,7 +45,7 @@ TEST_CASE("Read all bytes in one read operation", "[in-memory cache filesystem t
 	config.cache_type = "in_mem";
 	config.cache_block_size = test_block_size;
 	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.

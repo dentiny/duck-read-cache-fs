@@ -54,7 +54,7 @@ TEST_CASE("Test for cache directory config with multiple directories", "[on-disk
 	config.cache_type = "on_disk";
 	config.cache_block_size = TEST_FILE_SIZE;
 	config.cache_directories = TEST_ON_DISK_CACHE_DIRECTORIES;
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *disk_cache_fs = helper.GetCacheFileSystem();
 
 	// First uncached read.

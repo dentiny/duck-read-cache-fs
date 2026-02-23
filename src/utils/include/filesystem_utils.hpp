@@ -7,6 +7,7 @@
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/string.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 
 namespace duckdb {
@@ -47,6 +48,11 @@ bool SetCacheVersion(const string &filepath, const string &version);
 // Retrieve the version string from the file's extended attributes.
 // Returns empty string if missing or error.
 string GetCacheVersion(const string &filepath);
+
+// Set extended attributes on a file.
+// Return whether the operation succeeds.
+// Notice, this function doesn't provide transaction guarantee.
+bool SetFileAttributes(const string &filepath, const unordered_map<string, string> &attrs);
 
 // Check if caching is allowed (sufficient disk space)
 bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t min_disk_bytes_for_cache);

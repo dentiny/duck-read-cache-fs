@@ -57,7 +57,7 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 	TestCacheConfig config;
 	config.cache_type = "in_mem";
 	config.profile_type = "temp";
-	TestCacheFileSystemHelper helper(config);
+	TestCacheFileSystemHelper helper(std::move(config));
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// Clear profile to start fresh

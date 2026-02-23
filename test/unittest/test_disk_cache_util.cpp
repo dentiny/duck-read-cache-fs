@@ -58,25 +58,26 @@ TEST_CASE("DiskCacheUtil::GetLocalCacheFilePrefix - query and fragment stripped"
 	        DiskCacheUtil::GetLocalCacheFilePrefix(url_with_query));
 }
 
-TEST_CASE("GetLocalCacheDestination - normal filepath, no fallback for oversized filepath and filename", "[disk_cache_util]") {
+TEST_CASE("ResolveLocalCacheDestination - normal filepath, no fallback for oversized filepath and filename",
+          "[disk_cache_util]") {
 	const string cache_dir = "/tmp/cache";
 	const string local_cache_file = "/tmp/cache/abc123-file.parquet-0-4096";
 
-	auto result = DiskCacheUtil::GetLocalCacheDestination(cache_dir, local_cache_file);
+	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file);
 	REQUIRE(result.dest_local_filepath == local_cache_file);
 	REQUIRE(StringUtil::StartsWith(result.temp_local_filepath, local_cache_file));
 	REQUIRE(StringUtil::EndsWith(result.temp_local_filepath, ".httpfs_local_cache"));
 	REQUIRE(result.file_attrs.empty());
 }
 
-TEST_CASE("GetLocalCacheDestination - oversized filename triggers fallback", "[disk_cache_util]") {
+TEST_CASE("ResolveLocalCacheDestination - oversized filename triggers fallback", "[disk_cache_util]") {
 	const string cache_dir = "/tmp/cache";
 	const auto limits = GetMaxFileNameLength();
 
 	const string long_name(limits.max_filename_len + 100, 'x');
 	const string local_cache_file = StringUtil::Format("%s/%s", cache_dir, long_name);
 
-	auto result = DiskCacheUtil::GetLocalCacheDestination(cache_dir, local_cache_file);
+	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file);
 	const auto expected_sha = GetSha256(local_cache_file);
 	REQUIRE(result.dest_local_filepath == StringUtil::Format("%s/%s", cache_dir, expected_sha));
 	REQUIRE(StringUtil::StartsWith(result.temp_local_filepath, result.dest_local_filepath));
@@ -85,14 +86,14 @@ TEST_CASE("GetLocalCacheDestination - oversized filename triggers fallback", "[d
 	REQUIRE(ReassembleFileAttrs(result.file_attrs) == local_cache_file);
 }
 
-TEST_CASE("GetLocalCacheDestination - oversized filepath triggers fallback", "[disk_cache_util]") {
+TEST_CASE("ResolveLocalCacheDestination - oversized filepath triggers fallback", "[disk_cache_util]") {
 	const auto limits = GetMaxFileNameLength();
 
 	const string deep_dir(limits.max_filepath_len, 'd');
 	const string cache_dir = StringUtil::Format("/%s", deep_dir);
 	const string local_cache_file = StringUtil::Format("%s/file.parquet", cache_dir);
 
-	auto result = DiskCacheUtil::GetLocalCacheDestination(cache_dir, local_cache_file);
+	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file);
 	const auto expected_sha = GetSha256(local_cache_file);
 	REQUIRE(result.dest_local_filepath == StringUtil::Format("%s/%s", cache_dir, expected_sha));
 	REQUIRE_FALSE(result.file_attrs.empty());
