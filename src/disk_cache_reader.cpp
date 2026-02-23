@@ -17,6 +17,7 @@
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/thread_pool.hpp"
 #include "utils/include/thread_utils.hpp"
+#include "utils/include/url_utils.hpp"
 
 #include <cstdint>
 #include <utility>
@@ -60,7 +61,6 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	vector<DataCacheEntryInfo> cache_entries_info;
 
 	// Fill in in-memory cache blocks for on disk cache reader.
-	// block.fname is the resolved local cache filepath.
 	if (in_mem_cache_blocks != nullptr) {
 		auto keys = in_mem_cache_blocks->Keys();
 		cache_entries_info.reserve(keys.size());
@@ -142,9 +142,10 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 			// Update in-memory cache if applicable.
 			if (in_mem_cache_blocks != nullptr) {
-				InMemCacheEntry new_cache_entry;
-				new_cache_entry.data = std::move(read_result.content);
-				new_cache_entry.version_tag = version_tag;
+				InMemCacheEntry new_cache_entry {
+				    .data = std::move(read_result.content),
+				    .version_tag = version_tag,
+				};
 				in_mem_cache_blocks->Put(block_key, make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
 			}
 			return;
@@ -176,9 +177,10 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 		// Update in-memory cache if applicable.
 		if (in_mem_cache_blocks != nullptr) {
-			InMemCacheEntry new_cache_entry;
-			new_cache_entry.data = std::move(content);
-			new_cache_entry.version_tag = version_tag;
+			InMemCacheEntry new_cache_entry {
+			    .data = std::move(content),
+			    .version_tag = version_tag,
+			};
 			in_mem_cache_blocks->Put(block_key, make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
 		}
 	} catch (...) {
@@ -334,11 +336,10 @@ void DiskCacheReader::ClearCache(const string &fname) {
 	}
 
 	// Delete in-memory cache for on-disk cache files.
-	// block.fname is the resolved local cache filepath; match its filename component against the prefix.
 	if (in_mem_cache_blocks != nullptr) {
-		in_mem_cache_blocks->Clear([&cache_file_prefix](const InMemCacheBlock &block) {
-			return StringUtil::StartsWith(StringUtil::GetFileName(block.fname), cache_file_prefix);
-		});
+		const SanitizedCachePath cache_key {fname};
+		in_mem_cache_blocks->Clear(
+		    [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
 	}
 }
 

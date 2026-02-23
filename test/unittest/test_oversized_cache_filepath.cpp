@@ -1,12 +1,11 @@
 #include "catch/catch.hpp"
 
-#include "cache_filesystem.hpp"
-#include "cache_httpfs_instance_state.hpp"
+#include "cache_filesystem_config.hpp"
 #include "duckdb/common/local_file_system.hpp"
-#include "duckdb/common/string.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "filesystem_utils.hpp"
 #include "mock_filesystem.hpp"
+#include "scoped_directory.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
@@ -15,6 +14,7 @@ namespace {
 
 constexpr int64_t TEST_FILESIZE = 26;
 constexpr int64_t TEST_CHUNK_SIZE = 26;
+const auto TEST_DIRECTORY = "/tmp/duckdb_test_oversized_cache_filepath";
 
 // Build a filename that exceeds the platform's max filename length.
 string MakeOversizedFilename() {
@@ -29,33 +29,22 @@ string MakeOversizedFilename() {
 // The data is then stored in both on-disk and in-memory caches under the resolved (sha256-shortened) filepath.
 // A second read must be served entirely from cache, so the mock filesystem must see zero additional Read calls.
 TEST_CASE("Oversized filename caching roundtrip", "[disk_cache_util]") {
-	const auto &cache_dir = GetDefaultOnDiskCacheDirectory();
-	auto local_fs = LocalFileSystem::CreateLocal();
-	local_fs->RemoveDirectory(cache_dir);
-	local_fs->CreateDirectory(cache_dir);
+	ScopedDirectory scoped_dir(TEST_DIRECTORY);
+	LocalFileSystem local_fs {};
 
 	const string test_filename = MakeOversizedFilename();
-
-	auto close_cb = []() {
-	};
-	auto dtor_cb = []() {
-	};
-	auto mock_filesystem = make_uniq<MockFileSystem>(std::move(close_cb), std::move(dtor_cb));
+	auto mock_filesystem = make_uniq<MockFileSystem>([]() {}, []() {});
 	mock_filesystem->SetFileSize(TEST_FILESIZE);
 	auto *mock_fs_ptr = mock_filesystem.get();
 
-	DuckDB db {};
-	auto instance_state = GetInstanceStateShared(*db.instance.get());
-	auto &inst_config = instance_state->config;
-	inst_config.cache_type = "on_disk";
-	inst_config.cache_block_size = TEST_CHUNK_SIZE;
-	inst_config.max_file_handle_cache_entry = 1;
-	inst_config.on_disk_cache_directories = {cache_dir};
-	inst_config.enable_disk_reader_mem_cache = true;
-	SetInstanceState(*db.instance, instance_state);
-	InitializeCacheReaderForTest(instance_state, inst_config);
-
-	auto cache_filesystem = make_uniq<CacheFileSystem>(std::move(mock_filesystem), std::move(instance_state));
+	TestCacheConfig config;
+	config.internal_filesystem = std::move(mock_filesystem);
+	config.cache_type = *ON_DISK_CACHE_TYPE;
+	config.cache_block_size = TEST_CHUNK_SIZE;
+	config.cache_directories = {TEST_DIRECTORY};
+	config.enable_disk_reader_mem_cache = true;
+	TestCacheFileSystemHelper helper(std::move(config));
+	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// First read: cache miss, should fall through to mock filesystem.
 	{
@@ -74,7 +63,7 @@ TEST_CASE("Oversized filename caching roundtrip", "[disk_cache_util]") {
 	{
 		const auto limits = GetMaxFileNameLength();
 		vector<string> cached_files;
-		local_fs->ListFiles(cache_dir, [&](const string &fname, bool) { cached_files.emplace_back(fname); });
+		local_fs.ListFiles(TEST_DIRECTORY, [&](const string &fname, bool) { cached_files.emplace_back(fname); });
 		REQUIRE(cached_files.size() == 1);
 		REQUIRE(cached_files[0].length() <= limits.max_filename_len);
 	}
@@ -92,6 +81,4 @@ TEST_CASE("Oversized filename caching roundtrip", "[disk_cache_util]") {
 		auto read_ops = mock_fs_ptr->GetSortedReadOperations();
 		REQUIRE(read_ops.empty());
 	}
-
-	local_fs->RemoveDirectory(cache_dir);
 }

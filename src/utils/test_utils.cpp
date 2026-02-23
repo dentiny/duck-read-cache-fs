@@ -5,7 +5,7 @@
 
 namespace duckdb {
 
-TestCacheFileSystemHelper::TestCacheFileSystemHelper(const TestCacheConfig &config) : db() {
+TestCacheFileSystemHelper::TestCacheFileSystemHelper(TestCacheConfig config) : db() {
 	// Create and configure instance state
 	instance_state = make_shared_ptr<CacheHttpfsInstanceState>();
 
@@ -45,7 +45,9 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(const TestCacheConfig &conf
 
 	SetInstanceState(*db.instance.get(), instance_state);
 	InitializeCacheReaderForTest(instance_state, inst_config);
-	cache_fs = make_uniq<CacheFileSystem>(LocalFileSystem::CreateLocal(), instance_state);
+	auto internal_fs =
+	    config.internal_filesystem ? std::move(config.internal_filesystem) : LocalFileSystem::CreateLocal();
+	cache_fs = make_uniq<CacheFileSystem>(std::move(internal_fs), instance_state);
 }
 
 TestCacheFileSystemHelper::~TestCacheFileSystemHelper() {

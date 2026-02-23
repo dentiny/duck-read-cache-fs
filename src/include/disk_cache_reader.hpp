@@ -71,7 +71,7 @@ private:
 	std::once_flag cache_init_flag;
 	// LRU cache to store blocks; late initialized after first access.
 	// Used to avoid local disk IO.
-	// Keyed by the resolved local cache filepath (i.e. dest_local_filepath from ResolveLocalCacheDestination).
+	// NOTICE: cache key uses remote filepath, instead of local cache filepath.
 	unique_ptr<InMemCache> in_mem_cache_blocks;
 	// Instance state for config lookup.
 	weak_ptr<CacheHttpfsInstanceState> instance_state;
