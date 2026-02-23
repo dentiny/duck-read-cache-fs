@@ -10,6 +10,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "duckdb/main/database.hpp"
 #include "mock_filesystem.hpp"
+#include "scoped_directory.hpp"
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
@@ -18,9 +19,12 @@ using namespace duckdb; // NOLINT
 namespace {
 
 struct InMemoryCacheFilesystemFixture {
+	ScopedDirectory scoped_dir;
 	string test_filename;
-	InMemoryCacheFilesystemFixture() {
-		test_filename = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	InMemoryCacheFilesystemFixture()
+	    : scoped_dir(
+	          StringUtil::Format("/tmp/duckdb_test_in_memory_cache_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
 		auto local_filesystem = LocalFileSystem::CreateLocal();
 		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
@@ -28,9 +32,6 @@ struct InMemoryCacheFilesystemFixture {
 		                        TEST_FILE_SIZE, /*location=*/0);
 		file_handle->Sync();
 		file_handle->Close();
-	}
-	~InMemoryCacheFilesystemFixture() {
-		LocalFileSystem::CreateLocal()->RemoveFile(test_filename);
 	}
 };
 

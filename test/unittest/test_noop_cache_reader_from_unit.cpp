@@ -9,7 +9,7 @@
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "noop_cache_reader.hpp"
-#include "scope_guard.hpp"
+#include "scoped_directory.hpp"
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
@@ -18,9 +18,11 @@ using namespace duckdb; // NOLINT
 namespace {
 
 struct NoopCacheReaderFixture {
+	ScopedDirectory scoped_dir;
 	string test_filename;
-	NoopCacheReaderFixture() {
-		test_filename = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	NoopCacheReaderFixture()
+	    : scoped_dir(StringUtil::Format("/tmp/duckdb_test_noop_cache_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
 		auto local_filesystem = LocalFileSystem::CreateLocal();
 		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
@@ -28,9 +30,6 @@ struct NoopCacheReaderFixture {
 		                        TEST_FILE_SIZE, /*location=*/0);
 		file_handle->Sync();
 		file_handle->Close();
-	}
-	~NoopCacheReaderFixture() {
-		LocalFileSystem::CreateLocal()->RemoveFile(test_filename);
 	}
 };
 

@@ -16,9 +16,12 @@ using namespace duckdb; // NOLINT
 namespace {
 
 struct MultiDuckDBInstanceFixture {
+	ScopedDirectory scoped_dir;
 	string test_filename;
-	MultiDuckDBInstanceFixture() {
-		test_filename = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	MultiDuckDBInstanceFixture()
+	    : scoped_dir(
+	          StringUtil::Format("/tmp/duckdb_test_multi_instance_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
 		auto local_filesystem = LocalFileSystem::CreateLocal();
 		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
@@ -26,9 +29,6 @@ struct MultiDuckDBInstanceFixture {
 		                        TEST_FILE_SIZE, /*location=*/0);
 		file_handle->Sync();
 		file_handle->Close();
-	}
-	~MultiDuckDBInstanceFixture() {
-		LocalFileSystem::CreateLocal()->RemoveFile(test_filename);
 	}
 };
 

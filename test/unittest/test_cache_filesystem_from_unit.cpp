@@ -8,6 +8,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
+#include "scoped_directory.hpp"
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
@@ -16,24 +17,20 @@
 using namespace duckdb; // NOLINT
 
 namespace {
-const auto TEST_DIRECTORY = "/tmp/duckdb_test_cache";
 
 struct CacheFilesystemFixture {
+	ScopedDirectory scoped_dir;
 	string test_filename;
-	CacheFilesystemFixture() {
+	CacheFilesystemFixture()
+	    : scoped_dir(StringUtil::Format("/tmp/duckdb_test_cache_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
 		auto local_filesystem = LocalFileSystem::CreateLocal();
-		local_filesystem->RemoveDirectory(TEST_DIRECTORY);
-		local_filesystem->CreateDirectory(TEST_DIRECTORY);
-		test_filename = StringUtil::Format("/tmp/duckdb_test_cache/%s", UUID::ToString(UUID::GenerateRandomUUID()));
 		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 		local_filesystem->Write(*file_handle, const_cast<void *>(static_cast<const void *>(TEST_FILE_CONTENT.data())),
 		                        TEST_FILE_SIZE, /*location=*/0);
 		file_handle->Sync();
 		file_handle->Close();
-	}
-	~CacheFilesystemFixture() {
-		LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_DIRECTORY);
 	}
 };
 
@@ -65,7 +62,7 @@ TEST_CASE_METHOD(CacheFilesystemFixture, "Test glob operation", "[cache filesyst
 	}
 	// Glob by pattern.
 	{
-		auto open_file_info = cache_filesystem->Glob("/tmp/duckdb_test_cache/*");
+		auto open_file_info = cache_filesystem->Glob(StringUtil::Format("%s/*", scoped_dir.GetPath()));
 		REQUIRE(open_file_info.size() == 1);
 		REQUIRE(open_file_info[0].path == test_filename);
 	}

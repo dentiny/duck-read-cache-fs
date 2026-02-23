@@ -2,8 +2,11 @@
 
 #include "catch/catch.hpp"
 
-#include "duckdb/common/string.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/string.hpp"
+#include "duckdb/common/string_util.hpp"
+#include "duckdb/common/types/uuid.hpp"
+#include "scoped_directory.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
@@ -11,19 +14,20 @@ using namespace duckdb; // NOLINT
 namespace {
 
 const string TEST_CONTENT = "helloworld";
-const string TEST_FILEPATH = "/tmp/testfile";
 
 struct CacheStatsFixture {
-	CacheStatsFixture() {
+	ScopedDirectory scoped_dir;
+	string test_filepath;
+	CacheStatsFixture()
+	    : scoped_dir(
+	          StringUtil::Format("/tmp/duckdb_test_cache_stats_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filepath = StringUtil::Format("%s/testfile", scoped_dir.GetPath());
 		auto local_filesystem = LocalFileSystem::CreateLocal();
-		auto file_handle = local_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_WRITE |
+		auto file_handle = local_filesystem->OpenFile(test_filepath, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 		local_filesystem->Write(*file_handle, const_cast<char *>(TEST_CONTENT.data()), TEST_CONTENT.length(),
 		                        /*location=*/0);
 		file_handle->Sync();
-	}
-	~CacheStatsFixture() {
-		LocalFileSystem::CreateLocal()->RemoveFile(TEST_FILEPATH);
 	}
 };
 
@@ -50,7 +54,7 @@ TEST_CASE_METHOD(CacheStatsFixture, "Test cache stats collection disabled", "[pr
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// First access, there're no cache entries inside of cache filesystem.
-	[[maybe_unused]] auto file_handle_1 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
+	[[maybe_unused]] auto file_handle_1 = cache_filesystem->OpenFile(test_filepath, FileOpenFlags::FILE_FLAGS_READ);
 	auto &profiler = cache_filesystem->GetProfileCollector();
 	auto file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
@@ -58,7 +62,7 @@ TEST_CASE_METHOD(CacheStatsFixture, "Test cache stats collection disabled", "[pr
 	REQUIRE(file_handle_cache_info.cache_miss_by_in_use == 0);
 
 	// Second access, still cache miss, but indicate we should have bigger cache size.
-	[[maybe_unused]] auto file_handle_2 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
+	[[maybe_unused]] auto file_handle_2 = cache_filesystem->OpenFile(test_filepath, FileOpenFlags::FILE_FLAGS_READ);
 	auto &profiler2 = cache_filesystem->GetProfileCollector();
 	file_handle_cache_info = GetFileHandleCacheInfo(profiler2);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
@@ -75,7 +79,7 @@ TEST_CASE_METHOD(CacheStatsFixture, "Test cache stats collection", "[profile col
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// First access, there're no cache entries inside of cache filesystem.
-	[[maybe_unused]] auto file_handle_1 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
+	[[maybe_unused]] auto file_handle_1 = cache_filesystem->OpenFile(test_filepath, FileOpenFlags::FILE_FLAGS_READ);
 	auto &profiler = cache_filesystem->GetProfileCollector();
 	auto file_handle_cache_info = GetFileHandleCacheInfo(profiler);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
@@ -83,7 +87,7 @@ TEST_CASE_METHOD(CacheStatsFixture, "Test cache stats collection", "[profile col
 	REQUIRE(file_handle_cache_info.cache_miss_by_in_use == 0);
 
 	// Second access, still cache miss, but indicate we should have bigger cache size.
-	[[maybe_unused]] auto file_handle_2 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
+	[[maybe_unused]] auto file_handle_2 = cache_filesystem->OpenFile(test_filepath, FileOpenFlags::FILE_FLAGS_READ);
 	auto &profiler2 = cache_filesystem->GetProfileCollector();
 	file_handle_cache_info = GetFileHandleCacheInfo(profiler2);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 0);
@@ -93,7 +97,7 @@ TEST_CASE_METHOD(CacheStatsFixture, "Test cache stats collection", "[profile col
 	// Third access, place internal file handle back to file handle cache.
 	file_handle_1.reset();
 	file_handle_2.reset();
-	[[maybe_unused]] auto file_handle_3 = cache_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
+	[[maybe_unused]] auto file_handle_3 = cache_filesystem->OpenFile(test_filepath, FileOpenFlags::FILE_FLAGS_READ);
 	auto &profiler3 = cache_filesystem->GetProfileCollector();
 	file_handle_cache_info = GetFileHandleCacheInfo(profiler3);
 	REQUIRE(file_handle_cache_info.cache_hit_count == 1);

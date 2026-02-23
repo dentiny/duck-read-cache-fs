@@ -10,6 +10,7 @@
 #include "duckdb/main/database.hpp"
 #include "filesystem_utils.hpp"
 #include "scope_guard.hpp"
+#include "scoped_directory.hpp"
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
@@ -19,9 +20,12 @@ namespace {
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 
 struct DiskCacheValidationFixture {
+	ScopedDirectory scoped_dir;
 	string test_filename;
-	DiskCacheValidationFixture() {
-		test_filename = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	DiskCacheValidationFixture()
+	    : scoped_dir(StringUtil::Format("/tmp/duckdb_test_disk_cache_validation_%s",
+	                                    UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
 		auto local_filesystem = LocalFileSystem::CreateLocal();
 		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
@@ -29,9 +33,6 @@ struct DiskCacheValidationFixture {
 		                        TEST_FILE_SIZE, /*location=*/0);
 		file_handle->Sync();
 		file_handle->Close();
-	}
-	~DiskCacheValidationFixture() {
-		LocalFileSystem::CreateLocal()->RemoveFile(test_filename);
 	}
 };
 
@@ -97,6 +98,7 @@ TEST_CASE_METHOD(DiskCacheValidationFixture, "Test disk cache validation with ma
 	constexpr uint64_t test_block_size = 10;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	ValidationTestHelper helper(test_block_size, /*enable_validation=*/true);
 	const string test_version_tag = "version-1.0";
@@ -135,6 +137,7 @@ TEST_CASE_METHOD(DiskCacheValidationFixture, "Test disk cache validation with mi
 	constexpr uint64_t test_block_size = 10;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	ValidationTestHelper helper(test_block_size, /*enable_validation=*/true);
 	const string initial_version_tag = "version-1.0";
@@ -186,6 +189,7 @@ TEST_CASE_METHOD(DiskCacheValidationFixture, "Test disk cache validation with mi
 	constexpr uint64_t test_block_size = 10;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	// Create cache file without version tag (simulating old cache) by disabling validation
 	ValidationTestHelper helper(test_block_size, /*enable_validation=*/false);
@@ -237,6 +241,7 @@ TEST_CASE_METHOD(DiskCacheValidationFixture, "Test disk cache with validation di
 	constexpr uint64_t test_block_size = 10;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	ValidationTestHelper helper(test_block_size, /*enable_validation=*/false);
 	helper.SetVersionTag("version-1.0");

@@ -6,6 +6,7 @@
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "scoped_directory.hpp"
 #include "test_utils.hpp"
 
 #include <utime.h>
@@ -29,9 +30,12 @@ const auto LARGE_TEST_FILE_CONTENT = []() {
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 
 struct LargeFileDiskReaderFixture {
+	ScopedDirectory scoped_dir;
 	string test_filename;
-	LargeFileDiskReaderFixture() {
-		test_filename = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	LargeFileDiskReaderFixture()
+	    : scoped_dir(
+	          StringUtil::Format("/tmp/duckdb_test_large_file_disk_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
 		auto local_filesystem = LocalFileSystem::CreateLocal();
 		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
@@ -40,9 +44,6 @@ struct LargeFileDiskReaderFixture {
 		                        LARGE_TEST_FILE_SIZE, /*location=*/0);
 		file_handle->Sync();
 		file_handle->Close();
-	}
-	~LargeFileDiskReaderFixture() {
-		LocalFileSystem::CreateLocal()->RemoveFile(test_filename);
 	}
 };
 
@@ -53,6 +54,7 @@ TEST_CASE_METHOD(LargeFileDiskReaderFixture, "Read all bytes in one read operati
 	constexpr uint64_t test_block_size = 22; // Intentionally not a divisor of file size.
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
