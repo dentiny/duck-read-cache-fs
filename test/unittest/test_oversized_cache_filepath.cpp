@@ -96,7 +96,7 @@ TEST_CASE("Oversized filename caching roundtrip", "[disk_cache_util]") {
 
 	// In-memory disk cache cache is returned first.
 	REQUIRE(cache_entries_info[0].cache_type == "in-mem-disk-cache");
-	REQUIRE(cache_entries_info[0].remote_filename == oversized_file.filename);
+	REQUIRE(cache_entries_info[0].remote_filename == oversized_file.filepath);
 	REQUIRE(cache_entries_info[0].start_offset == 0);
 	REQUIRE(cache_entries_info[0].end_offset == TEST_FILESIZE);
 

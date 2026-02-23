@@ -18,6 +18,7 @@
 #include "filesystem_utils.hpp"
 #include "mock_filesystem.hpp"
 #include "scope_guard.hpp"
+#include "scoped_directory.hpp"
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
@@ -30,9 +31,11 @@ namespace {
 const auto TEST_ON_DISK_CACHE_DIRECTORY = "/tmp/duckdb_test_cache_httpfs_cache";
 
 struct DiskCacheFilesystemFixture {
+	ScopedDirectory scoped_dir;
 	string test_filename;
-	DiskCacheFilesystemFixture() {
-		test_filename = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	DiskCacheFilesystemFixture()
+	    : scoped_dir(StringUtil::Format("/tmp/duckdb_test_disk_cache_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filename = StringUtil::Format("%s/source_file", scoped_dir.GetPath());
 		auto local_filesystem = LocalFileSystem::CreateLocal();
 		auto file_handle = local_filesystem->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
@@ -40,9 +43,6 @@ struct DiskCacheFilesystemFixture {
 		                        TEST_FILE_SIZE, /*location=*/0);
 		file_handle->Sync();
 		file_handle->Close();
-	}
-	~DiskCacheFilesystemFixture() {
-		LocalFileSystem::CreateLocal()->RemoveFile(test_filename);
 	}
 };
 
@@ -64,8 +64,8 @@ private:
 
 // Test default directory works for uncached read.
 TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on default cache directory", "[on-disk cache filesystem test]") {
-	// Cleanup default cache directory before test.
 	LocalFileSystem::CreateLocal()->RemoveDirectory(GetDefaultOnDiskCacheDirectory());
+	ScopedDirectory scoped_default(GetDefaultOnDiskCacheDirectory());
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -94,6 +94,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture,
 	constexpr uint64_t test_block_size = 26;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -132,6 +133,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture,
 	constexpr uint64_t test_block_size = 5;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -168,6 +170,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on disk cache filesystem with
 	constexpr uint64_t test_block_size = 5;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -209,6 +212,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture,
 	constexpr uint64_t test_block_size = 5;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -247,6 +251,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on disk cache filesystem with
 	constexpr uint64_t test_block_size = 5;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -284,6 +289,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on disk cache filesystem with
 	constexpr uint64_t test_block_size = 5;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -327,6 +333,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on disk cache filesystem with
 	constexpr uint64_t test_block_size = 5;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -370,6 +377,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on disk cache filesystem no n
 	constexpr uint64_t test_block_size = 5;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -410,6 +418,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on disk cache filesystem no n
 
 TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on reading non-existent file", "[on-disk cache filesystem test]") {
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -424,11 +433,11 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on zero-byte cache file", "[o
 	constexpr uint64_t test_block_size = 5;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
-	const auto zero_byte_filename = StringUtil::Format("/tmp/%s", UUID::ToString(UUID::GenerateRandomUUID()));
-	SCOPE_EXIT {
-		LocalFileSystem::CreateLocal()->RemoveFile(zero_byte_filename);
-	};
+	ScopedDirectory scoped_zero_file_dir(
+	    StringUtil::Format("/tmp/duckdb_test_zero_byte_%s", UUID::ToString(UUID::GenerateRandomUUID())));
+	const auto zero_byte_filename = StringUtil::Format("%s/zero_file", scoped_zero_file_dir.GetPath());
 	{
 		auto local_filesystem = LocalFileSystem::CreateLocal();
 		auto file_handle = local_filesystem->OpenFile(
@@ -497,12 +506,12 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on concurrent access - disk c
 // Testing scenario: check timestamp-based eviction policy.
 TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on insufficient disk space", "[on-disk cache filesystem test]") {
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 	const uint64_t start_offset = 0;
 	const uint64_t bytes_to_read = TEST_FILE_SIZE;
 	string content(bytes_to_read, '\0');
 
 	// Create stale files, which should be deleted when insufficient disk space detected.
-	LocalFileSystem::CreateLocal()->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 	const string old_cache_file = StringUtil::Format("%s/file1", TEST_ON_DISK_CACHE_DIRECTORY);
 	{
 		auto file_handle = LocalFileSystem::CreateLocal()->OpenFile(
@@ -560,6 +569,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on file removal", "[on-disk c
 	constexpr uint64_t test_block_size = 5;
 
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	TestCacheConfig config;
 	config.cache_type = "on_disk";
@@ -591,7 +601,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on file removal", "[on-disk c
 // Testing scenario: check lru-based eviction policy.
 TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on lru eviction", "[on-disk cache filesystem test]") {
 	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
-	LocalFileSystem::CreateLocal()->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
 
 	const uint64_t start_offset = 0;
 	const uint64_t bytes_to_read = TEST_FILE_SIZE;
