@@ -128,7 +128,7 @@ install(
   EXPORT "${DUCKDB_EXPORT_SET}"
   LIBRARY DESTINATION "${INSTALL_LIB_DIR}")
 
-# Unit tests (single executable under test/unittest).
+# Unit tests
 add_subdirectory(test/unittest)
 
 # Benchmark

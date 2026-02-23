@@ -2,8 +2,11 @@
 
 #include "cache_filesystem.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/string_util.hpp"
+#include "duckdb/common/types/uuid.hpp"
 #include "duckdb/common/virtual_file_system.hpp"
 #include "hffs.hpp"
+#include "scoped_directory.hpp"
 #include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
@@ -11,19 +14,19 @@ using namespace duckdb; // NOLINT
 namespace {
 
 const std::string TEST_CONTENT = "helloworld";
-const std::string TEST_FILEPATH = "/tmp/testfile";
 
 struct BaseCacheFilesystemFixture {
-	BaseCacheFilesystemFixture() {
+	ScopedDirectory scoped_dir;
+	std::string test_filepath;
+	BaseCacheFilesystemFixture()
+	    : scoped_dir(StringUtil::Format("/tmp/duckdb_test_base_cache_%s", UUID::ToString(UUID::GenerateRandomUUID()))) {
+		test_filepath = StringUtil::Format("%s/testfile", scoped_dir.GetPath());
 		auto local_filesystem = LocalFileSystem::CreateLocal();
-		auto file_handle = local_filesystem->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_WRITE |
+		auto file_handle = local_filesystem->OpenFile(test_filepath, FileOpenFlags::FILE_FLAGS_WRITE |
 		                                                                 FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 		local_filesystem->Write(*file_handle, const_cast<char *>(TEST_CONTENT.data()), TEST_CONTENT.length(),
 		                        /*location=*/0);
 		file_handle->Sync();
-	}
-	~BaseCacheFilesystemFixture() {
-		LocalFileSystem::CreateLocal()->RemoveFile(TEST_FILEPATH);
 	}
 };
 
@@ -39,7 +42,7 @@ TEST_CASE_METHOD(BaseCacheFilesystemFixture, "Test cached filesystem CanHandle",
 	vfs->RegisterSubSystem(make_uniq<CacheFileSystem>(make_uniq<LocalFileSystem>(), std::move(instance_state)));
 
 	// VFS can handle local files with cached local filesystem.
-	auto file_handle = vfs->OpenFile(TEST_FILEPATH, FileOpenFlags::FILE_FLAGS_READ);
+	auto file_handle = vfs->OpenFile(test_filepath, FileOpenFlags::FILE_FLAGS_READ);
 	// Check casting success to make sure disk cache filesystem is selected,
 	// rather than the fallback local filesystem within virtual filesystem.
 	[[maybe_unused]] auto &cached_file_handle = file_handle->Cast<CacheFileSystemHandle>();

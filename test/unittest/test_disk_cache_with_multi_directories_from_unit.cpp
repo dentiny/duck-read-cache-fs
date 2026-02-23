@@ -13,7 +13,6 @@
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
-#include <memory>
 #include <utime.h>
 
 using namespace duckdb; // NOLINT
@@ -61,7 +60,7 @@ TEST_CASE_METHOD(DiskCacheMultiDirsFixture, "Test for cache directory config wit
 	vector<unique_ptr<ScopedDirectory>> scoped_cache_dirs;
 	scoped_cache_dirs.reserve(TEST_FILE_COUNT);
 	for (idx_t idx = 0; idx < TEST_FILE_COUNT; ++idx) {
-		scoped_cache_dirs.push_back(make_uniq<ScopedDirectory>(TEST_ON_DISK_CACHE_DIRECTORIES[idx]));
+		scoped_cache_dirs.emplace_back(make_uniq<ScopedDirectory>(TEST_ON_DISK_CACHE_DIRECTORIES[idx]));
 	}
 
 	TestCacheConfig config;
