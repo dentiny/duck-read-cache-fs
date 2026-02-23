@@ -12,6 +12,7 @@
 #include "cache_filesystem_config.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "cache_status_query_function.hpp"
+#include "disk_cache_util.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/opener_file_system.hpp"
@@ -91,6 +92,14 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 	}
 
 	result.Reference(Value(SUCCESS));
+}
+
+// Clean up dead temporary cache files (creation time older than 10 minutes). Returns the number of files deleted.
+void CleanupDeadTemp(const DataChunk &args, ExpressionState &state, Vector &result) {
+	auto &instance = GetDatabaseInstance(state);
+	auto &inst_state = GetInstanceStateOrThrow(instance);
+	const idx_t deleted = DiskCacheUtil::CleanupDeadTempFiles(inst_state.config.on_disk_cache_directories);
+	result.Reference(Value::BIGINT(NumericCast<int64_t>(deleted)));
 }
 
 // Get on-disk data cache file size for all cache filesystems.
@@ -508,6 +517,9 @@ void LoadInternal(ExtensionLoader &loader) {
 		local_fs->CreateDirectory(dir);
 	}
 
+	// Clean up dead temporary files (leftover from write-to-temp-then-swap) from previous runs.
+	DiskCacheUtil::CleanupDeadTempFiles(state->config.on_disk_cache_directories);
+
 	// When cache httpfs enabled, by default disable external file cache, otherwise double buffering.
 	// Users could re-enable by setting the config afterwards.
 	instance.config.options.enable_external_file_cache = false;
@@ -745,6 +757,11 @@ void LoadInternal(ExtensionLoader &loader) {
 	                                              /*arguments=*/ {LogicalTypeId::VARCHAR},
 	                                              /*return_type=*/LogicalTypeId::BOOLEAN, WrapCacheFileSystem);
 	loader.RegisterFunction(wrap_cache_filesystem_function);
+
+	// Register dead temporary cache file cleanup function.
+	ScalarFunction cleanup_dead_temp_function("cache_httpfs_cleanup_dead_temp", /*arguments=*/ {},
+	                                          /*return_type=*/LogicalType {LogicalTypeId::BIGINT}, CleanupDeadTemp);
+	loader.RegisterFunction(cleanup_dead_temp_function);
 
 	// Register on-disk data cache file size stat function.
 	ScalarFunction get_ondisk_data_cache_size_function("cache_httpfs_get_ondisk_data_cache_size", /*arguments=*/ {},

@@ -1,9 +1,17 @@
 #include "catch/catch.hpp"
 
 #include "disk_cache_util.hpp"
+#include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/common/types/uuid.hpp"
 #include "filesystem_utils.hpp"
 #include "hash_utils.hpp"
+#include "scoped_directory.hpp"
+
+#include <ctime>
+#if !defined(_WIN32)
+#include <utime.h>
+#endif
 
 using namespace duckdb;
 
@@ -99,3 +107,40 @@ TEST_CASE("ResolveLocalCacheDestination - oversized filepath triggers fallback",
 	REQUIRE_FALSE(result.file_attrs.empty());
 	REQUIRE(ReassembleFileAttrs(result.file_attrs) == local_cache_file);
 }
+
+#if !defined(_WIN32)
+TEST_CASE("CleanupDeadTempFiles deletes only stale temp files", "[disk_cache_util]") {
+	const string test_dir =
+	    StringUtil::Format("/tmp/test_disk_cache_util_%s", UUID::ToString(UUID::GenerateRandomUUID()));
+	ScopedDirectory dir(test_dir);
+	auto fs = LocalFileSystem::CreateLocal();
+
+	// Temp files use suffix .httpfs_local_cache
+	const string stale_path = StringUtil::Format("%s/stale.httpfs_local_cache", test_dir);
+	const string fresh_path = StringUtil::Format("%s/fresh.httpfs_local_cache", test_dir);
+
+	{
+		auto h1 = fs->OpenFile(stale_path, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		fs->Write(*h1, const_cast<char *>("a"), /*nr_bytes=*/1, /*location=*/0);
+		fs->FileSync(*h1);
+	}
+	{
+		auto h2 = fs->OpenFile(fresh_path, FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		fs->Write(*h2, const_cast<char *>("b"), /*nr_bytes=*/1, /*location=*/0);
+		fs->FileSync(*h2);
+	}
+
+	// Set stale_path mtime to 1 year ago to make it stale.
+	const time_t now = std::time(nullptr);
+	const time_t eleven_min_ago = now - 365 * 24 * 60 * 60;
+	struct utimbuf old_time;
+	old_time.actime = eleven_min_ago;
+	old_time.modtime = eleven_min_ago;
+	REQUIRE(utime(stale_path.c_str(), &old_time) == 0);
+
+	const idx_t deleted = DiskCacheUtil::CleanupDeadTempFiles({test_dir});
+	REQUIRE(deleted == 1);
+	REQUIRE(!fs->FileExists(stale_path));
+	REQUIRE(fs->FileExists(fresh_path));
+}
+#endif
