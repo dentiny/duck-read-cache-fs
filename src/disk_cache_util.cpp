@@ -49,6 +49,9 @@ string Sha256ToHexString(const hash_bytes &sha256) {
 	}
 	const idx_t cache_directory_idx = hash_value % cache_directories.size();
 	const auto &cur_cache_dir = cache_directories[cache_directory_idx];
+	if (StringUtil::EndsWith(cur_cache_dir, "/")) {
+		throw InternalException("Cache directory %s cannot ends with '/'", cur_cache_dir);
+	}
 
 	auto cache_filepath = StringUtil::Format("%s/%s-%s-%llu-%llu", cur_cache_dir, remote_file_sha256_str, fname,
 	                                         start_offset, bytes_to_read);
@@ -112,9 +115,8 @@ string Sha256ToHexString(const hash_bytes &sha256) {
 	local_filesystem.TryRemoveFile(filepath_to_evict);
 }
 
-/*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &remote_filepath, const string &cache_directory,
-                                        const string &local_cache_file, const string &content,
-                                        const string &version_tag, const InstanceConfig &config,
+/*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory, const string &local_cache_file,
+                                        const string &content, const string &version_tag, const InstanceConfig &config,
                                         const std::function<string()> &lru_eviction_decider) {
 	LocalFileSystem local_filesystem {};
 
@@ -127,10 +129,10 @@ string Sha256ToHexString(const hash_bytes &sha256) {
 		return;
 	}
 
-	// Dump to a temporary location at local filesystem.
-	const auto fname = StringUtil::GetFileName(remote_filepath);
-	const auto local_temp_file = StringUtil::Format("%s/%s.%s.httpfs_local_cache", cache_directory, fname,
-	                                                UUID::ToString(UUID::GenerateRandomUUID()));
+	// Dump to a unique temporary location at local filesystem, since there could be multiple processes writing cache
+	// file for the same remote file.
+	const auto local_temp_file =
+	    StringUtil::Format("%s.%s.httpfs_local_cache", local_cache_file, UUID::ToString(UUID::GenerateRandomUUID()));
 	{
 		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
 		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
