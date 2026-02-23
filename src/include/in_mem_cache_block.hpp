@@ -11,6 +11,7 @@
 namespace duckdb {
 
 struct InMemCacheBlock {
+	// Remote filepath.
 	string fname;
 	idx_t start_off = 0;
 	idx_t blk_size = 0;

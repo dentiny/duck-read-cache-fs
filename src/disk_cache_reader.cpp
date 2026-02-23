@@ -105,7 +105,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	const auto &cache_directory = config.on_disk_cache_directories[cache_file.cache_directory_idx];
 	auto cache_dest = DiskCacheUtil::ResolveLocalCacheDestination(cache_directory, cache_file.cache_filepath);
 
-	const InMemCacheBlock block_key {cache_dest.dest_local_filepath, cache_read_chunk.aligned_start_offset,
+	const InMemCacheBlock block_key {handle.GetPath(), cache_read_chunk.aligned_start_offset,
 	                                 cache_read_chunk.chunk_size};
 
 	// Attempt in-memory cache first, so potentially we don't need to access disk storage.
