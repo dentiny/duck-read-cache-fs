@@ -8,6 +8,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "utils/include/filesystem_utils.hpp"
+#include "utils/include/hash_utils.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/url_utils.hpp"
 
@@ -15,31 +16,30 @@ namespace duckdb {
 
 namespace {
 
-string Sha256ToHexString(const hash_bytes &sha256) {
-	static constexpr char kHexChars[] = "0123456789abcdef";
-	string result;
-	// SHA256 has 32 byte, we encode 2 chars for each byte of SHA256.
-	result.reserve(64);
-
-	for (unsigned char byte : sha256) {
-		result += kHexChars[byte >> 4];  // Get high 4 bits
-		result += kHexChars[byte & 0xF]; // Get low 4 bits
-	}
-	return result;
+// Get temporary cache filepath from the destination cache filepath.
+string GetTempCacheFilePath(const string &cache_filepath) {
+	// Dump to a unique temporary location at local filesystem, since there could be multiple processes writing cache
+	// file for the same remote file.
+	return StringUtil::Format("%s.%s.httpfs_local_cache", cache_filepath, UUID::ToString(UUID::GenerateRandomUUID()));
 }
+
+// xattr key prefix for storing chunked original cache filepath.
+// Zero-padded indices (e.g. .001, .002) ensure lexicographic sort matches chunk order.
+constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_filepath";
 
 } // namespace
 
-DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vector<string> &cache_directories,
-                                                                     const string &remote_file, idx_t start_offset,
-                                                                     idx_t bytes_to_read) {
+/*static*/ DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vector<string> &cache_directories,
+                                                                                const string &remote_file,
+                                                                                idx_t start_offset,
+                                                                                idx_t bytes_to_read) {
 	D_ASSERT(!cache_directories.empty());
 
 	const SanitizedCachePath cache_key {remote_file};
 	duckdb::hash_bytes remote_file_sha256_val;
 	static_assert(sizeof(remote_file_sha256_val) == 32);
 	duckdb::sha256(cache_key.Path().data(), cache_key.Path().length(), remote_file_sha256_val);
-	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
+	const string remote_file_sha256_str = GetSha256(cache_key.Path());
 	const string fname = StringUtil::GetFileName(cache_key.Path());
 
 	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
@@ -61,7 +61,7 @@ DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vecto
 	};
 }
 
-DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &fname) {
+/*static*/ DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &fname) {
 	// [fname] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
 	vector<string> tokens = StringUtil::Split(fname, "-");
 	D_ASSERT(tokens.size() >= 4);
@@ -86,7 +86,7 @@ DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &fna
 	};
 }
 
-string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
+/*static*/ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
 	const SanitizedCachePath cache_key {remote_file};
 	duckdb::hash_bytes remote_file_sha256_val;
 	duckdb::sha256(cache_key.Path().data(), cache_key.Path().length(), remote_file_sha256_val);
@@ -96,9 +96,9 @@ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
 	return StringUtil::Format("%s-%s", remote_file_sha256_str, fname);
 }
 
-void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
-                                    const string &eviction_policy,
-                                    const std::function<string()> &lru_eviction_decider) {
+/*static*/ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
+                                               const string &eviction_policy,
+                                               const std::function<string()> &lru_eviction_decider) {
 	// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
 	// because on unix platform files are only deleted physically when their last reference count goes away.
 	//
@@ -115,9 +115,10 @@ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &
 	local_filesystem.TryRemoveFile(filepath_to_evict);
 }
 
-void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory, const string &local_cache_file,
-                                        const string &content, const string &version_tag, const InstanceConfig &config,
-                                        const std::function<string()> &lru_eviction_decider) {
+/*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory, const string &local_cache_file,
+                                                   const string &content, const string &version_tag,
+                                                   const InstanceConfig &config,
+                                                   const std::function<string()> &lru_eviction_decider) {
 	LocalFileSystem local_filesystem {};
 
 	// Skip local cache if insufficient disk space.
@@ -131,8 +132,7 @@ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory, const str
 
 	// Dump to a unique temporary location at local filesystem, since there could be multiple processes writing cache
 	// file for the same remote file.
-	const auto local_temp_file =
-	    StringUtil::Format("%s.%s.httpfs_local_cache", local_cache_file, UUID::ToString(UUID::GenerateRandomUUID()));
+	const auto local_temp_file = GetTempCacheFilePath(local_cache_file);
 	{
 		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
 		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
@@ -159,8 +159,9 @@ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory, const str
 	}
 }
 
-DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size,
-                                                                      bool use_direct_io, const string &version_tag) {
+/*static*/ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath,
+                                                                                 idx_t chunk_size, bool use_direct_io,
+                                                                                 const string &version_tag) {
 	auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
 	if (use_direct_io) {
 		file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
@@ -193,7 +194,7 @@ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const stri
 	};
 }
 
-bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string &version_tag) {
+/*static*/ bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string &version_tag) {
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;
@@ -205,6 +206,48 @@ bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string
 		return false;
 	}
 	return cached_version_tag == version_tag;
+}
+
+/*static*/ DiskCacheUtil::LocalCacheDestination
+DiskCacheUtil::GetLocalCacheDestination(const string &cache_directory, const string &local_cache_file) {
+	if (StringUtil::EndsWith(cache_directory, "/")) {
+		throw InvalidInputException("Cache directory %s cannot ends with '/'", cache_directory);
+	}
+
+	const auto filepath_limit = GetMaxFileNameLength();
+	auto local_temp_filepath = GetTempCacheFilePath(local_cache_file);
+	auto local_temp_filename = StringUtil::GetFileName(local_temp_filepath);
+
+	// If there's no oversized filepath or filename, no special handling.
+	if (local_temp_filename.length() <= filepath_limit.max_filename_len &&
+	    local_temp_filepath.length() <= filepath_limit.max_filepath_len) {
+		LocalCacheDestination local_cache_dest;
+		local_cache_dest.dest_local_filepath = local_cache_file;
+		local_cache_dest.temp_local_filepath = std::move(local_temp_filepath);
+		return local_cache_dest;
+	}
+
+	// Otherwise, special handle oversized filepath and filename: use the hash value as filename.
+	auto local_cache_filepath_sha256 = GetSha256(local_cache_file);
+	LocalCacheDestination local_cache_dest;
+	local_cache_dest.dest_local_filepath = StringUtil::Format("%s/%s", cache_directory, local_cache_filepath_sha256);
+	local_cache_dest.temp_local_filepath = GetTempCacheFilePath(local_cache_dest.dest_local_filepath);
+
+	// Store the original cache filepath in file attributes as chunked entries, since xattr values have
+	// platform-specific size limits.
+	const idx_t max_xattr_val_size = GetMaxXattrValueSize();
+	const idx_t filepath_len = local_cache_file.length();
+	const idx_t chunk_count = (filepath_len + max_xattr_val_size - 1) / max_xattr_val_size;
+
+	local_cache_dest.file_attrs.reserve(chunk_count);
+	for (idx_t idx = 0; idx < chunk_count; ++idx) {
+		const idx_t offset = idx * max_xattr_val_size;
+		const idx_t len = MinValue(max_xattr_val_size, filepath_len - offset);
+		const string key = StringUtil::Format("%s.%03llu", CACHE_FILEPATH_ATTR_PREFIX, idx);
+		local_cache_dest.file_attrs[key] = local_cache_file.substr(offset, len);
+	}
+
+	return local_cache_dest;
 }
 
 } // namespace duckdb

@@ -8,11 +8,15 @@
 
 #if !defined(_WIN32)
 #include <cerrno>
+#include <climits>
 #include <cstring>
 #include <cstdlib>
 #include <utime.h>
 #include <sys/statvfs.h>
 #include <sys/xattr.h>
+#if defined(__linux__)
+#include <linux/xattr.h> // XATTR_SIZE_MAX
+#endif
 #else
 #include <windows.h>
 #endif
@@ -325,6 +329,36 @@ idx_t GetFileSystemPageSize() {
 
 #else
 	return 4096; // conservative fallback
+#endif
+}
+
+MaxFileNameLength GetMaxFileNameLength() {
+	MaxFileNameLength result;
+#if defined(_WIN32)
+	result.max_filepath_len = MAX_PATH; // 260
+	result.max_filename_len = 255;
+#elif defined(__APPLE__)
+	result.max_filepath_len = PATH_MAX; // 1024
+	result.max_filename_len = NAME_MAX; // 255
+#else
+	result.max_filepath_len = PATH_MAX; // 4096
+	result.max_filename_len = NAME_MAX; // 255
+#endif
+	return result;
+}
+
+idx_t GetMaxXattrValueSize() {
+#if defined(_WIN32)
+	// Windows ADS has no fixed small-size limit; no platform constant available.
+	return 65536;
+#elif defined(__APPLE__)
+	// XATTR_MAXSIZE is defined in <sys/xattr.h> as INT32_MAX on macOS.
+	return static_cast<idx_t>(XATTR_MAXSIZE);
+#elif defined(XATTR_SIZE_MAX)
+	// XATTR_SIZE_MAX is defined in <linux/xattr.h>; 65536 on ext2/3/4.
+	return static_cast<idx_t>(XATTR_SIZE_MAX);
+#else
+	return 65536;
 #endif
 }
 

@@ -5,6 +5,7 @@
 
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 
 #include <cstdint>
@@ -65,6 +66,19 @@ public:
 	// Attempt to open, validate, and read a local cache file.
 	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size, bool use_direct_io,
 	                                               const string &version_tag);
+
+	struct LocalCacheDestination {
+		// Local filepath.
+		string dest_local_filepath;
+		// Temporary local filepath (persisting local cache files are implemented by swapping temp files).
+		string temp_local_filepath;
+		// File attributes, which will be assigned for oversized filepath or filename.
+		unordered_map<string, string> file_attrs;
+	};
+
+	// Util function to get local cache destination, which handles oversized filepath and filename.
+	static LocalCacheDestination GetLocalCacheDestination(const string &cache_directory,
+	                                                      const string &local_cache_file);
 
 private:
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
