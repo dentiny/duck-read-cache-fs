@@ -92,6 +92,8 @@ public:
 	int64_t GetFileSize(FileHandle &handle) override;
 	// Get last modification timestamp, which attempts to get metadata cache if possible.
 	timestamp_t GetLastModifiedTime(FileHandle &handle) override;
+	// Get file metadata.
+	FileMetadata Stats(FileHandle &handle) override;
 	// Get the internal filesystem for cache filesystem.
 	FileSystem *GetInternalFileSystem() const {
 		return internal_filesystem.get();
@@ -224,14 +226,6 @@ protected:
 private:
 	friend class CacheFileSystemHandle;
 
-	struct FileMetadata {
-		constexpr static int64_t CACHE_HTTPFS_INVALID_FILE_SIZE = -1;
-		constexpr static timestamp_t CACHE_HTTPFS_INVALID_MODIFICATION_TIME = static_cast<timestamp_t>(-1);
-
-		int64_t file_size = CACHE_HTTPFS_INVALID_FILE_SIZE;
-		timestamp_t last_modification_time = CACHE_HTTPFS_INVALID_MODIFICATION_TIME;
-	};
-
 	struct FileHandleCacheKey {
 		string path;
 		FileOpenFlags flags; // flags have parallel access enabled.
@@ -262,15 +256,8 @@ private:
 	// Create cache file handle.
 	unique_ptr<FileHandle> CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle);
 
-	// Stat the current file handle, and get all well-known file attributes.
-	//
-	// A better implementation is duckdb filesystem natively provides a `Stats` function call, so we could built
-	// metadata caching layer upon; here to simplify implementation, we simply fetch all well-known attributes in one
-	// function call together.
-	//
-	// Performance-wise it might not be too much of a concern, because the most widely-used httpfs file handle already
-	// has its internal cache.
-	shared_ptr<FileMetadata> Stats(FileHandle &handle);
+	// Fallback method (if `Stats` is not supported) to get file metadata by calling getting file size and last modification time separately.
+	FileMetadata GetMetadataFallback(FileHandle &handle);
 
 	// Read from [location] on [nr_bytes] for the given [handle] into [buffer].
 	// Return the actual number of bytes to read.

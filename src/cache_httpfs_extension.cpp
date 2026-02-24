@@ -522,7 +522,7 @@ void LoadInternal(ExtensionLoader &loader) {
 
 	// When cache httpfs enabled, by default disable external file cache, otherwise double buffering.
 	// Users could re-enable by setting the config afterwards.
-	instance.config.options.enable_external_file_cache = false;
+	instance.config.SetOptionByName("enable_external_file_cache", false);
 	instance.GetExternalFileCache().SetEnabled(false);
 
 	// To achieve full compatibility for duckdb-httpfs extension, all related functions/types/... should be supported,

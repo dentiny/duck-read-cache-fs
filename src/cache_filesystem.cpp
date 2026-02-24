@@ -4,6 +4,7 @@
 #include "cache_filesystem_config.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
+#include "duckdb/common/exception.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "temp_profile_collector.hpp"
@@ -273,17 +274,45 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 	return make_uniq<CacheFileSystemHandle>(std::move(internal_file_handle), *this, std::move(dtor_callback));
 }
 
-shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &handle) {
+FileMetadata CacheFileSystem::Stats(FileHandle &handle) {
+	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+
+	// Stat without cache involved.
+	if (metadata_cache == nullptr) {
+		return internal_filesystem->Stats(*disk_cache_handle.internal_file_handle);
+	}
+
+	// Stat with cache.
+	bool metadata_cache_hit = true;
+	const SanitizedCachePath cache_key {disk_cache_handle.internal_file_handle->GetPath()};
+	auto metadata = metadata_cache->GetOrCreate(
+	    cache_key, [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
+		    metadata_cache_hit = false;
+		    // Try Stats() first, fallback to GetMetadataFallback() if not supported.
+		    try {
+			    return make_shared_ptr<FileMetadata>(
+			        internal_filesystem->Stats(*disk_cache_handle.internal_file_handle));
+		    } catch (const NotImplementedException &) {
+			    return make_shared_ptr<FileMetadata>(
+			        GetMetadataFallback(*disk_cache_handle.internal_file_handle));
+		    }
+	    });
+	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
+	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	return *metadata;
+}
+
+FileMetadata CacheFileSystem::GetMetadataFallback(FileHandle &internal_handle) {
 	// Get file size.
-	const int64_t file_size = internal_filesystem->GetFileSize(handle);
+	const int64_t file_size = internal_filesystem->GetFileSize(internal_handle);
 
 	// Get last modification timestamp.
-	const timestamp_t last_modification_time = internal_filesystem->GetLastModifiedTime(handle);
+	const timestamp_t last_modification_time = internal_filesystem->GetLastModifiedTime(internal_handle);
 
 	FileMetadata file_metadata;
 	file_metadata.file_size = file_size;
 	file_metadata.last_modification_time = last_modification_time;
-	return make_shared_ptr<FileMetadata>(std::move(file_metadata));
+	return file_metadata;
 }
 
 vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *opener) {
@@ -454,7 +483,14 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	auto metadata = metadata_cache->GetOrCreate(
 	    cache_key, [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		    metadata_cache_hit = false;
-		    return Stats(*disk_cache_handle.internal_file_handle);
+		    // Try Stats() first, fallback to GetMetadataFallback() if not supported.
+		    try {
+			    return make_shared_ptr<FileMetadata>(
+			        internal_filesystem->Stats(*disk_cache_handle.internal_file_handle));
+		    } catch (const NotImplementedException &) {
+			    return make_shared_ptr<FileMetadata>(
+			        GetMetadataFallback(*disk_cache_handle.internal_file_handle));
+		    }
 	    });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
 	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
@@ -474,7 +510,14 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 	auto metadata = metadata_cache->GetOrCreate(
 	    cache_key, [this, &disk_cache_handle, &metadata_cache_hit](const string & /*unused*/) {
 		    metadata_cache_hit = false;
-		    return Stats(*disk_cache_handle.internal_file_handle);
+		    // Try Stats() first, fallback to GetMetadataFallback() if not supported.
+		    try {
+			    return make_shared_ptr<FileMetadata>(
+			        internal_filesystem->Stats(*disk_cache_handle.internal_file_handle));
+		    } catch (const NotImplementedException &) {
+			    return make_shared_ptr<FileMetadata>(
+			        GetMetadataFallback(*disk_cache_handle.internal_file_handle));
+		    }
 	    });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
 	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
