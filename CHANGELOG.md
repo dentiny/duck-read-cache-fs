@@ -1,6 +1,34 @@
-# 0.12.5
+# 0.13.0
 
 ## Fixed
+
+- Fanout configuration is correctly passed down ([#410])
+
+[#410]: https://github.com/dentiny/duck-read-cache-fs/pull/410
+
+- URL query parameters are no longer stored as part of the cache key, which reduces duplicate caching ([#415])
+
+[#415]: https://github.com/dentiny/duck-read-cache-fs/pull/415
+
+- Fix cache directory suffix handling ([#420])
+
+[#420]: https://github.com/dentiny/duck-read-cache-fs/pull/420
+
+- Properly handled over-lengthy remote filepath, so it doesn't crash the process ([#431], [#432], [#433])
+
+[#431]: https://github.com/dentiny/duck-read-cache-fs/pull/431
+[#432]: https://github.com/dentiny/duck-read-cache-fs/pull/432
+[#433]: https://github.com/dentiny/duck-read-cache-fs/pull/433
+
+## Improved
+
+- Provide scalar function to cleanup dead temporary cache files ([#435])
+
+[#435]: https://github.com/dentiny/duck-read-cache-fs/pull/435
+
+# 0.12.5
+
+## Changed
 
 - Update extension-ci-tools and duckdb-httpfs to latest
 
