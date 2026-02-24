@@ -13,7 +13,7 @@
 #include "duckdb/main/client_context.hpp"
 #include "exclusive_multi_lru_cache.hpp"
 #include "mutex.hpp"
-#include "shared_lru_cache.hpp"
+#include "shared_value_lru_cache.hpp"
 #include "thread_annotation.hpp"
 
 #include <functional>
@@ -308,7 +308,7 @@ private:
 	// Refer to [CacheHttpfsInstanceState] for thread-safety guarentee.
 	std::reference_wrapper<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.
-	using MetadataCache = ThreadSafeSharedLruConstCache<string, FileMetadata>;
+	using MetadataCache = ThreadSafeSharedValueLruConstCache<string, FileMetadata>;
 	unique_ptr<MetadataCache> metadata_cache;
 	// File handle cache, which maps from file path to uncached file handle.
 	// Cache is used here to avoid HEAD HTTP request on read operations.
@@ -321,7 +321,7 @@ private:
 	    ThreadSafeCounter<FileHandleCacheKey, FileHandleCacheKeyHash, FileHandleCacheKeyEqual>;
 	shared_ptr<InUseFileHandleCounter> in_use_file_handle_counter;
 	// Glob cache, which maps from path to filenames.
-	using GlobCache = ThreadSafeSharedLruConstCache<string, vector<OpenFileInfo>>;
+	using GlobCache = ThreadSafeSharedValueLruConstCache<string, vector<OpenFileInfo>>;
 	unique_ptr<GlobCache> glob_cache;
 	// Per-instance state (shared ownership keeps state alive until all CacheFileSystems are destroyed)
 	weak_ptr<CacheHttpfsInstanceState> instance_state;

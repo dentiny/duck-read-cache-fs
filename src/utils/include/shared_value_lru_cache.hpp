@@ -1,5 +1,5 @@
-// SharedLruCache is a LRU cache, with all entries shared, which allows each key value pair could be read from multiple
-// requests.
+// SharedValueLruCache is a LRU cache, with all entries shared, which allows each key value pair could be read from
+// multiple requests.
 //
 // It's made for values which are expensive to copy, so we use shared pointer wrapper for all values.
 
@@ -26,7 +26,7 @@
 namespace duckdb {
 
 template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
-class SharedLruCache {
+class SharedValueLruCache {
 public:
 	using key_type = Key;
 	using mapped_type = shared_ptr<Val>;
@@ -36,15 +36,15 @@ public:
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
 	// means no timeout.
-	SharedLruCache(size_t max_entries_p, uint64_t timeout_millisec_p)
+	SharedValueLruCache(size_t max_entries_p, uint64_t timeout_millisec_p)
 	    : max_entries(max_entries_p), timeout_millisec(timeout_millisec_p) {
 	}
 
 	// Disable copy and move.
-	SharedLruCache(const SharedLruCache &) = delete;
-	SharedLruCache &operator=(const SharedLruCache &) = delete;
+	SharedValueLruCache(const SharedValueLruCache &) = delete;
+	SharedValueLruCache &operator=(const SharedValueLruCache &) = delete;
 
-	~SharedLruCache() = default;
+	~SharedValueLruCache() = default;
 
 	// Insert `value` with key `key`. This will replace any previous entry with the same key.
 	void Put(Key key, shared_ptr<Val> value) {
@@ -169,15 +169,15 @@ private:
 	std::list<Key> lru_list;
 };
 
-// Same interfaces as `SharedLruCache`, but all cached values are `const` specified to avoid concurrent updates.
+// Same interfaces as `SharedValueLruCache`, but all cached values are `const` specified to avoid concurrent updates.
 template <typename K, typename V, typename KeyHash = std::hash<K>, typename KeyEqual = std::equal_to<K>>
-using SharedLruConstCache = SharedLruCache<K, const V, KeyHash, KeyEqual>;
+using SharedValueLruConstCache = SharedValueLruCache<K, const V, KeyHash, KeyEqual>;
 
 // Thread-safe implementation.
 template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
-class ThreadSafeSharedLruCache {
+class ThreadSafeSharedValueLruCache {
 public:
-	using lru_impl = SharedLruCache<Key, Val, KeyHash, KeyEqual>;
+	using lru_impl = SharedValueLruCache<Key, Val, KeyHash, KeyEqual>;
 	using key_type = typename lru_impl::key_type;
 	using mapped_type = typename lru_impl::mapped_type;
 	using hasher = typename lru_impl::hasher;
@@ -186,15 +186,15 @@ public:
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
 	// means no timeout.
-	ThreadSafeSharedLruCache(size_t max_entries, uint64_t timeout_millisec)
+	ThreadSafeSharedValueLruCache(size_t max_entries, uint64_t timeout_millisec)
 	    : internal_cache(max_entries, timeout_millisec) {
 	}
 
 	// Disable copy and move.
-	ThreadSafeSharedLruCache(const ThreadSafeSharedLruCache &) = delete;
-	ThreadSafeSharedLruCache &operator=(const ThreadSafeSharedLruCache &) = delete;
+	ThreadSafeSharedValueLruCache(const ThreadSafeSharedValueLruCache &) = delete;
+	ThreadSafeSharedValueLruCache &operator=(const ThreadSafeSharedValueLruCache &) = delete;
 
-	~ThreadSafeSharedLruCache() = default;
+	~ThreadSafeSharedValueLruCache() = default;
 
 	// Insert `value` with key `key`. This will replace any previous entry with the same key.
 	void Put(Key key, shared_ptr<Val> value) {
@@ -305,13 +305,13 @@ private:
 	};
 
 	mutable concurrency::mutex mu;
-	SharedLruCache<Key, Val, KeyHash, KeyEqual> internal_cache DUCKDB_GUARDED_BY(mu);
+	SharedValueLruCache<Key, Val, KeyHash, KeyEqual> internal_cache DUCKDB_GUARDED_BY(mu);
 	// Ongoing creation.
 	unordered_map<Key, shared_ptr<CreationToken>, KeyHash, KeyEqual> ongoing_creation DUCKDB_GUARDED_BY(mu);
 };
 
-// Same interfaces as `SharedLruCache`, but all cached values are `const` specified to avoid concurrent updates.
+// Same interfaces as `SharedValueLruCache`, but all cached values are `const` specified to avoid concurrent updates.
 template <typename K, typename V, typename KeyHash = std::hash<K>, typename KeyEqual = std::equal_to<K>>
-using ThreadSafeSharedLruConstCache = ThreadSafeSharedLruCache<K, const V, KeyHash, KeyEqual>;
+using ThreadSafeSharedValueLruConstCache = ThreadSafeSharedValueLruCache<K, const V, KeyHash, KeyEqual>;
 
 } // namespace duckdb

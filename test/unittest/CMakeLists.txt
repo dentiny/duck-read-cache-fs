@@ -41,7 +41,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_read_exception_propagation.cpp
     test_scoped_directory.cpp
     test_set_extension_config_from_unit.cpp
-    test_shared_lru_cache.cpp
+    test_shared_value_lru_cache.cpp
     test_size_literals.cpp
     test_thread_pool.cpp
     test_url_utils.cpp

@@ -7,7 +7,7 @@
 #include <tuple>
 
 #include "duckdb/common/string.hpp"
-#include "shared_lru_cache.hpp"
+#include "shared_value_lru_cache.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -28,8 +28,8 @@ struct MapKeyHash {
 };
 } // namespace
 
-TEST_CASE("SharedLru PutAndGetSameKey", "[shared lru test]") {
-	ThreadSafeSharedLruCache<std::string, std::string> cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
+TEST_CASE("SharedValueLru PutAndGetSameKey", "[shared value lru test]") {
+	ThreadSafeSharedValueLruCache<std::string, std::string> cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
 
 	// No value initially.
 	auto val = cache.Get("1");
@@ -56,9 +56,9 @@ TEST_CASE("SharedLru PutAndGetSameKey", "[shared lru test]") {
 	REQUIRE(val == nullptr);
 }
 
-TEST_CASE("SharedLru CustomizedStruct", "[shared lru test]") {
-	ThreadSafeSharedLruCache<MapKey, std::string, MapKeyHash, MapKeyEqual> cache {/*max_entries_p=*/1,
-	                                                                              /*timeout_millisec_p=*/0};
+TEST_CASE("SharedValueLru CustomizedStruct", "[shared value lru test]") {
+	ThreadSafeSharedValueLruCache<MapKey, std::string, MapKeyHash, MapKeyEqual> cache {/*max_entries_p=*/1,
+	                                                                                   /*timeout_millisec_p=*/0};
 	MapKey key;
 	key.fname = "hello";
 	key.off = 10;
@@ -72,8 +72,8 @@ TEST_CASE("SharedLru CustomizedStruct", "[shared lru test]") {
 	REQUIRE(*val == "world");
 }
 
-TEST_CASE("SharedLru Clear with filter", "[shared lru test]") {
-	ThreadSafeSharedLruCache<std::string, std::string> cache {/*max_entries_p=*/3, /*timeout_millisec_p=*/0};
+TEST_CASE("SharedValueLru Clear with filter", "[shared value lru test]") {
+	ThreadSafeSharedValueLruCache<std::string, std::string> cache {/*max_entries_p=*/3, /*timeout_millisec_p=*/0};
 	cache.Put("key1", make_shared_ptr<std::string>("val1"));
 	cache.Put("key2", make_shared_ptr<std::string>("val2"));
 	cache.Put("key3", make_shared_ptr<std::string>("val3"));
@@ -91,8 +91,8 @@ TEST_CASE("SharedLru Clear with filter", "[shared lru test]") {
 	REQUIRE(val == nullptr);
 }
 
-TEST_CASE("SharedLru GetOrCreate", "[shared lru test]") {
-	using CacheType = ThreadSafeSharedLruCache<std::string, std::string>;
+TEST_CASE("SharedValueLru GetOrCreate", "[shared value lru test]") {
+	using CacheType = ThreadSafeSharedValueLruCache<std::string, std::string>;
 
 	std::atomic<bool> invoked = {false}; // Used to check only invoke once.
 	auto factory = [&invoked](const std::string &key) -> shared_ptr<std::string> {
@@ -125,8 +125,8 @@ TEST_CASE("SharedLru GetOrCreate", "[shared lru test]") {
 	REQUIRE(*cached_val == key);
 }
 
-TEST_CASE("SharedLru Put and get with timeout", "[shared lru test]") {
-	using CacheType = ThreadSafeSharedLruCache<std::string, std::string>;
+TEST_CASE("SharedValueLru Put and get with timeout", "[shared value lru test]") {
+	using CacheType = ThreadSafeSharedValueLruCache<std::string, std::string>;
 
 	CacheType cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/500};
 	cache.Put("key", make_shared_ptr<std::string>("val"));
