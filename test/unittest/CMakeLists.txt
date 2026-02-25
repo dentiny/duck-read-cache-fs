@@ -43,6 +43,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_set_extension_config_from_unit.cpp
     test_shared_value_lru_cache.cpp
     test_size_literals.cpp
+    test_stats_cache.cpp
     test_thread_pool.cpp
     test_url_utils.cpp
     test_utils.cpp)

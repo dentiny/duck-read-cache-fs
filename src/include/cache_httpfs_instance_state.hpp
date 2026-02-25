@@ -157,6 +157,10 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 		return OBJECT_TYPE;
 	}
 
+	optional_idx GetEstimatedCacheMemory() const override {
+		return optional_idx {};
+	}
+
 	// Get profile collector reference
 	BaseProfileCollector &GetProfileCollector();
 	// Reset profile collector.

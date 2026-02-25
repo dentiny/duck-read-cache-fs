@@ -14,6 +14,7 @@
 #include "filesystem_utils.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "scoped_directory.hpp"
+#include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -74,6 +75,7 @@ TEST_CASE_METHOD(SetExtensionConfigFixture, "Test on changing extension config c
 	auto instance_state = make_shared_ptr<CacheHttpfsInstanceState>();
 	instance_state->config.cache_type = *ON_DISK_CACHE_TYPE;
 	SetInstanceState(*instance, instance_state);
+	InitializeCacheReaderForTest(instance_state, instance_state->config);
 
 	auto local_fs = LocalFileSystem::CreateLocal();
 	local_fs->CreateDirectory(test_on_disk_cache_directory);
