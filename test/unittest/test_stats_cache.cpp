@@ -22,9 +22,6 @@ public:
 		const concurrency::lock_guard<concurrency::mutex> lck(stats_mtx);
 		++stats_invocation;
 		FileMetadata metadata;
-		// Use stored values directly (set via SetFileSize/SetLastModificationTime from parent)
-		// We need to call parent methods to get the values, but this will increment counters
-		// So we'll adjust test expectations accordingly
 		metadata.file_size = MockFileSystem::GetFileSize(handle);
 		metadata.last_modification_time = MockFileSystem::GetLastModifiedTime(handle);
 		metadata.file_type = FileType::FILE_TYPE_REGULAR;
@@ -95,7 +92,6 @@ TEST_CASE("Test Stats cache with Stats() supported", "[stats cache test]") {
 		const int64_t file_size = cache_filesystem->GetFileSize(*file_handle);
 		REQUIRE(file_size == TEST_FILESIZE);
 		REQUIRE(mock_filesystem_ptr->GetStatsInvocation() == 1); // Still 1, not called again
-		// Counters should not have increased (using cache)
 		REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == prev_size_invocations);
 		REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == prev_mod_time_invocations);
 	}
@@ -105,8 +101,7 @@ TEST_CASE("Test Stats cache with Stats() supported", "[stats cache test]") {
 		const uint64_t prev_mod_time_invocations = mock_filesystem_ptr->GetLastModTimeInvocation();
 		const timestamp_t last_mod_time = cache_filesystem->GetLastModifiedTime(*file_handle);
 		REQUIRE(last_mod_time == TEST_LAST_MOD_TIME);
-		REQUIRE(mock_filesystem_ptr->GetStatsInvocation() == 1); // Still 1, using cache
-		// Counter should not have increased (using cache)
+		REQUIRE(mock_filesystem_ptr->GetStatsInvocation() == 1);
 		REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == prev_mod_time_invocations);
 	}
 
@@ -116,7 +111,6 @@ TEST_CASE("Test Stats cache with Stats() supported", "[stats cache test]") {
 		const FileMetadata metadata = cache_filesystem->Stats(*file_handle);
 		REQUIRE(metadata.file_size == TEST_FILESIZE);
 		REQUIRE(metadata.last_modification_time == TEST_LAST_MOD_TIME);
-		// Stats() should use the cache, so counter should not have increased
 		REQUIRE(mock_filesystem_ptr->GetStatsInvocation() == prev_stats_invocations);
 	}
 }
@@ -145,7 +139,6 @@ TEST_CASE("Test Stats cache fallback when Stats() not supported", "[stats cache 
 	{
 		const int64_t file_size = cache_filesystem->GetFileSize(*file_handle);
 		REQUIRE(file_size == TEST_FILESIZE);
-		// Should have called GetFileSize() and GetLastModifiedTime() once each (for fallback)
 		REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 1);
 		REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 1);
 	}
@@ -154,7 +147,6 @@ TEST_CASE("Test Stats cache fallback when Stats() not supported", "[stats cache 
 	{
 		const int64_t file_size = cache_filesystem->GetFileSize(*file_handle);
 		REQUIRE(file_size == TEST_FILESIZE);
-		// Should not have called again (using cache)
 		REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 1);
 		REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 1);
 	}
@@ -163,7 +155,6 @@ TEST_CASE("Test Stats cache fallback when Stats() not supported", "[stats cache 
 	{
 		const timestamp_t last_mod_time = cache_filesystem->GetLastModifiedTime(*file_handle);
 		REQUIRE(last_mod_time == TEST_LAST_MOD_TIME);
-		// Should not have called again (using cache)
 		REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 1);
 		REQUIRE(mock_filesystem_ptr->GetLastModTimeInvocation() == 1);
 	}
@@ -191,7 +182,6 @@ TEST_CASE("Test Stats cache with metadata cache disabled", "[stats cache test]")
 	{
 		const int64_t file_size = cache_filesystem->GetFileSize(*file_handle);
 		REQUIRE(file_size == TEST_FILESIZE);
-		// Should call GetFileSize() directly (not Stats() because cache is disabled)
 		REQUIRE(mock_filesystem_ptr->GetSizeInvocation() == 1);
 		REQUIRE(mock_filesystem_ptr->GetStatsInvocation() == 0);
 	}
