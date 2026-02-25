@@ -297,7 +297,10 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 	// extract file size.
 	//
 	// Initialize metadata cache if not.
-	SetMetadataCache();
+	{
+		const concurrency::lock_guard<concurrency::mutex> lck(cache_reader_mutex);
+		SetMetadataCache();
+	}
 	if (metadata_cache == nullptr) {
 		return open_file_info;
 	}
@@ -360,7 +363,7 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 // TODO(hjiang): remove the function and switch to extension setting callback.
 void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	auto instance_state_locked = instance_state.lock();
-	const std::lock_guard<std::mutex> cache_reader_lck(cache_reader_mutex);
+	const concurrency::lock_guard<concurrency::mutex> cache_reader_lck(cache_reader_mutex);
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();
