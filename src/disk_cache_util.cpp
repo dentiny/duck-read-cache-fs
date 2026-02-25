@@ -195,14 +195,9 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 	}
 }
 
-/*static*/ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath,
-                                                                                 idx_t chunk_size, bool use_direct_io,
-                                                                                 const string &version_tag) {
-	auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
-	if (use_direct_io) {
-		file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
-	}
-
+/*static*/ DiskCacheUtil::LocalCacheReadResult
+DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size, const string &version_tag) {
+	constexpr auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
 	LocalFileSystem local_filesystem {};
 	// On all platform, DuckDB opens option guarantee reference counting, which means even if the file is requested to
 	// delete, already-opened file handle could still be accessed with no problem.
