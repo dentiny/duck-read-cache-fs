@@ -11,6 +11,7 @@
 #include <climits>
 #include <cstring>
 #include <cstdlib>
+#include <unistd.h>
 #include <utime.h>
 #include <sys/statvfs.h>
 #include <sys/xattr.h>
@@ -414,8 +415,8 @@ idx_t GetMaxXattrValueSize() {
 	// Windows ADS has no fixed small-size limit; no platform constant available.
 	return 65536;
 #elif defined(__APPLE__)
-	// XATTR_MAXSIZE is defined in <sys/xattr.h> as INT32_MAX on macOS.
-	return static_cast<idx_t>(XATTR_MAXSIZE);
+	const long max_xattr_size = pathconf("/", _PC_XATTR_SIZE_BITS);
+	return static_cast<idx_t>(max_xattr_size);
 #elif defined(XATTR_SIZE_MAX)
 	// XATTR_SIZE_MAX is defined in <linux/xattr.h>; 65536 on ext2/3/4.
 	return static_cast<idx_t>(XATTR_SIZE_MAX);
