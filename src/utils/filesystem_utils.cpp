@@ -415,7 +415,11 @@ idx_t GetMaxXattrValueSize() {
 	return 65536;
 #elif defined(__APPLE__)
 	// XATTR_MAXSIZE is defined in <sys/xattr.h> as INT32_MAX on macOS.
+#if defined(XATTR_MAXSIZE)
 	return static_cast<idx_t>(XATTR_MAXSIZE);
+#else
+	return 65536;
+#endif
 #elif defined(XATTR_SIZE_MAX)
 	// XATTR_SIZE_MAX is defined in <linux/xattr.h>; 65536 on ext2/3/4.
 	return static_cast<idx_t>(XATTR_SIZE_MAX);
