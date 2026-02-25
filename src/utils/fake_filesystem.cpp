@@ -66,6 +66,10 @@ timestamp_t CacheHttpfsFakeFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
 	return local_filesystem->GetLastModifiedTime(*local_filesystem_handle);
 }
+FileMetadata CacheHttpfsFakeFileSystem::Stats(FileHandle &handle) {
+	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
+	return local_filesystem->Stats(*local_filesystem_handle);
+}
 string CacheHttpfsFakeFileSystem::GetVersionTag(FileHandle &handle) {
 	auto &local_filesystem_handle = handle.Cast<CacheHttpfsFakeFsHandle>().internal_file_handle;
 	return local_filesystem->GetVersionTag(*local_filesystem_handle);
