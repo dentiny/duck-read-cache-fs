@@ -25,7 +25,8 @@ public:
 	LatencyGuard(const LatencyGuard &) = delete;
 	LatencyGuard &operator=(const LatencyGuard &) = delete;
 	LatencyGuard(LatencyGuard &&) = default;
-	LatencyGuard &operator=(LatencyGuard &&) = default;
+	// Move assignment is implicitly deleted since we hold a reference data member.
+	LatencyGuard &operator=(LatencyGuard &&) = delete;
 
 private:
 	BaseProfileCollector &profile_collector;
