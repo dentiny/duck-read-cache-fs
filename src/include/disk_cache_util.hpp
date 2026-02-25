@@ -78,7 +78,7 @@ public:
 
 	// Attempt to open, validate, and read a local cache file at the already-resolved [cache_filepath].
 	// If the local cache file doesn't match requested [version_tag], it will be deleted.
-	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size, bool use_direct_io,
+	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size,
 	                                               const string &version_tag);
 
 	// Remove dead temporary cache files (write-to-temp-then-swap leftovers) under [cache_directories].
