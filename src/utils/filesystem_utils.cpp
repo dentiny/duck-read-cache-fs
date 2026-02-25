@@ -17,6 +17,9 @@
 #if defined(__linux__)
 #include <linux/xattr.h> // XATTR_SIZE_MAX
 #endif
+#if defined(__APPLE__)
+#include <sys/xattr.h> // XATTR_MAXSIZE
+#endif
 #else
 #include <windows.h>
 #endif
@@ -414,12 +417,7 @@ idx_t GetMaxXattrValueSize() {
 	// Windows ADS has no fixed small-size limit; no platform constant available.
 	return 65536;
 #elif defined(__APPLE__)
-	// XATTR_MAXSIZE is defined in <sys/xattr.h> as INT32_MAX on macOS.
-#if defined(XATTR_MAXSIZE)
 	return static_cast<idx_t>(XATTR_MAXSIZE);
-#else
-	return 65536;
-#endif
 #elif defined(XATTR_SIZE_MAX)
 	// XATTR_SIZE_MAX is defined in <linux/xattr.h>; 65536 on ext2/3/4.
 	return static_cast<idx_t>(XATTR_SIZE_MAX);
