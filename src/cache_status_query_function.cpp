@@ -192,47 +192,49 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 	auto &inst_state = GetInstanceStateOrThrow(*context.db);
 	auto conn_id = context.GetConnectionId();
 	auto *collector = inst_state.profile_collector_manager.GetProfileCollector(conn_id);
-	if (collector) {
-		auto cache_access_info = collector->GetCacheAccessInfo();
-		D_ASSERT(cache_access_info.size() == kCacheEntityCount);
-		for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
-			auto &cur = cache_access_info[idx];
-			aggregated_cache_access_infos[idx].cache_hit_count += cur.cache_hit_count;
-			aggregated_cache_access_infos[idx].cache_miss_count += cur.cache_miss_count;
-			aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur.cache_miss_by_in_use;
+	if (!collector) {
+		return result;
+	}
 
-			// For data file cache, record number of bytes to read and to cache.
-			if (idx == static_cast<idx_t>(IoOperation::kRead)) {
-				// Handle number of bytes to read.
-				auto &total_bytes_to_read = aggregated_cache_access_infos[idx].total_bytes_to_read;
-				uint64_t read_value = 0;
-				if (!total_bytes_to_read.IsNull()) {
-					read_value = total_bytes_to_read.GetValue<uint64_t>();
-				}
-				total_bytes_to_read = Value::UBIGINT(read_value + cur.total_bytes_to_read.GetValue<uint64_t>());
+	auto cache_access_info = collector->GetCacheAccessInfo();
+	D_ASSERT(cache_access_info.size() == kCacheEntityCount);
+	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
+		auto &cur = cache_access_info[idx];
+		aggregated_cache_access_infos[idx].cache_hit_count += cur.cache_hit_count;
+		aggregated_cache_access_infos[idx].cache_miss_count += cur.cache_miss_count;
+		aggregated_cache_access_infos[idx].cache_miss_by_in_use += cur.cache_miss_by_in_use;
 
-				// Handle number of bytes to cache.
-				auto &total_bytes_to_cache = aggregated_cache_access_infos[idx].total_bytes_to_cache;
-				uint64_t cache_value = 0;
-				if (!total_bytes_to_cache.IsNull()) {
-					cache_value = total_bytes_to_cache.GetValue<uint64_t>();
-				}
-				total_bytes_to_cache = Value::UBIGINT(cache_value + cur.total_bytes_to_cache.GetValue<uint64_t>());
-
-				auto &bytes_hit = aggregated_cache_access_infos[idx].bytes_read_from_hits;
-				uint64_t hit_val = 0;
-				if (!bytes_hit.IsNull()) {
-					hit_val = bytes_hit.GetValue<uint64_t>();
-				}
-				bytes_hit = Value::UBIGINT(hit_val + cur.bytes_read_from_hits.GetValue<uint64_t>());
-
-				auto &bytes_miss = aggregated_cache_access_infos[idx].bytes_read_from_misses;
-				uint64_t miss_val = 0;
-				if (!bytes_miss.IsNull()) {
-					miss_val = bytes_miss.GetValue<uint64_t>();
-				}
-				bytes_miss = Value::UBIGINT(miss_val + cur.bytes_read_from_misses.GetValue<uint64_t>());
+		// For data file cache, record number of bytes to read and to cache.
+		if (idx == static_cast<idx_t>(IoOperation::kRead)) {
+			// Handle number of bytes to read.
+			auto &total_bytes_to_read = aggregated_cache_access_infos[idx].total_bytes_to_read;
+			uint64_t read_value = 0;
+			if (!total_bytes_to_read.IsNull()) {
+				read_value = total_bytes_to_read.GetValue<uint64_t>();
 			}
+			total_bytes_to_read = Value::UBIGINT(read_value + cur.total_bytes_to_read.GetValue<uint64_t>());
+
+			// Handle number of bytes to cache.
+			auto &total_bytes_to_cache = aggregated_cache_access_infos[idx].total_bytes_to_cache;
+			uint64_t cache_value = 0;
+			if (!total_bytes_to_cache.IsNull()) {
+				cache_value = total_bytes_to_cache.GetValue<uint64_t>();
+			}
+			total_bytes_to_cache = Value::UBIGINT(cache_value + cur.total_bytes_to_cache.GetValue<uint64_t>());
+
+			auto &bytes_hit = aggregated_cache_access_infos[idx].bytes_read_from_hits;
+			uint64_t hit_val = 0;
+			if (!bytes_hit.IsNull()) {
+				hit_val = bytes_hit.GetValue<uint64_t>();
+			}
+			bytes_hit = Value::UBIGINT(hit_val + cur.bytes_read_from_hits.GetValue<uint64_t>());
+
+			auto &bytes_miss = aggregated_cache_access_infos[idx].bytes_read_from_misses;
+			uint64_t miss_val = 0;
+			if (!bytes_miss.IsNull()) {
+				miss_val = bytes_miss.GetValue<uint64_t>();
+			}
+			bytes_miss = Value::UBIGINT(miss_val + cur.bytes_read_from_misses.GetValue<uint64_t>());
 		}
 	}
 
