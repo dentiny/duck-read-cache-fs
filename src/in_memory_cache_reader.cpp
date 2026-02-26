@@ -55,6 +55,10 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
                                                 CacheReadChunk cache_read_chunk) {
 	SetThreadName("RdCachRdThd");
 
+	auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, cache_handle.GetConnectionId());
+
 	// Check local cache first, see if we could do a cached read.
 	const InMemCacheBlock block_key {handle.GetPath(), cache_read_chunk.aligned_start_offset,
 	                                 cache_read_chunk.chunk_size};
@@ -67,14 +71,14 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	}
 
 	if (cache_entry != nullptr) {
-		GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit);
+		collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 		DUCKDB_LOG_OPEN_CACHE_HIT((handle));
 		cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
 		return;
 	}
 
 	// We suffer a cache loss, fallback to remote access then local filesystem write.
-	GetProfileCollector().RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss);
+	collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss, cache_read_chunk.bytes_to_copy);
 	DUCKDB_LOG_OPEN_CACHE_MISS((handle));
 	auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
 	void *addr = const_cast<char *>(content.data());
@@ -82,7 +86,7 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
 
 	{
-		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kRead);
+		const auto latency_guard = collector.RecordOperationStart(IoOperation::kRead);
 		internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
 		                          cache_read_chunk.aligned_start_offset);
 	}
@@ -198,8 +202,11 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	}
 
 	// Record "bytes to read" and "bytes to cache".
-	GetProfileCollector().RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
-	                                            /*actual_bytes=*/requested_bytes_to_read);
+	auto &cache_handle_for_profile = handle.Cast<CacheFileSystemHandle>();
+	auto state_for_profile = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state_for_profile, cache_handle_for_profile.GetConnectionId());
+	collector.RecordActualCacheRead(/*cache_size=*/total_bytes_to_cache,
+	                                /*actual_bytes=*/requested_bytes_to_read);
 }
 
 vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {

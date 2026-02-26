@@ -34,8 +34,8 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(TestCacheConfig config) : d
 	// Cache behavior
 	inst_config.clear_cache_on_write = config.clear_cache_on_write;
 
-	// Initialize profile collector
-	instance_state->SetProfileCollector(inst_config.profile_type);
+	// Initialize profile collector for connection 0 (test default)
+	instance_state->profile_collector_manager.SetProfileCollector(0, inst_config.profile_type);
 
 	// Ensure cache directories exist
 	auto local_fs = LocalFileSystem::CreateLocal();
@@ -67,6 +67,10 @@ BaseCacheReader &TestCacheFileSystemHelper::GetCacheReader() {
 
 InstanceConfig &TestCacheFileSystemHelper::GetConfig() {
 	return instance_state->config;
+}
+
+BaseProfileCollector *TestCacheFileSystemHelper::GetProfileCollector(connection_t connection_id) {
+	return instance_state->profile_collector_manager.GetProfileCollector(connection_id);
 }
 
 void InitializeCacheReaderForTest(shared_ptr<CacheHttpfsInstanceState> &instance_state, const InstanceConfig &config) {
