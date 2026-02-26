@@ -36,8 +36,10 @@ struct CacheAccessInfo {
 	// Only made for data cache.
 	// Record number of bytes to cache.
 	Value total_bytes_to_cache = Value {};
+	// Only made for data cache.
 	// Bytes served from cache (cache hits).
 	Value bytes_read_from_hits = Value {};
+	// Only made for data cache.
 	// Bytes fetched from remote (cache misses).
 	Value bytes_read_from_misses = Value {};
 };
