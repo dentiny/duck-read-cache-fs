@@ -24,7 +24,7 @@ public:
 	~InMemoryCacheReader() override = default;
 
 	string GetName() const override {
-		return "in_mem_cache_reader";
+		return *IN_MEM_CACHE_READER_NAME;
 	}
 
 	void ClearCache() override;

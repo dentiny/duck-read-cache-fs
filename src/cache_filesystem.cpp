@@ -26,6 +26,17 @@ connection_t GetConnectionId(optional_ptr<FileOpener> opener) {
 	return client_context->GetConnectionId();
 }
 
+connection_t GetConnectionIdFromContext(const QueryContext &context) {
+	if (!context.Valid()) {
+		return DConstants::INVALID_INDEX;
+	}
+	auto client_context = context.GetClientContext();
+	if (!client_context) {
+		return DConstants::INVALID_INDEX;
+	}
+	return client_context->GetConnectionId();
+}
+
 } // namespace
 
 CacheFileSystem::FileHandleCacheKey::FileHandleCacheKey(const string &path_arg, FileOpenFlags flags_arg)
@@ -425,8 +436,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 	}
 
 	const auto latency_guard = collector.RecordOperationStart(IoOperation::kOpen);
-	auto file_handle =
-	    internal_filesystem->OpenFile(file, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
+	auto file_handle = internal_filesystem->OpenFile(file, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	DUCKDB_LOG_OPEN_CACHE_MISS_PTR((file_handle));
 	return CreateCacheFileHandleForRead(std::move(file_handle), conn_id);
 }
@@ -459,6 +469,15 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
 unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                  optional_ptr<FileOpener> opener) {
 	return OpenFileExtended(OpenFileInfo(path), flags, opener);
+}
+
+unique_ptr<FileHandle> CacheFileSystem::OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle,
+                                                           bool write) {
+	auto file_handle = internal_filesystem->OpenCompressedFile(context, std::move(handle), write);
+	const connection_t conn_id = GetConnectionIdFromContext(context);
+	return make_uniq<CacheFileSystemHandle>(
+	    std::move(file_handle), *this,
+	    /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {}, conn_id);
 }
 
 void CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
