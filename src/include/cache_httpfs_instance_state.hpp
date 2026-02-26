@@ -144,7 +144,9 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	static constexpr const char *OBJECT_TYPE = "CacheHttpfsInstanceState";
 	static constexpr const char *CACHE_KEY = "cache_httpfs_instance_state";
 
+	// Extension config for the current duckdb instance.
 	InstanceConfig config;
+	// Cache filesystem registry.
 	InstanceCacheFsRegistry registry;
 	InstanceCacheReaderManager cache_reader_manager;
 	InstanceProfileCollectorManager profile_collector_manager;
@@ -152,6 +154,7 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 
 	CacheHttpfsInstanceState() = default;
 
+	// ObjectCacheEntry interface
 	string GetObjectType() override {
 		return OBJECT_TYPE;
 	}

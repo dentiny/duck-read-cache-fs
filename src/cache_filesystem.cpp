@@ -401,6 +401,7 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 	auto state = instance_state.lock();
 	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
 
+	// Cache is exclusive, so we don't need to acquire lock for avoid repeated access.
 	if (file_handle_cache != nullptr) {
 		FileHandleCacheKey key {file.path, flags};
 		auto get_and_pop_res = file_handle_cache->GetAndPop(key);
@@ -413,8 +414,10 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item), conn_id);
 		}
 
+		// Record stats on cache miss.
 		collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss, 0);
 
+		// Record cache miss caused by exclusive resource in use.
 		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
 		if (in_use_count > 0) {
 			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse, 0);
@@ -445,6 +448,7 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
 	}
 
 	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
+	// For write handles, we still need the connection_id for consistency
 	auto conn_id = GetConnectionId(opener);
 	auto file_handle = internal_filesystem->OpenFile(file, flags, opener);
 	return make_uniq<CacheFileSystemHandle>(
