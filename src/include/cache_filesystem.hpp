@@ -295,6 +295,10 @@ private:
 	unique_ptr<FileHandle> GetOrCreateFileHandleForRead(const OpenFileInfo &file, FileOpenFlags flags,
 	                                                    optional_ptr<FileOpener> opener);
 
+	// Record cache access for the given connection, resolving the profile collector internally.
+	void RecordCacheAccess(connection_t conn_id, CacheEntity cache_entity, CacheAccess cache_access);
+	void RecordCacheAccess(connection_t conn_id, CacheEntity cache_entity, CacheAccess cache_access, idx_t byte_count);
+
 	// Mutex to protect concurrent access.
 	concurrency::mutex cache_reader_mutex;
 	// Used to access remote files.

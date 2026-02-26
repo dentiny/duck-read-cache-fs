@@ -383,9 +383,7 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 		return make_shared_ptr<vector<OpenFileInfo>>(std::move(glob_res));
 	});
 	const CacheAccess cache_access = glob_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	auto state = instance_state.lock();
-	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
-	collector.RecordCacheAccess(CacheEntity::kGlob, cache_access);
+	RecordCacheAccess(conn_id, CacheEntity::kGlob, cache_access);
 	return *res;
 }
 
@@ -420,18 +418,18 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 			cur_val->Close();
 		}
 		if (get_and_pop_res.target_item != nullptr) {
-			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit);
+			RecordCacheAccess(conn_id, CacheEntity::kFileHandle, CacheAccess::kCacheHit);
 			DUCKDB_LOG_OPEN_CACHE_HIT((*get_and_pop_res.target_item));
 			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item), conn_id);
 		}
 
 		// Record stats on cache miss.
-		collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
+		RecordCacheAccess(conn_id, CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
 
 		// Record cache miss caused by exclusive resource in use.
 		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
 		if (in_use_count > 0) {
-			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
+			RecordCacheAccess(conn_id, CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
 		}
 	}
 
@@ -507,9 +505,7 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 		    return Stats(*disk_cache_handle.internal_file_handle);
 	    });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	auto state = instance_state.lock();
-	auto &collector = GetProfileCollectorOrThrow(state, disk_cache_handle.GetConnectionId());
-	collector.RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	RecordCacheAccess(disk_cache_handle.GetConnectionId(), CacheEntity::kMetadata, cache_access);
 	return metadata->last_modification_time;
 }
 int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
@@ -529,9 +525,7 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 		    return Stats(*disk_cache_handle.internal_file_handle);
 	    });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	auto state = instance_state.lock();
-	auto &collector = GetProfileCollectorOrThrow(state, disk_cache_handle.GetConnectionId());
-	collector.RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	RecordCacheAccess(disk_cache_handle.GetConnectionId(), CacheEntity::kMetadata, cache_access);
 	return metadata->file_size;
 }
 int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
@@ -555,6 +549,19 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	state->cache_reader_manager.GetCacheReader()->ReadAndCache(handle, static_cast<char *>(buffer), location,
 	                                                           bytes_to_read, file_size);
 	return bytes_to_read;
+}
+
+void CacheFileSystem::RecordCacheAccess(connection_t conn_id, CacheEntity cache_entity, CacheAccess cache_access) {
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
+	collector.RecordCacheAccess(cache_entity, cache_access);
+}
+
+void CacheFileSystem::RecordCacheAccess(connection_t conn_id, CacheEntity cache_entity, CacheAccess cache_access,
+                                        idx_t byte_count) {
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
+	collector.RecordCacheAccess(cache_entity, cache_access, byte_count);
 }
 
 } // namespace duckdb
