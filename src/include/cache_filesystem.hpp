@@ -119,19 +119,7 @@ public:
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
 	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle,
-	                                          bool write) override {
-		auto file_handle = internal_filesystem->OpenCompressedFile(context, std::move(handle), write);
-		connection_t conn_id = 0;
-		if (context.Valid()) {
-			auto client_context = context.GetClientContext();
-			if (client_context) {
-				conn_id = client_context->GetConnectionId();
-			}
-		}
-		return make_uniq<CacheFileSystemHandle>(
-		    std::move(file_handle), *this,
-		    /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {}, conn_id);
-	}
+	                                          bool write) override;
 	bool Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 		return internal_filesystem->Trim(*disk_cache_handle.internal_file_handle, offset_bytes, length_bytes);
