@@ -51,6 +51,10 @@ public:
 	virtual void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) = 0;
 	// Record cache access condition with byte count.
 	virtual void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access, idx_t byte_count) = 0;
+	// Record cache access condition without byte count.
+	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) {
+		RecordCacheAccess(cache_entity, cache_access, 0);
+	}
 	// Record cache size and actual bytes access.
 	virtual void RecordActualCacheRead(idx_t cache_size, idx_t actual_bytes) = 0;
 	// Record bytes written.

@@ -385,7 +385,7 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 	const CacheAccess cache_access = glob_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
 	auto state = instance_state.lock();
 	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
-	collector.RecordCacheAccess(CacheEntity::kGlob, cache_access, 0);
+	collector.RecordCacheAccess(CacheEntity::kGlob, cache_access);
 	return *res;
 }
 
@@ -420,18 +420,18 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 			cur_val->Close();
 		}
 		if (get_and_pop_res.target_item != nullptr) {
-			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit, 0);
+			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit);
 			DUCKDB_LOG_OPEN_CACHE_HIT((*get_and_pop_res.target_item));
 			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item), conn_id);
 		}
 
 		// Record stats on cache miss.
-		collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss, 0);
+		collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
 
 		// Record cache miss caused by exclusive resource in use.
 		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
 		if (in_use_count > 0) {
-			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse, 0);
+			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
 		}
 	}
 
@@ -509,7 +509,7 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
 	auto state = instance_state.lock();
 	auto &collector = GetProfileCollectorOrThrow(state, disk_cache_handle.GetConnectionId());
-	collector.RecordCacheAccess(CacheEntity::kMetadata, cache_access, 0);
+	collector.RecordCacheAccess(CacheEntity::kMetadata, cache_access);
 	return metadata->last_modification_time;
 }
 int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
@@ -531,7 +531,7 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
 	auto state = instance_state.lock();
 	auto &collector = GetProfileCollectorOrThrow(state, disk_cache_handle.GetConnectionId());
-	collector.RecordCacheAccess(CacheEntity::kMetadata, cache_access, 0);
+	collector.RecordCacheAccess(CacheEntity::kMetadata, cache_access);
 	return metadata->file_size;
 }
 int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
