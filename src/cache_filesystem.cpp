@@ -45,10 +45,10 @@ CacheFileSystem::FileHandleCacheKey::FileHandleCacheKey(const string &path_arg, 
 
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
                                              std::function<void(CacheFileSystemHandle &)> dtor_callback_p,
-                                             connection_t connection_id)
+                                             connection_t connection_id_p)
     : FileHandle(fs, internal_file_handle_p->GetPath(), internal_file_handle_p->GetFlags()),
       logger(internal_file_handle_p->logger), internal_file_handle(std::move(internal_file_handle_p)),
-      dtor_callback(std::move(dtor_callback_p)), connection_id(connection_id) {
+      dtor_callback(std::move(dtor_callback_p)), connection_id(connection_id_p) {
 }
 
 FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {

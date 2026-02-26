@@ -47,7 +47,7 @@ class CacheFileSystemHandle : public FileHandle {
 public:
 	// @param dtor_callback: callback function to invoke at destructor.
 	CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
-	                      std::function<void(CacheFileSystemHandle &)> dtor_callback_p, connection_t connection_id);
+	                      std::function<void(CacheFileSystemHandle &)> dtor_callback_p, connection_t connection_id_p);
 
 	// On cache file handle destruction (for read handles), we place internal file handle to file handle cache to later
 	// reuse.
@@ -118,8 +118,7 @@ public:
 	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
-	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle,
-	                                          bool write) override;
+	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle, bool write) override;
 	bool Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 		return internal_filesystem->Trim(*disk_cache_handle.internal_file_handle, offset_bytes, length_bytes);
