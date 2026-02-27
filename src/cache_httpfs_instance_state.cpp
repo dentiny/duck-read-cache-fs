@@ -6,6 +6,7 @@
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/main/client_context.hpp"
+#include "duckdb/main/client_context_state.hpp"
 #include "duckdb/main/database.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "noop_cache_reader.hpp"
@@ -81,6 +82,11 @@ void InstanceProfileCollectorManager::ResetProfileCollector(connection_t connect
 	if (it != profile_collectors.end() && it->second != nullptr) {
 		it->second->Reset();
 	}
+}
+
+void InstanceProfileCollectorManager::RemoveProfileCollector(connection_t connection_id) {
+	concurrency::lock_guard<concurrency::mutex> lock(mutex);
+	profile_collectors.erase(connection_id);
 }
 
 //===--------------------------------------------------------------------===//
@@ -214,6 +220,39 @@ BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsIns
 		throw InternalException("CacheFileSystem: no profile collector for connection %llu", conn_id);
 	}
 	return *collector;
+}
+
+//===--------------------------------------------------------------------===//
+// Per-connection cleanup via ClientContextState
+//===--------------------------------------------------------------------===//
+
+namespace {
+
+constexpr const char *CONNECTION_STATE_KEY = "cache_httpfs_connection_state";
+
+class CacheHttpfsConnectionState : public ClientContextState {
+public:
+	CacheHttpfsConnectionState(weak_ptr<CacheHttpfsInstanceState> instance_state_p, connection_t connection_id_p)
+	    : instance_state(std::move(instance_state_p)), connection_id(connection_id_p) {
+	}
+
+	~CacheHttpfsConnectionState() override {
+		auto state = instance_state.lock();
+		if (state) {
+			state->profile_collector_manager.RemoveProfileCollector(connection_id);
+		}
+	}
+
+private:
+	weak_ptr<CacheHttpfsInstanceState> instance_state;
+	connection_t connection_id;
+};
+
+} // namespace
+
+void RegisterConnectionCleanupState(ClientContext &context, weak_ptr<CacheHttpfsInstanceState> instance_state) {
+	context.registered_state->GetOrCreate<CacheHttpfsConnectionState>(CONNECTION_STATE_KEY, std::move(instance_state),
+	                                                                  context.GetConnectionId());
 }
 
 } // namespace duckdb
