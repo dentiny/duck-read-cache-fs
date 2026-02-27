@@ -282,6 +282,7 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 	inst_state.config.profile_type = profile_type_str;
 	auto conn_id = context.GetConnectionId();
 	inst_state.profile_collector_manager.SetProfileCollector(conn_id, profile_type_str);
+	RegisterConnectionCleanupState(context, GetInstanceStateShared(*context.db));
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {

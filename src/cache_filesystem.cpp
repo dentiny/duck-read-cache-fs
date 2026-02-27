@@ -396,6 +396,13 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	instance_state_locked->profile_collector_manager.SetProfileCollector(conn_id,
 	                                                                     instance_state_locked->config.profile_type);
 
+	if (opener) {
+		auto client_context = FileOpener::TryGetClientContext(opener);
+		if (client_context) {
+			RegisterConnectionCleanupState(*client_context, instance_state);
+		}
+	}
+
 	instance_state_locked->cache_reader_manager.SetCacheReader(instance_state_locked->config, instance_state);
 
 	SetMetadataCache();
@@ -418,18 +425,18 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 			cur_val->Close();
 		}
 		if (get_and_pop_res.target_item != nullptr) {
-			RecordCacheAccess(conn_id, CacheEntity::kFileHandle, CacheAccess::kCacheHit);
+			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit);
 			DUCKDB_LOG_OPEN_CACHE_HIT((*get_and_pop_res.target_item));
 			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item), conn_id);
 		}
 
 		// Record stats on cache miss.
-		RecordCacheAccess(conn_id, CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
+		collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
 
 		// Record cache miss caused by exclusive resource in use.
 		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
 		if (in_use_count > 0) {
-			RecordCacheAccess(conn_id, CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
+			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
 		}
 	}
 

@@ -60,6 +60,7 @@ public:
 	void SetProfileCollector(connection_t connection_id, const string &profile_type);
 	BaseProfileCollector *GetProfileCollector(connection_t connection_id) const;
 	void ResetProfileCollector(connection_t connection_id);
+	void RemoveProfileCollector(connection_t connection_id);
 
 private:
 	mutable concurrency::mutex mutex;
@@ -188,5 +189,9 @@ shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(const weak_ptr<CacheHttpf
 // always expected (InitializeGlobalConfig guarantees it).
 BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsInstanceState> &instance_state,
                                                  connection_t conn_id);
+
+// Register a ClientContextState that removes this connection's profile collector
+// when the connection is destroyed. Safe to call multiple times for the same connection.
+void RegisterConnectionCleanupState(ClientContext &context, weak_ptr<CacheHttpfsInstanceState> instance_state);
 
 } // namespace duckdb
