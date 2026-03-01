@@ -16,14 +16,9 @@ struct MapKey {
 	std::string fname;
 	uint64_t off;
 };
-struct MapKeyEqual {
+struct MapKeyLess {
 	bool operator()(const MapKey &lhs, const MapKey &rhs) const {
-		return std::tie(lhs.fname, lhs.off) == std::tie(rhs.fname, rhs.off);
-	}
-};
-struct MapKeyHash {
-	std::size_t operator()(const MapKey &key) const {
-		return std::hash<std::string> {}(key.fname) ^ std::hash<uint64_t> {}(key.off);
+		return std::tie(lhs.fname, lhs.off) < std::tie(rhs.fname, rhs.off);
 	}
 };
 } // namespace
@@ -65,8 +60,8 @@ TEST_CASE("ExclusiveMultiLru PutAndGetSameKey", "[exclusive multi-lru test]") {
 }
 
 TEST_CASE("ExclusiveMultiLru CustomizedStruct", "[exclusive multi-lru test]") {
-	ThreadSafeExclusiveMultiLruCache<MapKey, std::string, MapKeyHash, MapKeyEqual> cache {/*max_entries_p=*/1,
-	                                                                                      /*timeout_millisec_p=*/0};
+	ThreadSafeExclusiveMultiLruCache<MapKey, std::string, MapKeyLess> cache {/*max_entries_p=*/1,
+	                                                                         /*timeout_millisec_p=*/0};
 	MapKey key;
 	key.fname = "hello";
 	key.off = 10;
@@ -222,8 +217,8 @@ TEST_CASE("ExclusiveMultiLru Clear entries with key predicate", "[exclusive mult
 	evicted = cache.Put("key2", make_uniq<std::string>("val3"));
 	REQUIRE(evicted == nullptr);
 
-	// Delete keys with predicate and get values.
-	auto values = cache.ClearAndGetValues([](const std::string &key) { return key == "key1"; });
+	// Clear entries from "key1" that match the filter.
+	auto values = cache.ClearAndGetValues("key1", [](const std::string &key) { return key == "key1"; });
 	REQUIRE(values.size() == 2);
 	REQUIRE(*values[0] == "val1");
 	REQUIRE(*values[1] == "val2");

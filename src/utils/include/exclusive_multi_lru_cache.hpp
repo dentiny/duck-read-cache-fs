@@ -21,9 +21,10 @@
 
 #include "duckdb/common/deque.hpp"
 #include "duckdb/common/helper.hpp"
+#include "duckdb/common/map.hpp"
 #include "duckdb/common/string.hpp"
-#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
+#include "map_utils.hpp"
 #include "mutex.hpp"
 #include "thread_annotation.hpp"
 #include "time_utils.hpp"
@@ -32,13 +33,11 @@ namespace duckdb {
 
 // TODO(hjiang): The most ideal return type is `std::optional<Value>` for `GetAndPop`, but we're still at C++14, so have
 // to use `unique_ptr`.
-template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
+template <typename Key, typename Val, typename KeyCompare = std::less<Key>>
 class ExclusiveMultiLruCache {
 public:
 	using key_type = Key;
 	using mapped_type = vector<unique_ptr<Val>>;
-	using hasher = KeyHash;
-	using key_equal = KeyEqual;
 
 	struct GetAndPopResult {
 		// Entries evicted due to staleness.
@@ -67,7 +66,7 @@ public:
 	// 1. Caller is able to do processing for the value.
 	// 2. For thread-safe lru cache, processing could be moved out of critical section.
 	unique_ptr<Val> Put(Key key, unique_ptr<Val> value) {
-		lru_list.emplace_front(key);
+		lru_list.emplace_front(std::move(key));
 		Entry new_entry {
 		    .value = std::move(value),
 		    .timestamp = static_cast<uint64_t>(GetSteadyNowMilliSecSinceEpoch()),
@@ -140,17 +139,20 @@ public:
 		return values;
 	}
 
-	// Clear the cache entries which matches the given [key_pred] and return all the deleted values.
-	template <typename KeyPred>
-	vector<unique_ptr<Val>> ClearAndGetValues(KeyPred &&key_pred) {
-		vector<Key> keys_to_delete;
-		for (const auto &[key, _] : entry_map) {
-			if (key_pred(key)) {
-				keys_to_delete.emplace_back(key);
-			}
-		}
-
+	// Clear cache entries that match [key_filter] starting from [start_key] inclusively.
+	// Stops at the first non-matched entry (ordered by Key). Uses lower_bound so the first
+	// entry >= start_key is considered. Returns all deleted values.
+	template <typename KeyFilter>
+	vector<unique_ptr<Val>> ClearAndGetValues(const Key &start_key, KeyFilter &&key_filter) {
 		vector<unique_ptr<Val>> values;
+		vector<Key> keys_to_delete;
+		for (auto iter = entry_map.lower_bound(start_key); iter != entry_map.end(); ++iter) {
+			const Key &key = iter->first.get();
+			if (!key_filter(key)) {
+				break;
+			}
+			keys_to_delete.emplace_back(key);
+		}
 		for (const auto &key : keys_to_delete) {
 			auto entry_map_iter = entry_map.find(key);
 			D_ASSERT(entry_map_iter != entry_map.end());
@@ -162,7 +164,6 @@ public:
 			}
 			entry_map.erase(entry_map_iter);
 		}
-
 		return values;
 	}
 
@@ -204,7 +205,8 @@ private:
 		typename std::list<Key>::iterator lru_iterator;
 	};
 
-	using EntryMap = unordered_map<Key, std::deque<Entry>, KeyHash, KeyEqual>;
+	using KeyConstRef = std::reference_wrapper<const Key>;
+	using EntryMap = map<KeyConstRef, std::deque<Entry>, RefLess<KeyCompare>>;
 
 	// Delete the first entry from the given [iter], return the deleted entry.
 	unique_ptr<Val> DeleteFirstEntry(typename EntryMap::iterator iter) {
@@ -212,11 +214,19 @@ private:
 		D_ASSERT(!entries.empty());
 
 		auto value = std::move(entries.front().value);
-		lru_list.erase(entries.front().lru_iterator);
-		if (entries.size() == 1) {
+		auto node_to_erase = entries.front().lru_iterator;
+		// If the map key references this list node and we have more entries, we must re-insert with a key ref to
+		// another node.
+		const bool key_ref_points_to_erased = (entries.size() > 1 && &iter->first.get() == &(*node_to_erase));
+		entries.pop_front();
+		lru_list.erase(node_to_erase);
+		if (entries.empty()) {
 			entry_map.erase(iter);
-		} else {
-			entries.pop_front();
+		} else if (key_ref_points_to_erased) {
+			KeyConstRef new_ref = std::cref(*entries.front().lru_iterator);
+			std::deque<Entry> remaining = std::move(iter->second);
+			entry_map.erase(iter);
+			entry_map[new_ref] = std::move(remaining);
 		}
 		--total_entries_num;
 		return value;
@@ -239,18 +249,16 @@ private:
 };
 
 // Same interfaces as `ExclusiveMultiLruCache`, but all cached values are `const` specified to avoid concurrent updates.
-template <typename K, typename V, typename KeyHash = std::hash<K>, typename KeyEqual = std::equal_to<K>>
-using ExclusiveLruConstCache = ExclusiveMultiLruCache<K, const V, KeyHash, KeyEqual>;
+template <typename K, typename V, typename KeyCompare = std::less<K>>
+using ExclusiveLruConstCache = ExclusiveMultiLruCache<K, const V, KeyCompare>;
 
 // Thread-safe implementation.
-template <typename Key, typename Val, typename KeyHash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
+template <typename Key, typename Val, typename KeyCompare = std::less<Key>>
 class ThreadSafeExclusiveMultiLruCache {
 public:
-	using lru_impl = ExclusiveMultiLruCache<Key, Val, KeyHash, KeyEqual>;
+	using lru_impl = ExclusiveMultiLruCache<Key, Val, KeyCompare>;
 	using key_type = typename lru_impl::key_type;
 	using mapped_type = typename lru_impl::mapped_type;
-	using hasher = typename lru_impl::hasher;
-	using key_equal = typename lru_impl::key_equal;
 	using GetAndPopResult = typename lru_impl::GetAndPopResult;
 
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
@@ -286,11 +294,11 @@ public:
 		return internal_cache.ClearAndGetValues();
 	}
 
-	// Clear the cache entries which matches the given [key_pred] and return all the deleted values.
-	template <typename KeyPred>
-	vector<unique_ptr<Val>> ClearAndGetValues(KeyPred &&key_pred) {
+	// Clear cache entries that match [key_filter] starting from [start_key] inclusively.
+	template <typename KeyFilter>
+	vector<unique_ptr<Val>> ClearAndGetValues(const Key &start_key, KeyFilter &&key_filter) {
 		concurrency::unique_lock<concurrency::mutex> lock(mu);
-		return internal_cache.ClearAndGetValues(std::forward<KeyPred>(key_pred));
+		return internal_cache.ClearAndGetValues(start_key, std::forward<KeyFilter>(key_filter));
 	}
 
 	// Check invariant.
@@ -301,11 +309,11 @@ public:
 
 private:
 	concurrency::mutex mu;
-	ExclusiveMultiLruCache<Key, Val, KeyHash, KeyEqual> internal_cache DUCKDB_GUARDED_BY(mu);
+	ExclusiveMultiLruCache<Key, Val, KeyCompare> internal_cache DUCKDB_GUARDED_BY(mu);
 };
 
 // Same interfaces as `ExclusiveMultiLruCache`, but all cached values are `const` specified to avoid concurrent updates.
-template <typename K, typename V, typename KeyHash = std::hash<K>, typename KeyEqual = std::equal_to<K>>
-using ThreadSafeExclusiveLruConstCache = ThreadSafeExclusiveMultiLruCache<K, const V, KeyHash, KeyEqual>;
+template <typename K, typename V, typename KeyCompare = std::less<K>>
+using ThreadSafeExclusiveLruConstCache = ThreadSafeExclusiveMultiLruCache<K, const V, KeyCompare>;
 
 } // namespace duckdb
