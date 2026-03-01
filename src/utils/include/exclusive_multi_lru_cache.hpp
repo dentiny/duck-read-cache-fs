@@ -24,7 +24,6 @@
 #include "duckdb/common/map.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/vector.hpp"
-#include "map_utils.hpp"
 #include "mutex.hpp"
 #include "thread_annotation.hpp"
 #include "time_utils.hpp"
@@ -72,8 +71,7 @@ public:
 		    .timestamp = static_cast<uint64_t>(GetSteadyNowMilliSecSinceEpoch()),
 		    .lru_iterator = lru_list.begin(),
 		};
-		auto key_cref = std::cref(lru_list.front());
-		entry_map[key_cref].emplace_back(std::move(new_entry));
+		entry_map[lru_list.front()].emplace_back(std::move(new_entry));
 		++total_entries_num;
 
 		unique_ptr<Val> evicted_val = nullptr;
@@ -147,7 +145,7 @@ public:
 		vector<unique_ptr<Val>> values;
 		vector<Key> keys_to_delete;
 		for (auto iter = entry_map.lower_bound(start_key); iter != entry_map.end(); ++iter) {
-			const Key &key = iter->first.get();
+			const Key &key = iter->first;
 			if (!key_filter(key)) {
 				break;
 			}
@@ -205,8 +203,7 @@ private:
 		typename std::list<Key>::iterator lru_iterator;
 	};
 
-	using KeyConstRef = std::reference_wrapper<const Key>;
-	using EntryMap = map<KeyConstRef, std::deque<Entry>, RefLess<KeyCompare>>;
+	using EntryMap = map<Key, std::deque<Entry>, KeyCompare>;
 
 	// Delete the first entry from the given [iter], return the deleted entry.
 	unique_ptr<Val> DeleteFirstEntry(typename EntryMap::iterator iter) {
@@ -214,19 +211,11 @@ private:
 		D_ASSERT(!entries.empty());
 
 		auto value = std::move(entries.front().value);
-		auto node_to_erase = entries.front().lru_iterator;
-		// If the map key references this list node and we have more entries, we must re-insert with a key ref to
-		// another node.
-		const bool key_ref_points_to_erased = (entries.size() > 1 && &iter->first.get() == &(*node_to_erase));
-		entries.pop_front();
-		lru_list.erase(node_to_erase);
-		if (entries.empty()) {
+		lru_list.erase(entries.front().lru_iterator);
+		if (entries.size() == 1) {
 			entry_map.erase(iter);
-		} else if (key_ref_points_to_erased) {
-			KeyConstRef new_ref = std::cref(*entries.front().lru_iterator);
-			std::deque<Entry> remaining = std::move(iter->second);
-			entry_map.erase(iter);
-			entry_map[new_ref] = std::move(remaining);
+		} else {
+			entries.pop_front();
 		}
 		--total_entries_num;
 		return value;
@@ -241,7 +230,7 @@ private:
 	// The timeout in seconds for cache entries; entries with exceeding timeout would be invalidated.
 	const uint64_t timeout_millisec;
 
-	// All keys are stored as refernce (`std::reference_wrapper`), and the ownership lies in `lru_list`.
+	// Key ownership: keys appear in both lru_list and entry_map.
 	EntryMap entry_map;
 
 	// The LRU list of entries. The front of the list identifies the most recently accessed entry.
