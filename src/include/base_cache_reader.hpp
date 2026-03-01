@@ -5,20 +5,22 @@
 
 #pragma once
 
-#include "assert_utils.hpp"
-#include "base_profile_collector.hpp"
 #include "cache_entry_info.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/shared_ptr.hpp"
+#include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/vector.hpp"
 
 namespace duckdb {
 
+// Forward declaration.
+struct CacheHttpfsInstanceState;
+
 class BaseCacheReader {
 public:
-	BaseCacheReader(BaseProfileCollector &profile_collector_p, string cache_reader_name_p)
-	    : profile_collector(profile_collector_p), cache_reader_name(std::move(cache_reader_name_p)) {
-		profile_collector.get().SetCacheReaderType(cache_reader_name);
+	explicit BaseCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+	    : instance_state(std::move(instance_state_p)) {
 	}
 	virtual ~BaseCacheReader() = default;
 	BaseCacheReader(const BaseCacheReader &) = delete;
@@ -44,15 +46,6 @@ public:
 		throw NotImplementedException("Base cache reader doesn't implement GetName.");
 	}
 
-	BaseProfileCollector &GetProfileCollector() const {
-		return profile_collector.get();
-	}
-
-	void SetProfileCollector(BaseProfileCollector &profile_collector_p) {
-		profile_collector = profile_collector_p;
-		profile_collector.get().SetCacheReaderType(cache_reader_name);
-	}
-
 	template <class TARGET>
 	TARGET &Cast() {
 		DynamicCastCheck<TARGET>(this);
@@ -67,9 +60,7 @@ public:
 protected:
 	// Ownership lies in cache httpfs instance state, which gets updated at extension setting update callback.
 	// Refer to [CacheHttpfsInstanceState] for thread-safety guarentee.
-	std::reference_wrapper<BaseProfileCollector> profile_collector;
-	// Cached name used when updating profile collector.
-	string cache_reader_name;
+	weak_ptr<CacheHttpfsInstanceState> instance_state;
 };
 
 } // namespace duckdb

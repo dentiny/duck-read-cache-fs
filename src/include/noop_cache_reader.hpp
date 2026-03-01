@@ -5,16 +5,18 @@
 #pragma once
 
 #include "base_cache_reader.hpp"
-#include "base_profile_collector.hpp"
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/shared_ptr.hpp"
 
 namespace duckdb {
 
+struct CacheHttpfsInstanceState;
+
 class NoopCacheReader : public BaseCacheReader {
 public:
-	explicit NoopCacheReader(BaseProfileCollector &profile_collector_p)
-	    : BaseCacheReader(profile_collector_p, *NOOP_CACHE_READER_NAME) {
+	explicit NoopCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+	    : BaseCacheReader(std::move(instance_state_p)) {
 	}
 	~NoopCacheReader() override = default;
 

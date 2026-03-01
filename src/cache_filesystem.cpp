@@ -1,12 +1,10 @@
 #include "cache_filesystem.hpp"
 
 #include "assert_utils.hpp"
-#include "cache_filesystem_config.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "in_memory_cache_reader.hpp"
-#include "temp_profile_collector.hpp"
 #include "utils/include/url_utils.hpp"
 
 namespace duckdb {
@@ -16,6 +14,29 @@ namespace {
 constexpr const char *FILE_SIZE_INFO_KEY = "file_size";
 // For certain filesystems, file open info contains "last_modified" field in the extended stats map.
 constexpr const char *LAST_MOD_TIMESTAMP_KEY = "last_modified";
+
+connection_t GetConnectionId(optional_ptr<FileOpener> opener) {
+	if (!opener) {
+		return 0;
+	}
+	auto client_context = FileOpener::TryGetClientContext(opener);
+	if (!client_context) {
+		return 0;
+	}
+	return client_context->GetConnectionId();
+}
+
+connection_t GetConnectionIdFromContext(const QueryContext &context) {
+	if (!context.Valid()) {
+		return DConstants::INVALID_INDEX;
+	}
+	auto client_context = context.GetClientContext();
+	if (!client_context) {
+		return DConstants::INVALID_INDEX;
+	}
+	return client_context->GetConnectionId();
+}
+
 } // namespace
 
 CacheFileSystem::FileHandleCacheKey::FileHandleCacheKey(const string &path_arg, FileOpenFlags flags_arg)
@@ -23,10 +44,11 @@ CacheFileSystem::FileHandleCacheKey::FileHandleCacheKey(const string &path_arg, 
 }
 
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
-                                             std::function<void(CacheFileSystemHandle &)> dtor_callback_p)
+                                             std::function<void(CacheFileSystemHandle &)> dtor_callback_p,
+                                             connection_t connection_id_p)
     : FileHandle(fs, internal_file_handle_p->GetPath(), internal_file_handle_p->GetFlags()),
       logger(internal_file_handle_p->logger), internal_file_handle(std::move(internal_file_handle_p)),
-      dtor_callback(std::move(dtor_callback_p)) {
+      dtor_callback(std::move(dtor_callback_p)), connection_id(connection_id_p) {
 }
 
 FileSystem *CacheFileSystemHandle::GetInternalFileSystem() const {
@@ -53,16 +75,7 @@ void CacheFileSystemHandle::Close() {
 
 CacheFileSystem::CacheFileSystem(unique_ptr<FileSystem> internal_filesystem_p,
                                  weak_ptr<CacheHttpfsInstanceState> instance_state_p)
-    : internal_filesystem(std::move(internal_filesystem_p)),
-      profile_collector([&instance_state_p]() -> BaseProfileCollector & {
-	      auto state = instance_state_p.lock();
-	      if (!state) {
-		      throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
-	      }
-	      return *state->profile_collector;
-      }()),
-      instance_state(std::move(instance_state_p)) {
-	// Register with per-instance registry
+    : internal_filesystem(std::move(internal_filesystem_p)), instance_state(std::move(instance_state_p)) {
 	auto state = instance_state.lock();
 	if (!state) {
 		throw InternalException("CacheFileSystem: instance state is no longer valid during construction");
@@ -106,14 +119,20 @@ void CacheFileSystem::SetMetadataCache() {
 }
 
 bool CacheFileSystem::TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
-	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFileRemove);
-	ClearCache(filename);
+	auto conn_id = GetConnectionId(opener);
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
+	const auto latency_guard = collector.RecordOperationStart(IoOperation::kFileRemove);
+	ClearCache(filename, conn_id);
 	return internal_filesystem->TryRemoveFile(filename, opener);
 }
 
 void CacheFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
-	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFileRemove);
-	ClearCache(filename);
+	auto conn_id = GetConnectionId(opener);
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
+	const auto latency_guard = collector.RecordOperationStart(IoOperation::kFileRemove);
+	ClearCache(filename, conn_id);
 	internal_filesystem->RemoveFile(filename, opener);
 }
 
@@ -179,8 +198,10 @@ void CacheFileSystem::ClearCache() {
 	instance_state.lock()->cache_reader_manager.ClearCache();
 }
 
-void CacheFileSystem::ClearCache(const string &filepath) {
-	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFilePathCacheClear);
+void CacheFileSystem::ClearCache(const string &filepath, connection_t conn_id) {
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
+	const auto latency_guard = collector.RecordOperationStart(IoOperation::kFilePathCacheClear);
 	const SanitizedCachePath cache_key {filepath};
 	if (metadata_cache != nullptr) {
 		metadata_cache->Clear([&cache_key](const string &key) { return key == cache_key.Path(); });
@@ -227,21 +248,26 @@ string CacheFileSystem::GetName() const {
 }
 
 void CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
-	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kWrite);
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, disk_cache_handle.GetConnectionId());
+	const auto latency_guard = collector.RecordOperationStart(IoOperation::kWrite);
 	internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes, location);
-	GetProfileCollector().RecordBytesWritten(nr_bytes);
+	collector.RecordBytesWritten(nr_bytes);
 }
 
 int64_t CacheFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes) {
-	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kWrite);
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, disk_cache_handle.GetConnectionId());
+	const auto latency_guard = collector.RecordOperationStart(IoOperation::kWrite);
 	auto bytes_written = internal_filesystem->Write(*disk_cache_handle.internal_file_handle, buffer, nr_bytes);
-	GetProfileCollector().RecordBytesWritten(bytes_written);
+	collector.RecordBytesWritten(bytes_written);
 	return bytes_written;
 }
 
-unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle) {
+unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle,
+                                                                     connection_t conn_id) {
 	if (internal_file_handle == nullptr) {
 		return nullptr;
 	}
@@ -270,7 +296,7 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 		}
 		in_use_file_handle_counter->Decrement(cache_key);
 	};
-	return make_uniq<CacheFileSystemHandle>(std::move(internal_file_handle), *this, std::move(dtor_callback));
+	return make_uniq<CacheFileSystemHandle>(std::move(internal_file_handle), *this, std::move(dtor_callback), conn_id);
 }
 
 shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &handle) {
@@ -287,11 +313,11 @@ shared_ptr<CacheFileSystem::FileMetadata> CacheFileSystem::Stats(FileHandle &han
 }
 
 vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *opener) {
-	vector<OpenFileInfo> open_file_info;
-	{
-		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kGlob);
-		open_file_info = internal_filesystem->Glob(path, opener);
-	}
+	auto conn_id = GetConnectionId(opener);
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
+	const auto latency_guard = collector.RecordOperationStart(IoOperation::kGlob);
+	auto open_file_info = internal_filesystem->Glob(path, opener);
 
 	// Certain filesystem (i.e., s3 filesystem) populates file size within extended file info, make an attempt to
 	// extract file size.
@@ -338,6 +364,7 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 }
 
 vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opener) {
+	auto conn_id = GetConnectionId(opener);
 	InitializeGlobalConfig(opener);
 	if (glob_cache == nullptr) {
 		return GlobImpl(path, opener);
@@ -356,7 +383,7 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 		return make_shared_ptr<vector<OpenFileInfo>>(std::move(glob_res));
 	});
 	const CacheAccess cache_access = glob_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	GetProfileCollector().RecordCacheAccess(CacheEntity::kGlob, cache_access);
+	RecordCacheAccess(conn_id, CacheEntity::kGlob, cache_access);
 	return *res;
 }
 
@@ -364,6 +391,20 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	auto instance_state_locked = instance_state.lock();
 	const concurrency::lock_guard<concurrency::mutex> cache_reader_lck(cache_reader_mutex);
+
+	auto conn_id = GetConnectionId(opener);
+	instance_state_locked->profile_collector_manager.SetProfileCollector(conn_id,
+	                                                                     instance_state_locked->config.profile_type);
+
+	if (opener) {
+		auto client_context = FileOpener::TryGetClientContext(opener);
+		if (client_context) {
+			RegisterConnectionCleanupState(*client_context, instance_state);
+		}
+	}
+
+	instance_state_locked->cache_reader_manager.SetCacheReader(instance_state_locked->config, instance_state);
+
 	SetMetadataCache();
 	SetFileHandleCache();
 	SetGlobCache();
@@ -372,6 +413,9 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenFileInfo &file, FileOpenFlags flags,
                                                                      optional_ptr<FileOpener> opener) {
 	D_ASSERT(flags.OpenForReading());
+	auto conn_id = GetConnectionId(opener);
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
 
 	// Cache is exclusive, so we don't need to acquire lock for avoid repeated access.
 	if (file_handle_cache != nullptr) {
@@ -381,28 +425,25 @@ unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenF
 			cur_val->Close();
 		}
 		if (get_and_pop_res.target_item != nullptr) {
-			GetProfileCollector().RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit);
+			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheHit);
 			DUCKDB_LOG_OPEN_CACHE_HIT((*get_and_pop_res.target_item));
-			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item));
+			return CreateCacheFileHandleForRead(std::move(get_and_pop_res.target_item), conn_id);
 		}
 
 		// Record stats on cache miss.
-		GetProfileCollector().RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
+		collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheMiss);
 
 		// Record cache miss caused by exclusive resource in use.
 		const unsigned in_use_count = in_use_file_handle_counter->GetCount(key);
 		if (in_use_count > 0) {
-			GetProfileCollector().RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
+			collector.RecordCacheAccess(CacheEntity::kFileHandle, CacheAccess::kCacheEntryInUse);
 		}
 	}
 
-	unique_ptr<FileHandle> file_handle = nullptr;
-	{
-		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kOpen);
-		file_handle = internal_filesystem->OpenFile(file, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
-	}
+	const auto latency_guard = collector.RecordOperationStart(IoOperation::kOpen);
+	auto file_handle = internal_filesystem->OpenFile(file, flags | FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS, opener);
 	DUCKDB_LOG_OPEN_CACHE_MISS_PTR((file_handle));
-	return CreateCacheFileHandleForRead(std::move(file_handle));
+	return CreateCacheFileHandleForRead(std::move(file_handle), conn_id);
 }
 
 // If the target file is compressed, here we only read and potentially cache compressed content.
@@ -414,7 +455,7 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
 
 	// If setting has already been specified to clear cache, we clear it only once at file open.
 	if (instance_state.lock()->config.clear_cache_on_write) {
-		ClearCache(file.path);
+		ClearCache(file.path, GetConnectionId(opener));
 	}
 
 	if (flags.OpenForReading()) {
@@ -423,14 +464,25 @@ unique_ptr<FileHandle> CacheFileSystem::OpenFileExtended(const OpenFileInfo &fil
 
 	// Otherwise, we do nothing (i.e. profiling) but wrapping it with cache file handle wrapper.
 	// For write handles, we still need the connection_id for consistency
+	auto conn_id = GetConnectionId(opener);
 	auto file_handle = internal_filesystem->OpenFile(file, flags, opener);
-	return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
-	                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
+	return make_uniq<CacheFileSystemHandle>(
+	    std::move(file_handle), *this,
+	    /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {}, conn_id);
 }
 
 unique_ptr<FileHandle> CacheFileSystem::OpenFile(const string &path, FileOpenFlags flags,
                                                  optional_ptr<FileOpener> opener) {
 	return OpenFileExtended(OpenFileInfo(path), flags, opener);
+}
+
+unique_ptr<FileHandle> CacheFileSystem::OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle,
+                                                           bool write) {
+	auto file_handle = internal_filesystem->OpenCompressedFile(context, std::move(handle), write);
+	const connection_t conn_id = GetConnectionIdFromContext(context);
+	return make_uniq<CacheFileSystemHandle>(
+	    std::move(file_handle), *this,
+	    /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {}, conn_id);
 }
 
 void CacheFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
@@ -460,7 +512,7 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 		    return Stats(*disk_cache_handle.internal_file_handle);
 	    });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	RecordCacheAccess(disk_cache_handle.GetConnectionId(), CacheEntity::kMetadata, cache_access);
 	return metadata->last_modification_time;
 }
 int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
@@ -480,7 +532,7 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 		    return Stats(*disk_cache_handle.internal_file_handle);
 	    });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	RecordCacheAccess(disk_cache_handle.GetConnectionId(), CacheEntity::kMetadata, cache_access);
 	return metadata->file_size;
 }
 int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
@@ -504,6 +556,19 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	state->cache_reader_manager.GetCacheReader()->ReadAndCache(handle, static_cast<char *>(buffer), location,
 	                                                           bytes_to_read, file_size);
 	return bytes_to_read;
+}
+
+void CacheFileSystem::RecordCacheAccess(connection_t conn_id, CacheEntity cache_entity, CacheAccess cache_access) {
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
+	collector.RecordCacheAccess(cache_entity, cache_access);
+}
+
+void CacheFileSystem::RecordCacheAccess(connection_t conn_id, CacheEntity cache_entity, CacheAccess cache_access,
+                                        idx_t byte_count) {
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
+	collector.RecordCacheAccess(cache_entity, cache_access, byte_count);
 }
 
 } // namespace duckdb

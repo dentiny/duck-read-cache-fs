@@ -12,7 +12,6 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "exclusive_multi_lru_cache.hpp"
-#include "mutex.hpp"
 #include "shared_value_lru_cache.hpp"
 #include "thread_annotation.hpp"
 
@@ -48,7 +47,7 @@ class CacheFileSystemHandle : public FileHandle {
 public:
 	// @param dtor_callback: callback function to invoke at destructor.
 	CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
-	                      std::function<void(CacheFileSystemHandle &)> dtor_callback_p);
+	                      std::function<void(CacheFileSystemHandle &)> dtor_callback_p, connection_t connection_id_p);
 
 	// On cache file handle destruction (for read handles), we place internal file handle to file handle cache to later
 	// reuse.
@@ -64,9 +63,14 @@ public:
 	// Get version tag.
 	string GetVersionTag();
 
+	connection_t GetConnectionId() const {
+		return connection_id;
+	}
+
 	shared_ptr<Logger> logger;
 	unique_ptr<FileHandle> internal_file_handle;
 	std::function<void(CacheFileSystemHandle &)> dtor_callback;
+	connection_t connection_id;
 };
 
 class CacheFileSystem : public FileSystem {
@@ -81,13 +85,6 @@ public:
 	unique_ptr<FileHandle> OpenFile(const string &path, FileOpenFlags flags,
 	                                optional_ptr<FileOpener> opener = nullptr) override;
 	string GetName() const override;
-	BaseProfileCollector &GetProfileCollector() const {
-		return profile_collector.get();
-	}
-	// Update the profile collector reference (called when profile type setting changes)
-	void SetProfileCollector(BaseProfileCollector &profile_collector_p) {
-		profile_collector = profile_collector_p;
-	}
 	// Get file size, which attempts to get metadata cache if possible.
 	int64_t GetFileSize(FileHandle &handle) override;
 	// Get last modification timestamp, which attempts to get metadata cache if possible.
@@ -114,19 +111,14 @@ public:
 
 	// Clear cache entries inside of cache filesystem (i.e. glob cache, file handle cache, metadata cache).
 	// It's worth noting data block cache won't get deleted.
-	void ClearCache(const string &filepath);
+	void ClearCache(const string &filepath, connection_t conn_id = 0);
 
 	// Remove file from both internal filesystem and cache.
 	bool TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
 	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
 
 	// For other API calls, delegate to [internal_filesystem] to handle.
-	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle,
-	                                          bool write) override {
-		auto file_handle = internal_filesystem->OpenCompressedFile(context, std::move(handle), write);
-		return make_uniq<CacheFileSystemHandle>(std::move(file_handle), *this,
-		                                        /*dtor_callback=*/[](CacheFileSystemHandle & /*unused*/) {});
-	}
+	unique_ptr<FileHandle> OpenCompressedFile(QueryContext context, unique_ptr<FileHandle> handle, bool write) override;
 	bool Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) override {
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 		return internal_filesystem->Trim(*disk_cache_handle.internal_file_handle, offset_bytes, length_bytes);
@@ -158,8 +150,10 @@ public:
 		return internal_filesystem->IsPipe(filename, opener);
 	}
 	void FileSync(FileHandle &handle) override {
-		const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFileSync);
 		auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+		auto state = instance_state.lock();
+		auto &collector = GetProfileCollectorOrThrow(state, disk_cache_handle.GetConnectionId());
+		const auto latency_guard = collector.RecordOperationStart(IoOperation::kFileSync);
 		internal_filesystem->FileSync(*disk_cache_handle.internal_file_handle);
 	}
 	string GetHomeDirectory() override {
@@ -260,7 +254,8 @@ private:
 	void InitializeGlobalConfig(optional_ptr<FileOpener> opener) DUCKDB_EXCLUDES(cache_reader_mutex);
 
 	// Create cache file handle.
-	unique_ptr<FileHandle> CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle);
+	unique_ptr<FileHandle> CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle,
+	                                                    connection_t conn_id);
 
 	// Stat the current file handle, and get all well-known file attributes.
 	//
@@ -300,13 +295,14 @@ private:
 	unique_ptr<FileHandle> GetOrCreateFileHandleForRead(const OpenFileInfo &file, FileOpenFlags flags,
 	                                                    optional_ptr<FileOpener> opener);
 
+	// Record cache access for the given connection, resolving the profile collector internally.
+	void RecordCacheAccess(connection_t conn_id, CacheEntity cache_entity, CacheAccess cache_access);
+	void RecordCacheAccess(connection_t conn_id, CacheEntity cache_entity, CacheAccess cache_access, idx_t byte_count);
+
 	// Mutex to protect concurrent access.
 	concurrency::mutex cache_reader_mutex;
 	// Used to access remote files.
 	unique_ptr<FileSystem> internal_filesystem;
-	// Ownership lies in cache httpfs instance state, which gets updated at setting update callback.
-	// Refer to [CacheHttpfsInstanceState] for thread-safety guarentee.
-	std::reference_wrapper<BaseProfileCollector> profile_collector;
 	// Metadata cache, which maps from file path to metadata.
 	using MetadataCache = ThreadSafeSharedValueLruConstCache<string, FileMetadata>;
 	unique_ptr<MetadataCache> metadata_cache;

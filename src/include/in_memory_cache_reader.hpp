@@ -18,8 +18,8 @@ struct CacheHttpfsInstanceState;
 class InMemoryCacheReader final : public BaseCacheReader {
 public:
 	// Constructor: config values are read from instance state at runtime (with defaults as fallback).
-	InMemoryCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p, BaseProfileCollector &profile_collector_p)
-	    : BaseCacheReader(profile_collector_p, *IN_MEM_CACHE_READER_NAME), instance_state(std::move(instance_state_p)) {
+	explicit InMemoryCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p)
+	    : BaseCacheReader(std::move(instance_state_p)) {
 	}
 	~InMemoryCacheReader() override = default;
 
@@ -48,9 +48,6 @@ private:
 
 	// Process a single cache read chunk in a worker thread.
 	void ProcessCacheReadChunk(FileHandle &handle, const string &version_tag, CacheReadChunk cache_read_chunk);
-
-	// Instance state for config lookup.
-	weak_ptr<CacheHttpfsInstanceState> instance_state;
 
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
