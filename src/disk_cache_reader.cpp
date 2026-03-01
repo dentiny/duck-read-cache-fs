@@ -338,8 +338,10 @@ void DiskCacheReader::ClearCache(const string &fname) {
 	// Delete in-memory cache for on-disk cache files.
 	if (in_mem_cache_blocks != nullptr) {
 		const SanitizedCachePath cache_key {fname};
+		// Start from the first block key for this file (ordered by fname, start_off, blk_size).
+		const InMemCacheBlock start_key {cache_key.Path(), /*start_off=*/0, /*blk_size=*/0};
 		in_mem_cache_blocks->Clear(
-		    [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
+		    start_key, [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
 	}
 }
 
