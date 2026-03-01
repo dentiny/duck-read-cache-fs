@@ -174,7 +174,7 @@ private:
 template <typename K, typename V, typename KeyCompare = std::less<K>>
 using SharedValueLruConstCache = SharedValueLruCache<K, const V, KeyCompare>;
 
-// Thread-safe implementation. Keys use KeyCompare only (no hash).
+// Thread-safe implementation.
 template <typename Key, typename Val, typename KeyCompare = std::less<Key>>
 class ThreadSafeSharedValueLruCache {
 public:
@@ -306,7 +306,7 @@ private:
 
 	mutable concurrency::mutex mu;
 	SharedValueLruCache<Key, Val, KeyCompare> internal_cache DUCKDB_GUARDED_BY(mu);
-	// Ongoing creation (ordered by KeyCompare, no hash).
+	// Ongoing creation.
 	map<Key, shared_ptr<CreationToken>, KeyCompare> ongoing_creation DUCKDB_GUARDED_BY(mu);
 };
 

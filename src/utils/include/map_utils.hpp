@@ -59,8 +59,7 @@ struct RefEq : Equal {
 	}
 };
 
-// A comparison wrapper for std::reference_wrapper<const T> for use as std::map comparator.
-// Supports transparent lookup so find(key) works when the map key type is reference_wrapper<const Key>.
+// A comparison wrapper made for `std::reference_wrapper`.
 template <typename Compare>
 struct RefLess : Compare {
 	using is_transparent = void;

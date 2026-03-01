@@ -232,7 +232,7 @@ void InMemoryCacheReader::ClearCache(const string &fname) {
 	if (cache != nullptr) {
 		const SanitizedCachePath cache_key {fname};
 		// Start from the first block key for this file (ordered by fname, start_off, blk_size).
-		const InMemCacheBlock start_key {cache_key.Path(), 0, 0};
+		const InMemCacheBlock start_key {cache_key.Path(), /*start_off=*/0, /*blk_size=*/0};
 		cache->Clear(start_key, [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
 	}
 }
