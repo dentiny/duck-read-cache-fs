@@ -19,14 +19,14 @@ struct InMemCacheBlock {
 	InMemCacheBlock(const string &path, idx_t start_off_p, idx_t blk_size_p);
 };
 
+struct InMemCacheBlockLess {
+	bool operator()(const InMemCacheBlock &lhs, const InMemCacheBlock &rhs) const {
+		return std::tie(lhs.fname, lhs.start_off, lhs.blk_size) < std::tie(rhs.fname, rhs.start_off, rhs.blk_size);
+	}
+};
 struct InMemCacheBlockEqual {
 	bool operator()(const InMemCacheBlock &lhs, const InMemCacheBlock &rhs) const {
 		return std::tie(lhs.fname, lhs.start_off, lhs.blk_size) == std::tie(rhs.fname, rhs.start_off, rhs.blk_size);
-	}
-};
-struct InMemCacheBlockHash {
-	std::size_t operator()(const InMemCacheBlock &key) const {
-		return std::hash<string> {}(key.fname) ^ std::hash<idx_t> {}(key.start_off) ^ std::hash<idx_t> {}(key.blk_size);
 	}
 };
 

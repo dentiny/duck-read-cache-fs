@@ -25,12 +25,11 @@
 
 namespace duckdb {
 
-template <typename Key, typename Val, typename KeyEqual = std::equal_to<Key>>
+template <typename Key, typename Val, typename KeyCompare = std::less<Key>>
 class SharedValueLruCache {
 public:
 	using key_type = Key;
 	using mapped_type = shared_ptr<Val>;
-	using key_equal = KeyEqual;
 
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
@@ -101,12 +100,13 @@ public:
 		lru_list.clear();
 	}
 
-	// Clear cache entries, which matches [key_filter] starting from [start_key] inclusively.
-	// It ends at the first non-matched entry.
+	// Clear cache entries that match [key_filter] starting from [start_key] inclusively.
+	// Stops at the first non-matched entry (ordered by Key).
 	template <typename KeyFilter>
-	void Clear(const Key& start_key, KeyFilter &&key_filter) {
+	void Clear(const Key &start_key, KeyFilter &&key_filter) {
 		vector<Key> keys_to_delete;
 		for (auto iter = entry_map.find(start_key); iter != entry_map.end(); ++iter) {
+			const Key &key = iter->first.get();
 			if (!key_filter(key)) {
 				break;
 			}
@@ -149,7 +149,7 @@ private:
 	};
 
 	using KeyConstRef = std::reference_wrapper<const Key>;
-	using EntryMap = map<KeyConstRef, Entry, RefHash<KeyHash>, RefEq<KeyEqual>>;
+	using EntryMap = map<KeyConstRef, Entry, RefLess<KeyCompare>>;
 
 	// Delete key-value pairs indicated by the given entry map iterator [iter] from cache.
 	void DeleteImpl(typename EntryMap::iterator iter) {
@@ -171,17 +171,17 @@ private:
 };
 
 // Same interfaces as `SharedValueLruCache`, but all cached values are `const` specified to avoid concurrent updates.
-template <typename K, typename V, typename KeyEqual = std::equal_to<K>>
-using SharedValueLruConstCache = SharedValueLruCache<K, const V, KeyEqual>;
+template <typename K, typename V, typename KeyCompare = std::less<K>>
+using SharedValueLruConstCache = SharedValueLruCache<K, const V, KeyCompare>;
 
-// Thread-safe implementation.
-template <typename Key, typename Val,typename KeyEqual = std::equal_to<Key>>
+// Thread-safe implementation. Keys use KeyCompare only (no hash).
+template <typename Key, typename Val, typename KeyCompare = std::less<Key>, typename KeyEqual = std::equal_to<Key>>
 class ThreadSafeSharedValueLruCache {
 public:
-	using lru_impl = SharedValueLruCache<Key, Val, KeyEqual>;
+	using lru_impl = SharedValueLruCache<Key, Val, KeyCompare>;
 	using key_type = typename lru_impl::key_type;
 	using mapped_type = typename lru_impl::mapped_type;
-	using key_equal = typename lru_impl::key_equal;
+	using key_equal = KeyEqual;
 
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
@@ -306,13 +306,13 @@ private:
 	};
 
 	mutable concurrency::mutex mu;
-	SharedValueLruCache<Key, Val, KeyEqual> internal_cache DUCKDB_GUARDED_BY(mu);
-	// Ongoing creation.
-	unordered_map<Key, shared_ptr<CreationToken>, KeyEqual> ongoing_creation DUCKDB_GUARDED_BY(mu);
+	SharedValueLruCache<Key, Val, KeyCompare> internal_cache DUCKDB_GUARDED_BY(mu);
+	// Ongoing creation (ordered by KeyCompare, no hash).
+	map<Key, shared_ptr<CreationToken>, KeyCompare> ongoing_creation DUCKDB_GUARDED_BY(mu);
 };
 
 // Same interfaces as `SharedValueLruCache`, but all cached values are `const` specified to avoid concurrent updates.
-template <typename K, typename V, typename KeyEqual = std::equal_to<K>>
-using ThreadSafeSharedValueLruConstCache = ThreadSafeSharedValueLruCache<K, const V, KeyEqual>;
+template <typename K, typename V, typename KeyCompare = std::less<K>, typename KeyEqual = std::equal_to<K>>
+using ThreadSafeSharedValueLruConstCache = ThreadSafeSharedValueLruCache<K, const V, KeyCompare, KeyEqual>;
 
 } // namespace duckdb

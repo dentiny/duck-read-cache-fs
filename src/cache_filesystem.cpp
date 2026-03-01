@@ -183,10 +183,12 @@ void CacheFileSystem::ClearCache(const string &filepath) {
 	const auto latency_guard = GetProfileCollector().RecordOperationStart(IoOperation::kFilePathCacheClear);
 	const SanitizedCachePath cache_key {filepath};
 	if (metadata_cache != nullptr) {
-		metadata_cache->Clear([&cache_key](const string &key) { return key == cache_key.Path(); });
+		metadata_cache->Clear(cache_key.Path(),
+		                     [&cache_key](const string &key) { return key == cache_key.Path(); });
 	}
 	if (glob_cache != nullptr) {
-		glob_cache->Clear([&cache_key](const string &key) { return key == cache_key.Path(); });
+		glob_cache->Clear(cache_key.Path(),
+		                 [&cache_key](const string &key) { return key == cache_key.Path(); });
 	}
 	ClearFileHandleCache(cache_key);
 	// TODO(hjiang): This seems a duplicate function call, extension statement funtion has already cleared the cache.

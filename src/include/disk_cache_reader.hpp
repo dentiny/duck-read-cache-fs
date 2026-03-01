@@ -51,7 +51,7 @@ private:
 	};
 
 	using InMemCache =
-	    ThreadSafeSharedValueLruCache<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockHash, InMemCacheBlockEqual>;
+	    ThreadSafeSharedValueLruCache<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess, InMemCacheBlockEqual>;
 
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);

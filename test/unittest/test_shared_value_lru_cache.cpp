@@ -16,14 +16,14 @@ struct MapKey {
 	std::string fname;
 	uint64_t off;
 };
+struct MapKeyLess {
+	bool operator()(const MapKey &lhs, const MapKey &rhs) const {
+		return std::tie(lhs.fname, lhs.off) < std::tie(rhs.fname, rhs.off);
+	}
+};
 struct MapKeyEqual {
 	bool operator()(const MapKey &lhs, const MapKey &rhs) const {
 		return std::tie(lhs.fname, lhs.off) == std::tie(rhs.fname, rhs.off);
-	}
-};
-struct MapKeyHash {
-	std::size_t operator()(const MapKey &key) const {
-		return std::hash<std::string> {}(key.fname) ^ std::hash<uint64_t> {}(key.off);
 	}
 };
 } // namespace
@@ -57,8 +57,8 @@ TEST_CASE("SharedValueLru PutAndGetSameKey", "[shared value lru test]") {
 }
 
 TEST_CASE("SharedValueLru CustomizedStruct", "[shared value lru test]") {
-	ThreadSafeSharedValueLruCache<MapKey, std::string, MapKeyHash, MapKeyEqual> cache {/*max_entries_p=*/1,
-	                                                                                   /*timeout_millisec_p=*/0};
+	ThreadSafeSharedValueLruCache<MapKey, std::string, MapKeyLess, MapKeyEqual> cache {/*max_entries_p=*/1,
+	                                                                                    /*timeout_millisec_p=*/0};
 	MapKey key;
 	key.fname = "hello";
 	key.off = 10;
@@ -77,7 +77,7 @@ TEST_CASE("SharedValueLru Clear with filter", "[shared value lru test]") {
 	cache.Put("key1", make_shared_ptr<std::string>("val1"));
 	cache.Put("key2", make_shared_ptr<std::string>("val2"));
 	cache.Put("key3", make_shared_ptr<std::string>("val3"));
-	cache.Clear([](const std::string &key) { return key >= "key2"; });
+	cache.Clear("key2", [](const std::string &key) { return key >= "key2"; });
 
 	// Still valid keys.
 	auto val = cache.Get("key1");
