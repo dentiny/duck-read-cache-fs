@@ -145,8 +145,10 @@ void CacheFileSystem::ClearFileHandleCache(const string &filepath) {
 		return;
 	}
 	const SanitizedCachePath cache_key {filepath};
+	// Start from the first key for this path (ordered by path, flags).
+	const FileHandleCacheKey start_key {cache_key.Path(), FileOpenFlags()};
 	auto file_handles = file_handle_cache->ClearAndGetValues(
-	    [&cache_key](const FileHandleCacheKey &handle_key) { return handle_key.path == cache_key.Path(); });
+	    start_key, [&cache_key](const FileHandleCacheKey &handle_key) { return handle_key.path == cache_key.Path(); });
 	for (auto &cur_file_handle : file_handles) {
 		cur_file_handle->Close();
 	}

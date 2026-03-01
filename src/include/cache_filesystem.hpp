@@ -243,6 +243,13 @@ private:
 			return os;
 		}
 	};
+	struct FileHandleCacheKeyLess {
+		bool operator()(const FileHandleCacheKey &lhs, const FileHandleCacheKey &rhs) const {
+			const idx_t lhs_flag_value = lhs.flags.GetFlagsInternal();
+			const idx_t rhs_flag_value = rhs.flags.GetFlagsInternal();
+			return std::tie(lhs.path, lhs_flag_value) < std::tie(rhs.path, rhs_flag_value);
+		}
+	};
 	struct FileHandleCacheKeyEqual {
 		bool operator()(const FileHandleCacheKey &lhs, const FileHandleCacheKey &rhs) const {
 			const idx_t lhs_flag_value = lhs.flags.GetFlagsInternal();
@@ -312,8 +319,7 @@ private:
 	unique_ptr<MetadataCache> metadata_cache;
 	// File handle cache, which maps from file path to uncached file handle.
 	// Cache is used here to avoid HEAD HTTP request on read operations.
-	using FileHandleCache = ThreadSafeExclusiveMultiLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyHash,
-	                                                         FileHandleCacheKeyEqual>;
+	using FileHandleCache = ThreadSafeExclusiveMultiLruCache<FileHandleCacheKey, FileHandle, FileHandleCacheKeyLess>;
 	shared_ptr<FileHandleCache> file_handle_cache;
 	// In-use file handle counter, which is used to provide observability on cache miss: whether it's caused by low
 	// cache hit rate, or small cache size.
