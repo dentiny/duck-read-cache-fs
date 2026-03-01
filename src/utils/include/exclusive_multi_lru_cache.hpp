@@ -140,8 +140,8 @@ public:
 	}
 
 	// Clear cache entries that match [key_filter] starting from [start_key] inclusively.
-	// Stops at the first non-matched entry (ordered by Key). Uses lower_bound so the first
-	// entry >= start_key is considered. Returns all deleted values.
+	// Stops at the first non-matched entry.
+	// Returns all deleted values.
 	template <typename KeyFilter>
 	vector<unique_ptr<Val>> ClearAndGetValues(const Key &start_key, KeyFilter &&key_filter) {
 		vector<unique_ptr<Val>> values;
@@ -295,6 +295,7 @@ public:
 	}
 
 	// Clear cache entries that match [key_filter] starting from [start_key] inclusively.
+	// It ends at the first non-matched entry.
 	template <typename KeyFilter>
 	vector<unique_ptr<Val>> ClearAndGetValues(const Key &start_key, KeyFilter &&key_filter) {
 		concurrency::unique_lock<concurrency::mutex> lock(mu);
