@@ -57,8 +57,8 @@ TEST_CASE("SharedValueLru PutAndGetSameKey", "[shared value lru test]") {
 }
 
 TEST_CASE("SharedValueLru CustomizedStruct", "[shared value lru test]") {
-	ThreadSafeSharedValueLruCache<MapKey, std::string, MapKeyLess, MapKeyEqual> cache {/*max_entries_p=*/1,
-	                                                                                   /*timeout_millisec_p=*/0};
+	ThreadSafeSharedValueLruCache<MapKey, std::string, MapKeyLess> cache {/*max_entries_p=*/1,
+	                                                                      /*timeout_millisec_p=*/0};
 	MapKey key;
 	key.fname = "hello";
 	key.off = 10;

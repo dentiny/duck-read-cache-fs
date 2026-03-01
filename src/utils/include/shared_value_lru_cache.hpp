@@ -175,13 +175,12 @@ template <typename K, typename V, typename KeyCompare = std::less<K>>
 using SharedValueLruConstCache = SharedValueLruCache<K, const V, KeyCompare>;
 
 // Thread-safe implementation. Keys use KeyCompare only (no hash).
-template <typename Key, typename Val, typename KeyCompare = std::less<Key>, typename KeyEqual = std::equal_to<Key>>
+template <typename Key, typename Val, typename KeyCompare = std::less<Key>>
 class ThreadSafeSharedValueLruCache {
 public:
 	using lru_impl = SharedValueLruCache<Key, Val, KeyCompare>;
 	using key_type = typename lru_impl::key_type;
 	using mapped_type = typename lru_impl::mapped_type;
-	using key_equal = KeyEqual;
 
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
@@ -312,7 +311,7 @@ private:
 };
 
 // Same interfaces as `SharedValueLruCache`, but all cached values are `const` specified to avoid concurrent updates.
-template <typename K, typename V, typename KeyCompare = std::less<K>, typename KeyEqual = std::equal_to<K>>
-using ThreadSafeSharedValueLruConstCache = ThreadSafeSharedValueLruCache<K, const V, KeyCompare, KeyEqual>;
+template <typename K, typename V, typename KeyCompare = std::less<K>>
+using ThreadSafeSharedValueLruConstCache = ThreadSafeSharedValueLruCache<K, const V, KeyCompare>;
 
 } // namespace duckdb
