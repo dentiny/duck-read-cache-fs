@@ -320,7 +320,7 @@ private:
 	using InUseFileHandleCounter =
 	    ThreadSafeCounter<FileHandleCacheKey, FileHandleCacheKeyHash, FileHandleCacheKeyEqual>;
 	shared_ptr<InUseFileHandleCounter> in_use_file_handle_counter;
-	// Glob cache, which maps from path to filenames.
+	// Glob cache, which maps from file path to filenames.
 	using GlobCache = ThreadSafeSharedValueLruConstCache<string, vector<OpenFileInfo>>;
 	unique_ptr<GlobCache> glob_cache;
 	// Per-instance state (shared ownership keeps state alive until all CacheFileSystems are destroyed)
