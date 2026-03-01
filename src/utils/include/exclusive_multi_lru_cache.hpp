@@ -37,6 +37,8 @@ class ExclusiveMultiLruCache {
 public:
 	using key_type = Key;
 	using mapped_type = vector<unique_ptr<Val>>;
+	using value_type = pair<const Key, shared_ptr<Val>>;
+	using key_compare = KeyCompare;
 
 	struct GetAndPopResult {
 		// Entries evicted due to staleness.

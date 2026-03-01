@@ -30,6 +30,8 @@ class SharedValueLruCache {
 public:
 	using key_type = Key;
 	using mapped_type = shared_ptr<Val>;
+	using value_type = pair<const Key, shared_ptr<Val>>;
+	using key_compare = KeyCompare;
 
 	// @param max_entries_p: A `max_entries` of 0 means that there is no limit on the number of entries in the cache.
 	// @param timeout_millisec_p: Timeout in milliseconds for entries, exceeding which invalidates the cache entries; 0
