@@ -101,11 +101,11 @@ public:
 	}
 
 	// Clear cache entries that match [key_filter] starting from [start_key] inclusively.
-	// Stops at the first non-matched entry (ordered by Key).
+	// It ends at the first non-matched entry.
 	template <typename KeyFilter>
 	void Clear(const Key &start_key, KeyFilter &&key_filter) {
 		vector<Key> keys_to_delete;
-		for (auto iter = entry_map.find(start_key); iter != entry_map.end(); ++iter) {
+		for (auto iter = entry_map.lower_bound(start_key); iter != entry_map.end(); ++iter) {
 			const Key &key = iter->first.get();
 			if (!key_filter(key)) {
 				break;
@@ -225,7 +225,7 @@ public:
 	// Clear cache entries, which matches [key_filter] starting from [start_key] inclusively.
 	// It ends at the first non-matched entry.
 	template <typename KeyFilter>
-	void Clear(const Key& start_key, KeyFilter &&key_filter) {
+	void Clear(const Key &start_key, KeyFilter &&key_filter) {
 		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		internal_cache.Clear(start_key, std::forward<KeyFilter>(key_filter));
 	}
