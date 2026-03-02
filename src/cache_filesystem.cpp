@@ -17,11 +17,11 @@ constexpr const char *LAST_MOD_TIMESTAMP_KEY = "last_modified";
 
 connection_t GetConnectionId(optional_ptr<FileOpener> opener) {
 	if (!opener) {
-		return 0;
+		return DConstants::INVALID_INDEX;
 	}
 	auto client_context = FileOpener::TryGetClientContext(opener);
 	if (!client_context) {
-		return 0;
+		return DConstants::INVALID_INDEX;
 	}
 	return client_context->GetConnectionId();
 }
@@ -318,8 +318,12 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 	auto conn_id = GetConnectionId(opener);
 	auto state = instance_state.lock();
 	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
-	const auto latency_guard = collector.RecordOperationStart(IoOperation::kGlob);
-	auto open_file_info = internal_filesystem->Glob(path, opener);
+
+	vector<OpenFileInfo> open_file_info;
+	{
+		const auto latency_guard = collector.RecordOperationStart(IoOperation::kGlob);
+		open_file_info = internal_filesystem->Glob(path, opener);
+	}
 
 	// Certain filesystem (i.e., s3 filesystem) populates file size within extended file info, make an attempt to
 	// extract file size.

@@ -58,8 +58,8 @@ public:
 	}
 
 protected:
-	// Ownership lies in cache httpfs instance state, which gets updated at extension setting update callback.
-	// Refer to [CacheHttpfsInstanceState] for thread-safety guarentee.
+	// Non-owning reference to the per-instance state stored in DuckDB's ObjectCache.
+	// The instance state outlives all cache readers, so the weak_ptr is always valid during normal operation.
 	weak_ptr<CacheHttpfsInstanceState> instance_state;
 };
 
