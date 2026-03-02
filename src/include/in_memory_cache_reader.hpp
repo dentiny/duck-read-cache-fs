@@ -41,6 +41,8 @@ private:
 		string version_tag;
 	};
 
+	using InMemCacheManager = InMemoryDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>;
+
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
 
@@ -53,7 +55,7 @@ private:
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
 	// In-memory cache to store blocks; late initialized after first access.
-	unique_ptr<InMemoryDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>> cache;
+	unique_ptr<InMemoryDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>> cache_manager;
 };
 
 } // namespace duckdb

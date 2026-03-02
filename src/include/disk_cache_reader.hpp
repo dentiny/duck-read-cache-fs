@@ -51,6 +51,8 @@ private:
 		string version_tag;
 	};
 
+	using InMemCacheManager = InMemoryDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>;
+
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
 
@@ -70,7 +72,7 @@ private:
 	// In-memory cache to store blocks; late initialized after first access.
 	// Used to avoid local disk IO.
 	// NOTICE: cache key uses remote filepath, instead of local cache filepath.
-	unique_ptr<InMemoryDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>> in_mem_cache_blocks;
+	unique_ptr<InMemCacheManager> in_mem_cache_manager;
 	// Instance state for config lookup.
 	weak_ptr<CacheHttpfsInstanceState> instance_state;
 };

@@ -1,5 +1,4 @@
-// LRU-based implementation of InMemoryDataCacheManager.
-// Wraps the existing ThreadSafeSharedValueLruCache to provide the common interface.
+// LRU-based implementation of in-memory data cache manager.
 
 #pragma once
 
@@ -8,8 +7,6 @@
 
 namespace duckdb {
 
-// LRU-based in-memory data cache manager.
-// Uses ThreadSafeSharedValueLruCache as the underlying implementation.
 template <typename Key, typename Val, typename KeyCompare = std::less<Key>>
 class LruDataCacheManager : public InMemoryDataCacheManager<Key, Val, KeyCompare> {
 public:
@@ -42,10 +39,6 @@ public:
 
 	vector<Key> Keys() const override {
 		return lru_cache.Keys();
-	}
-
-	size_t MaxEntries() const override {
-		return lru_cache.MaxEntries();
 	}
 
 protected:

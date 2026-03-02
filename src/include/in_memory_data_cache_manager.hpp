@@ -7,8 +7,6 @@
 
 namespace duckdb {
 
-// Abstract interface for managing in-memory data cache.
-// Different implementations can use different backends (e.g., custom LRU cache, DuckDB's BufferPool).
 template <typename Key, typename Val, typename KeyCompare = std::less<Key>>
 class InMemoryDataCacheManager {
 public:
@@ -41,10 +39,6 @@ public:
 	// Get all keys currently in the cache.
 	// The order of keys returned is not guaranteed to be deterministic.
 	virtual vector<Key> Keys() const = 0;
-
-	// Get the maximum number of entries the cache can hold.
-	// Returns 0 if there is no explicit entry limit (e.g., managed by memory budget).
-	virtual size_t MaxEntries() const = 0;
 
 protected:
 	// Type-erased version of Clear with filter for virtual dispatch.
