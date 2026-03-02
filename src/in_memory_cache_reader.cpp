@@ -8,6 +8,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/thread_pool.hpp"
@@ -58,11 +59,11 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	// Check local cache first, see if we could do a cached read.
 	const InMemCacheBlock block_key {handle.GetPath(), cache_read_chunk.aligned_start_offset,
 	                                 cache_read_chunk.chunk_size};
-	auto cache_entry = cache->Get(block_key);
+	auto cache_entry = cache_manager->Get(block_key);
 
 	// Check cache entry validity and clear if necessary.
 	if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag)) {
-		cache->Delete(block_key);
+		cache_manager->Delete(block_key);
 		cache_entry = nullptr;
 	}
 
@@ -94,7 +95,8 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	    .data = std::move(content),
 	    .version_tag = version_tag,
 	};
-	cache->Put(std::move(block_key), make_shared_ptr<InMemoryCacheReader::InMemCacheEntry>(std::move(new_cache_entry)));
+	cache_manager->Put(std::move(block_key),
+	                   make_shared_ptr<InMemoryCacheReader::InMemCacheEntry>(std::move(new_cache_entry)));
 }
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
@@ -106,7 +108,8 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	const auto config = GetConfig(*instance_state.lock());
 
 	std::call_once(cache_init_flag, [this, &config]() {
-		cache = make_uniq<InMemCache>(config.max_cache_block_count, config.cache_block_timeout_millisec);
+		cache_manager = make_uniq<LruDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>>(
+		    config.max_cache_block_count, config.cache_block_timeout_millisec);
 	});
 
 	const idx_t block_size = config.cache_block_size;
@@ -203,11 +206,11 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 }
 
 vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
-	if (cache == nullptr) {
+	if (cache_manager == nullptr) {
 		return {};
 	}
 
-	auto keys = cache->Keys();
+	auto keys = cache_manager->Keys();
 	vector<DataCacheEntryInfo> cache_entries_info;
 	cache_entries_info.reserve(keys.size());
 	for (auto &cur_key : keys) {
@@ -223,17 +226,18 @@ vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
 }
 
 void InMemoryCacheReader::ClearCache() {
-	if (cache != nullptr) {
-		cache->Clear();
+	if (cache_manager != nullptr) {
+		cache_manager->Clear();
 	}
 }
 
 void InMemoryCacheReader::ClearCache(const string &fname) {
-	if (cache != nullptr) {
+	if (cache_manager != nullptr) {
 		const SanitizedCachePath cache_key {fname};
 		// Start from the first block key for this file (ordered by fname, start_off, blk_size).
 		const InMemCacheBlock start_key {cache_key.Path(), /*start_off=*/0, /*blk_size=*/0};
-		cache->Clear(start_key, [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
+		cache_manager->Clear(start_key,
+		                     [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
 	}
 }
 

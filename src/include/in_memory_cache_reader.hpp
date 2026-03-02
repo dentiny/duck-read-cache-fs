@@ -8,7 +8,8 @@
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
-#include "shared_value_lru_cache.hpp"
+#include "in_memory_data_cache_manager.hpp"
+#include "mutex.hpp"
 
 namespace duckdb {
 
@@ -40,7 +41,7 @@ private:
 		string version_tag;
 	};
 
-	using InMemCache = ThreadSafeSharedValueLruCache<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>;
+	using InMemCacheManager = InMemoryDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>;
 
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
@@ -53,8 +54,8 @@ private:
 
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
-	// LRU cache to store blocks; late initialized after first access.
-	unique_ptr<InMemCache> cache;
+	// In-memory cache to store blocks; late initialized after first access.
+	unique_ptr<InMemCacheManager> in_mem_cache_manager;
 };
 
 } // namespace duckdb
