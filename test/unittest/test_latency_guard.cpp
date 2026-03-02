@@ -19,7 +19,7 @@ public:
 		(void)latency_millisec; // Suppress unused parameter warning.
 		++record_end_count;
 	}
-	void RecordCacheAccess(CacheEntity, CacheAccess) override {
+	void RecordCacheAccess(CacheEntity, CacheAccess, idx_t) override {
 	}
 	void RecordActualCacheRead(idx_t, idx_t) override {
 	}
