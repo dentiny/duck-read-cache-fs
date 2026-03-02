@@ -12,6 +12,7 @@
 #include "disk_cache_util.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/resize_uninitialized.hpp"
@@ -197,8 +198,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	const auto &config = instance_state_locked->config;
 	std::call_once(cache_init_flag, [this, &config]() {
 		if (config.enable_disk_reader_mem_cache) {
-			in_mem_cache_blocks = make_uniq<InMemCache>(config.disk_reader_max_mem_cache_timeout_millisec,
-			                                            config.disk_reader_max_mem_cache_timeout_millisec);
+			in_mem_cache_blocks = make_uniq<LruDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>>(
+			    config.disk_reader_max_mem_cache_block_count, config.disk_reader_max_mem_cache_timeout_millisec);
 		}
 	});
 

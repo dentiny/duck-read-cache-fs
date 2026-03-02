@@ -8,6 +8,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/resize_uninitialized.hpp"
 #include "utils/include/thread_pool.hpp"
@@ -106,7 +107,8 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	const auto config = GetConfig(*instance_state.lock());
 
 	std::call_once(cache_init_flag, [this, &config]() {
-		cache = make_uniq<InMemCache>(config.max_cache_block_count, config.cache_block_timeout_millisec);
+		cache = make_uniq<LruDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>>(
+		    config.max_cache_block_count, config.cache_block_timeout_millisec);
 	});
 
 	const idx_t block_size = config.cache_block_size;
