@@ -57,7 +57,11 @@ struct InstanceConfig;
 // Each connection has its own profiler so stats can be tracked independently.
 class InstanceProfileCollectorManager {
 public:
+	// Sets the BaseProfileCollector for the given connection.
+	// If the collector already exists and the profile type is the same, the function does nothing, otherwise it creates
+	// a new collector and replaces the existing one.
 	void SetProfileCollector(connection_t connection_id, const string &profile_type);
+	// Returns the BaseProfileCollector for the given connection, or nullptr if no collector exists.
 	BaseProfileCollector *GetProfileCollector(connection_t connection_id) const;
 	void ResetProfileCollector(connection_t connection_id);
 	void RemoveProfileCollector(connection_t connection_id);
