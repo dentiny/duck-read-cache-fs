@@ -3,9 +3,11 @@
 #pragma once
 
 #include "base_cache_reader.hpp"
+#include "base_profile_collector.hpp"
 #include "cache_filesystem.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/main/database.hpp"
 
@@ -66,6 +68,9 @@ public:
 
 	// Get the config for inspection/modification
 	InstanceConfig &GetConfig();
+
+	// Get profile collector for the given connection.
+	BaseProfileCollector *GetProfileCollector(connection_t connection_id = 0);
 
 private:
 	DuckDB db;
