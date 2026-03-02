@@ -55,7 +55,7 @@ private:
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
 	// In-memory cache to store blocks; late initialized after first access.
-	unique_ptr<InMemoryDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>> cache_manager;
+	unique_ptr<InMemCacheManager> in_mem_cache_manager;
 };
 
 } // namespace duckdb
