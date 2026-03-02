@@ -310,7 +310,8 @@ void UpdateClearCacheOnWrite(ClientContext &context, SetScope scope, Value &para
 }
 
 // Implementation for check cache directories and create directories if necessary.
-void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<string> directories) {
+void UpdateCacheDirectoriesImpl(ClientContext &context, CacheHttpfsInstanceState &inst_state,
+                                vector<string> directories) {
 	// Sanitize directories, to make sure they're not suffixed with trailing slash.
 	for (auto &dir : directories) {
 		if (dir.empty()) {
@@ -323,6 +324,8 @@ void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<str
 
 	std::sort(directories.begin(), directories.end());
 	if (directories == inst_state.config.on_disk_cache_directories) {
+		DUCKDB_LOG_DEBUG(DatabaseInstance::GetDatabase(context),
+		                 "Skipping cache directory update - directories unchanged");
 		return;
 	}
 
@@ -331,6 +334,9 @@ void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<str
 		local_fs->CreateDirectory(dir);
 	}
 	inst_state.config.on_disk_cache_directories = std::move(directories);
+	DUCKDB_LOG_DEBUG(DatabaseInstance::GetDatabase(context),
+	                 StringUtil::Format("Created cache directories: %s",
+	                                    StringUtil::Join(inst_state.config.on_disk_cache_directories, ", ")));
 }
 
 void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &parameter) {
@@ -344,7 +350,7 @@ void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &paramet
 
 	vector<string> directories;
 	directories.emplace_back(std::move(new_cache_directory));
-	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
+	UpdateCacheDirectoriesImpl(context, inst_state, std::move(directories));
 }
 
 void UpdateCacheDirectoriesConfig(ClientContext &context, SetScope scope, Value &parameter) {
@@ -360,7 +366,7 @@ void UpdateCacheDirectoriesConfig(ClientContext &context, SetScope scope, Value 
 		directories.emplace_back(GetDefaultOnDiskCacheDirectory());
 	}
 
-	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
+	UpdateCacheDirectoriesImpl(context, inst_state, std::move(directories));
 }
 
 void UpdateMinDiskBytesForCache(ClientContext &context, SetScope scope, Value &parameter) {
