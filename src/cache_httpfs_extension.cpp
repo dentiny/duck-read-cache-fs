@@ -9,7 +9,6 @@
 #include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
-#include "cache_filesystem_config.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "cache_status_query_function.hpp"
 #include "disk_cache_util.hpp"
@@ -26,7 +25,6 @@
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
-#include "temp_profile_collector.hpp"
 
 #include <algorithm>
 
@@ -45,6 +43,12 @@ DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
 	auto *executor = state.root.executor;
 	auto &client_context = executor->GetContext();
 	return *client_context.db.get();
+}
+
+connection_t GetConnectionId(ExpressionState &state) {
+	auto *executor = state.root.executor;
+	auto &client_context = executor->GetContext();
+	return client_context.GetConnectionId();
 }
 
 // Clear both in-memory and on-disk data block cache.
@@ -68,9 +72,9 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 		cur_cache_fs->ClearCache();
 	}
 
-	// Clear profile collection.
-	CACHE_HTTPFS_ALWAYS_ASSERT(inst_state.profile_collector != nullptr);
-	inst_state.profile_collector->Reset();
+	// Clear profile collection for this connection.
+	auto conn_id = GetConnectionId(state);
+	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
 
 	result.Reference(Value(SUCCESS));
 }
@@ -86,9 +90,10 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 	inst_state.cache_reader_manager.ClearCache(filepath);
 
 	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
+	auto conn_id = GetConnectionId(state);
 	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_cache_fs : cache_filesystem_instances) {
-		cur_cache_fs->ClearCache(filepath);
+		cur_cache_fs->ClearCache(filepath, conn_id);
 	}
 
 	result.Reference(Value(SUCCESS));
@@ -123,39 +128,26 @@ void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vecto
 void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
+	auto conn_id = GetConnectionId(state);
 
-	string latest_stat;
-	uint64_t latest_timestamp = 0;
-	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
-	for (auto *cur_filesystem : cache_file_systems) {
-		auto &profile_collector = cur_filesystem->GetProfileCollector();
-		auto stats_pair = profile_collector.GetHumanReadableStats();
-		const auto &cur_profile_stat = stats_pair.first;
-		const auto &cur_timestamp = stats_pair.second;
-		// Skip collectors that have never been accessed.
-		if (cur_timestamp == 0) {
-			continue;
+	auto *collector = inst_state.profile_collector_manager.GetProfileCollector(conn_id);
+	if (collector) {
+		auto stats_pair = collector->GetHumanReadableStats();
+		auto &latest_stat = stats_pair.first;
+		if (latest_stat.empty()) {
+			latest_stat = "No valid access to cache filesystem";
 		}
-		if (cur_timestamp > latest_timestamp) {
-			latest_timestamp = cur_timestamp;
-			latest_stat = std::move(stats_pair.first);
-			continue;
-		}
-		if (cur_timestamp == latest_timestamp) {
-			latest_stat = MaxValue<string>(latest_stat, cur_profile_stat);
-		}
+		result.Reference(Value(std::move(latest_stat)));
+	} else {
+		result.Reference(Value("No valid access to cache filesystem"));
 	}
-
-	if (latest_stat.empty()) {
-		latest_stat = "No valid access to cache filesystem";
-	}
-	result.Reference(Value(std::move(latest_stat)));
 }
 
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
-	inst_state.ResetProfileCollector();
+	auto conn_id = GetConnectionId(state);
+	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
 	result.Reference(Value(SUCCESS));
 }
 
@@ -287,7 +279,10 @@ void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &paramet
 void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	auto profile_type_str = parameter.ToString();
-	inst_state.SetProfileCollector(std::move(profile_type_str));
+	inst_state.config.profile_type = profile_type_str;
+	auto conn_id = context.GetConnectionId();
+	inst_state.profile_collector_manager.SetProfileCollector(conn_id, profile_type_str);
+	RegisterConnectionCleanupState(context, GetInstanceStateShared(*context.db));
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
