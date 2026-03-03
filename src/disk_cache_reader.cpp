@@ -34,7 +34,7 @@ string DiskCacheReader::EvictCacheBlockLru() {
 	// Initialize file creation timestamp map, which should be called only once.
 	// IO operation is performed inside of critical section intentionally, since it's required for all threads.
 	if (cache_file_creation_timestamp_map.empty()) {
-		auto instance_state_locked = GetInstanceConfig(instance_state);
+		auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
 		const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
 		cache_file_creation_timestamp_map = GetOnDiskFilesUnder(cache_directories);
 	}
@@ -75,7 +75,7 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	}
 
 	// Fill in on disk cache entries.
-	auto instance_state_locked = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
 	const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
 	for (const auto &cur_cache_dir : cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir,
@@ -196,7 +196,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		return;
 	}
 
-	auto instance_state_locked = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
 	const auto &config = instance_state_locked->config;
 	std::call_once(cache_init_flag, [this, &config]() {
 		if (config.enable_disk_reader_mem_cache) {
@@ -302,7 +302,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 }
 
 void DiskCacheReader::ClearCache() {
-	auto instance_state_locked = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
 	const auto &config = instance_state_locked->config;
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
@@ -318,7 +318,7 @@ void DiskCacheReader::ClearCache(const string &fname) {
 	// Delete on-disk files.
 	vector<string> cache_files_to_remove;
 	const string cache_file_prefix = DiskCacheUtil::GetLocalCacheFilePrefix(fname);
-	auto instance_state_locked = GetInstanceConfig(instance_state);
+	auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
 	const auto &config = instance_state_locked->config;
 	for (const auto &cur_cache_dir : config.on_disk_cache_directories) {
 		local_filesystem->ListFiles(cur_cache_dir, [&](const string &cur_file, bool /*unused*/) {

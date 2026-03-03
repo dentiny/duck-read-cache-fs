@@ -225,7 +225,8 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context) {
 	return GetInstanceStateOrThrow(*context.db.get());
 }
 
-shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(const weak_ptr<CacheHttpfsInstanceState> &instance_state) {
+shared_ptr<CacheHttpfsInstanceState>
+GetInstanceConfigOrThrow(const weak_ptr<CacheHttpfsInstanceState> &instance_state) {
 	auto instance_state_locked = instance_state.lock();
 	if (instance_state_locked == nullptr) {
 		throw InternalException("cache_httpfs instance state is no longer valid");
@@ -240,39 +241,6 @@ BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsIns
 	// GetProfileCollector now always returns a valid collector (default noop if not set)
 	D_ASSERT(collector);
 	return *collector;
-}
-
-//===--------------------------------------------------------------------===//
-// Per-connection cleanup via ClientContextState
-//===--------------------------------------------------------------------===//
-
-namespace {
-
-constexpr const char *CONNECTION_STATE_KEY = "cache_httpfs_connection_state";
-
-class CacheHttpfsConnectionState : public ClientContextState {
-public:
-	CacheHttpfsConnectionState(weak_ptr<CacheHttpfsInstanceState> instance_state_p, connection_t connection_id_p)
-	    : instance_state(std::move(instance_state_p)), connection_id(connection_id_p) {
-	}
-
-	~CacheHttpfsConnectionState() override {
-		auto state = instance_state.lock();
-		if (state) {
-			state->profile_collector_manager.RemoveProfileCollector(connection_id);
-		}
-	}
-
-private:
-	weak_ptr<CacheHttpfsInstanceState> instance_state;
-	connection_t connection_id;
-};
-
-} // namespace
-
-void RegisterConnectionCleanupState(ClientContext &context, weak_ptr<CacheHttpfsInstanceState> instance_state) {
-	context.registered_state->GetOrCreate<CacheHttpfsConnectionState>(CONNECTION_STATE_KEY, std::move(instance_state),
-	                                                                  context.GetConnectionId());
 }
 
 } // namespace duckdb
