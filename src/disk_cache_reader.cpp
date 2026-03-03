@@ -123,8 +123,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 			local_filesystem->TryRemoveFile(cache_dest.dest_local_filepath);
 		}
 		if (cache_entry != nullptr) {
-			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit,
-			                            cache_read_chunk.bytes_to_copy);
+			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
 			cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
 			return;
@@ -137,11 +136,10 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
 	{
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kDiskCacheRead);
-		auto read_result = DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath,
-		                                                     cache_read_chunk.chunk_size, version_tag);
+		auto read_result =
+		    DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath, cache_read_chunk.chunk_size, version_tag);
 		if (read_result.cache_hit) {
-			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit,
-			                            cache_read_chunk.bytes_to_copy);
+			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
 			cache_read_chunk.CopyBufferToRequestedMemory(read_result.content);
 

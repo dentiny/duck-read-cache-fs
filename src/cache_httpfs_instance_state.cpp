@@ -89,6 +89,11 @@ void InstanceProfileCollectorManager::RemoveProfileCollector(connection_t connec
 	profile_collectors.erase(connection_id);
 }
 
+idx_t InstanceProfileCollectorManager::GetProfileCollectorCount() const {
+	concurrency::lock_guard<concurrency::mutex> lock(mutex);
+	return profile_collectors.size();
+}
+
 //===--------------------------------------------------------------------===//
 // InstanceCacheReaderManager implementation
 //===--------------------------------------------------------------------===//

@@ -65,6 +65,9 @@ public:
 	BaseProfileCollector *GetProfileCollector(connection_t connection_id) const;
 	void ResetProfileCollector(connection_t connection_id);
 	void RemoveProfileCollector(connection_t connection_id);
+	// Returns the number of registered profile collectors.
+	// Expose for tests and debugging purposes.
+	idx_t GetProfileCollectorCount() const;
 
 private:
 	mutable concurrency::mutex mutex;
