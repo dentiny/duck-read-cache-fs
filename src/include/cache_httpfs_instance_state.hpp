@@ -61,14 +61,17 @@ public:
 	// If the collector already exists and the profile type is the same, the function does nothing, otherwise it creates
 	// a new collector and replaces the existing one.
 	void SetProfileCollector(connection_t connection_id, const string &profile_type);
-	// Returns the BaseProfileCollector for the given connection.
+	// Returns the profile collector for the given connection.
 	// If no collector exists for the connection, returns a default noop collector.
 	BaseProfileCollector &GetProfileCollectorOrDefault(connection_t connection_id) const;
+	BaseProfileCollector &GetProfileCollectorOrThrow(connection_t connection_id) const;
 	// Returns true if a profile collector was explicitly set for this connection.
 	bool HasExplicitProfileCollector(connection_t connection_id) const;
+	// Resets the profile collector for the given connection.
 	void ResetProfileCollector(connection_t connection_id);
+	// Removes the profile collector for the given connection.
 	void RemoveProfileCollector(connection_t connection_id);
-	// Returns the number of registered profile collectors, used for testing and debugging purposes.
+	// Returns the number of registered profile collectors, expose for testing and debugging purposes.
 	idx_t GetProfileCollectorCount() const;
 
 private:

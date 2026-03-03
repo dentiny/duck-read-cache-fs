@@ -87,6 +87,15 @@ BaseProfileCollector &InstanceProfileCollectorManager::GetProfileCollectorOrDefa
 	return *default_noop_collector;
 }
 
+BaseProfileCollector &InstanceProfileCollectorManager::GetProfileCollectorOrThrow(connection_t connection_id) const {
+	concurrency::lock_guard<concurrency::mutex> lock(mutex);
+	auto it = profile_collectors.find(connection_id);
+	if (it != profile_collectors.end()) {
+		return *it->second;
+	}
+	throw InternalException("No profile collector found for connection %d", connection_id);
+}
+
 bool InstanceProfileCollectorManager::HasExplicitProfileCollector(connection_t connection_id) const {
 	concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	return profile_collectors.find(connection_id) != profile_collectors.end();
@@ -237,7 +246,6 @@ GetInstanceConfigOrThrow(const weak_ptr<CacheHttpfsInstanceState> &instance_stat
 BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsInstanceState> &instance_state,
                                                  connection_t conn_id) {
 	D_ASSERT(instance_state);
-	// GetProfileCollectorOrDefault always returns a valid collector (default noop if not set)
 	return instance_state->profile_collector_manager.GetProfileCollectorOrDefault(conn_id);
 }
 

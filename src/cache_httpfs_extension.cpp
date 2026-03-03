@@ -283,7 +283,11 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 	inst_state.config.profile_type = profile_type_str;
 	auto conn_id = context.GetConnectionId();
 	inst_state.profile_collector_manager.SetProfileCollector(conn_id, profile_type_str);
-	// Note: Cleanup is handled automatically by CacheHttpfsExtensionCallback::OnConnectionClosed
+
+	// Register a callback specific to this connection for cleanup
+	auto &config = DBConfig::GetConfig(context);
+	config.extension_callbacks.push_back(
+	    make_uniq<CacheHttpfsExtensionCallback>(GetInstanceStateShared(*context.db), conn_id));
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
@@ -806,8 +810,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	// Register wrapped cache filesystems info.
 	loader.RegisterFunction(GetWrappedCacheFileSystemsFunc());
 
-	// Register extension callback for connection lifecycle management
-	config.extension_callbacks.emplace_back(make_uniq<CacheHttpfsExtensionCallback>());
+	// Note: Extension callbacks are now registered per-connection when profile collectors are set
 
 	// Fill in extension load information.
 	string description = StringUtil::Format(
