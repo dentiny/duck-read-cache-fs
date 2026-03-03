@@ -9,6 +9,7 @@
 #include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
+#include "cache_httpfs_extension_callback.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "cache_status_query_function.hpp"
 #include "disk_cache_util.hpp"
@@ -130,17 +131,18 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 	auto &inst_state = GetInstanceStateOrThrow(instance);
 	auto conn_id = GetConnectionId(state);
 
-	auto *collector = inst_state.profile_collector_manager.GetProfileCollector(conn_id);
-	if (collector) {
-		auto stats_pair = collector->GetHumanReadableStats();
-		auto &latest_stat = stats_pair.first;
-		if (latest_stat.empty()) {
-			latest_stat = "No valid access to cache filesystem";
-		}
-		result.Reference(Value(std::move(latest_stat)));
-	} else {
+	if (!inst_state.profile_collector_manager.HasExplicitProfileCollector(conn_id)) {
 		result.Reference(Value("No valid access to cache filesystem"));
+		return;
 	}
+
+	auto &collector = inst_state.profile_collector_manager.GetProfileCollectorOrDefault(conn_id);
+	auto stats_pair = collector.GetHumanReadableStats();
+	auto &latest_stat = stats_pair.first;
+	if (latest_stat.empty()) {
+		latest_stat = "No valid access to cache filesystem";
+	}
+	result.Reference(Value(std::move(latest_stat)));
 }
 
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
@@ -282,7 +284,11 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 	inst_state.config.profile_type = profile_type_str;
 	auto conn_id = context.GetConnectionId();
 	inst_state.profile_collector_manager.SetProfileCollector(conn_id, profile_type_str);
-	RegisterConnectionCleanupState(context, GetInstanceStateShared(*context.db));
+
+	// Register a callback specific to this connection for cleanup
+	auto &config = DBConfig::GetConfig(context);
+	config.extension_callbacks.emplace_back(
+	    make_uniq<CacheHttpfsExtensionCallback>(GetInstanceStateShared(*context.db), conn_id));
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {

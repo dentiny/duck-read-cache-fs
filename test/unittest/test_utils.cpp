@@ -34,8 +34,9 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(TestCacheConfig config) : d
 	// Cache behavior
 	inst_config.clear_cache_on_write = config.clear_cache_on_write;
 
-	// Initialize profile collector for connection 0 (test default)
-	instance_state->profile_collector_manager.SetProfileCollector(0, inst_config.profile_type);
+	// Initialize profile collector for INVALID_INDEX (default when no FileOpener is provided in tests)
+	// This allows tests to configure a specific profile type (e.g., "temp" for stats collection tests)
+	instance_state->profile_collector_manager.SetProfileCollector(DConstants::INVALID_INDEX, inst_config.profile_type);
 
 	// Ensure cache directories exist
 	auto local_fs = LocalFileSystem::CreateLocal();
@@ -69,8 +70,8 @@ InstanceConfig &TestCacheFileSystemHelper::GetConfig() {
 	return instance_state->config;
 }
 
-BaseProfileCollector *TestCacheFileSystemHelper::GetProfileCollector(connection_t connection_id) {
-	return instance_state->profile_collector_manager.GetProfileCollector(connection_id);
+BaseProfileCollector &TestCacheFileSystemHelper::GetProfileCollectorOrDefault(connection_t connection_id) {
+	return instance_state->profile_collector_manager.GetProfileCollectorOrDefault(connection_id);
 }
 
 void InitializeCacheReaderForTest(shared_ptr<CacheHttpfsInstanceState> &instance_state, const InstanceConfig &config) {

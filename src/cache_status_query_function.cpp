@@ -191,12 +191,12 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 	// Get cache access info from the per-connection profile collector.
 	auto &inst_state = GetInstanceStateOrThrow(*context.db);
 	auto conn_id = context.GetConnectionId();
-	auto *collector = inst_state.profile_collector_manager.GetProfileCollector(conn_id);
-	if (!collector) {
-		return result;
+	if (!inst_state.profile_collector_manager.HasExplicitProfileCollector(conn_id)) {
+		return std::move(result);
 	}
 
-	auto cache_access_info = collector->GetCacheAccessInfo();
+	auto &collector = inst_state.profile_collector_manager.GetProfileCollectorOrThrow(conn_id);
+	auto cache_access_info = collector.GetCacheAccessInfo();
 	D_ASSERT(cache_access_info.size() == kCacheEntityCount);
 	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
 		auto &cur = cache_access_info[idx];

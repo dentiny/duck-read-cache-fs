@@ -69,8 +69,8 @@ public:
 	// Get the config for inspection/modification
 	InstanceConfig &GetConfig();
 
-	// Get profile collector for the given connection.
-	BaseProfileCollector *GetProfileCollector(connection_t connection_id = 0);
+	// Get profile collector for the given connection (returns default noop if not explicitly set).
+	BaseProfileCollector &GetProfileCollectorOrDefault(connection_t connection_id = DConstants::INVALID_INDEX);
 
 private:
 	DuckDB db;

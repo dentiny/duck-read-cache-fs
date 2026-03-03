@@ -62,18 +62,43 @@ void InstanceProfileCollectorManager::SetProfileCollector(connection_t connectio
 		return;
 	}
 
-	// PERSISTENT_PROFILE_TYPE ("duckdb") is declared but not yet implemented;
-	// fall back to noop so the setting is accepted without error.
-	profile_collectors[connection_id] = make_uniq<NoopProfileCollector>();
+	if (profile_type == *PERSISTENT_PROFILE_TYPE) {
+		// PERSISTENT_PROFILE_TYPE ("duckdb") is declared but not yet implemented;
+		// fall back to noop so the setting is accepted without error.
+		profile_collectors[connection_id] = make_uniq<NoopProfileCollector>();
+		return;
+	}
+
+	// Invalid profile type
+	throw InvalidInputException("Invalid cache_httpfs_profile_type: '%s'. Valid types are: 'noop', 'temp', 'duckdb'",
+	                            profile_type);
 }
 
-BaseProfileCollector *InstanceProfileCollectorManager::GetProfileCollector(connection_t connection_id) const {
+BaseProfileCollector &InstanceProfileCollectorManager::GetProfileCollectorOrDefault(connection_t connection_id) const {
 	concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	auto it = profile_collectors.find(connection_id);
 	if (it != profile_collectors.end()) {
-		return it->second.get();
+		return *it->second;
 	}
-	return nullptr;
+	// Return default noop collector if no collector exists for this connection
+	if (default_noop_collector == nullptr) {
+		default_noop_collector = make_uniq<NoopProfileCollector>();
+	}
+	return *default_noop_collector;
+}
+
+BaseProfileCollector &InstanceProfileCollectorManager::GetProfileCollectorOrThrow(connection_t connection_id) const {
+	concurrency::lock_guard<concurrency::mutex> lock(mutex);
+	auto it = profile_collectors.find(connection_id);
+	if (it != profile_collectors.end()) {
+		return *it->second;
+	}
+	throw InternalException("No profile collector found for connection %d", connection_id);
+}
+
+bool InstanceProfileCollectorManager::HasExplicitProfileCollector(connection_t connection_id) const {
+	concurrency::lock_guard<concurrency::mutex> lock(mutex);
+	return profile_collectors.find(connection_id) != profile_collectors.end();
 }
 
 void InstanceProfileCollectorManager::ResetProfileCollector(connection_t connection_id) {
@@ -87,6 +112,11 @@ void InstanceProfileCollectorManager::ResetProfileCollector(connection_t connect
 void InstanceProfileCollectorManager::RemoveProfileCollector(connection_t connection_id) {
 	concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	profile_collectors.erase(connection_id);
+}
+
+idx_t InstanceProfileCollectorManager::GetProfileCollectorCount() const {
+	concurrency::lock_guard<concurrency::mutex> lock(mutex);
+	return profile_collectors.size();
 }
 
 //===--------------------------------------------------------------------===//
@@ -204,7 +234,8 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context) {
 	return GetInstanceStateOrThrow(*context.db.get());
 }
 
-shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(const weak_ptr<CacheHttpfsInstanceState> &instance_state) {
+shared_ptr<CacheHttpfsInstanceState>
+GetInstanceConfigOrThrow(const weak_ptr<CacheHttpfsInstanceState> &instance_state) {
 	auto instance_state_locked = instance_state.lock();
 	if (instance_state_locked == nullptr) {
 		throw InternalException("cache_httpfs instance state is no longer valid");
@@ -215,44 +246,7 @@ shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(const weak_ptr<CacheHttpf
 BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsInstanceState> &instance_state,
                                                  connection_t conn_id) {
 	D_ASSERT(instance_state);
-	auto *collector = instance_state->profile_collector_manager.GetProfileCollector(conn_id);
-	if (!collector) {
-		throw InternalException("CacheFileSystem: no profile collector for connection %llu", conn_id);
-	}
-	return *collector;
-}
-
-//===--------------------------------------------------------------------===//
-// Per-connection cleanup via ClientContextState
-//===--------------------------------------------------------------------===//
-
-namespace {
-
-constexpr const char *CONNECTION_STATE_KEY = "cache_httpfs_connection_state";
-
-class CacheHttpfsConnectionState : public ClientContextState {
-public:
-	CacheHttpfsConnectionState(weak_ptr<CacheHttpfsInstanceState> instance_state_p, connection_t connection_id_p)
-	    : instance_state(std::move(instance_state_p)), connection_id(connection_id_p) {
-	}
-
-	~CacheHttpfsConnectionState() override {
-		auto state = instance_state.lock();
-		if (state) {
-			state->profile_collector_manager.RemoveProfileCollector(connection_id);
-		}
-	}
-
-private:
-	weak_ptr<CacheHttpfsInstanceState> instance_state;
-	connection_t connection_id;
-};
-
-} // namespace
-
-void RegisterConnectionCleanupState(ClientContext &context, weak_ptr<CacheHttpfsInstanceState> instance_state) {
-	context.registered_state->GetOrCreate<CacheHttpfsConnectionState>(CONNECTION_STATE_KEY, std::move(instance_state),
-	                                                                  context.GetConnectionId());
+	return instance_state->profile_collector_manager.GetProfileCollectorOrDefault(conn_id);
 }
 
 } // namespace duckdb

@@ -61,14 +61,25 @@ public:
 	// If the collector already exists and the profile type is the same, the function does nothing, otherwise it creates
 	// a new collector and replaces the existing one.
 	void SetProfileCollector(connection_t connection_id, const string &profile_type);
-	// Returns the BaseProfileCollector for the given connection, or nullptr if no collector exists.
-	BaseProfileCollector *GetProfileCollector(connection_t connection_id) const;
+	// Returns the profile collector for the given connection.
+	// If no collector exists for the connection, returns a default noop collector.
+	BaseProfileCollector &GetProfileCollectorOrDefault(connection_t connection_id) const;
+	// Returns the profile collector for the given connection.
+	// If no collector exists for the connection, throws an exception.
+	BaseProfileCollector &GetProfileCollectorOrThrow(connection_t connection_id) const;
+	// Returns true if a profile collector was explicitly set for this connection.
+	bool HasExplicitProfileCollector(connection_t connection_id) const;
+	// Resets the profile collector for the given connection.
 	void ResetProfileCollector(connection_t connection_id);
+	// Removes the profile collector for the given connection.
 	void RemoveProfileCollector(connection_t connection_id);
+	// Returns the number of registered profile collectors, expose for testing and debugging purposes.
+	idx_t GetProfileCollectorCount() const;
 
 private:
 	mutable concurrency::mutex mutex;
 	unordered_map<connection_t, unique_ptr<BaseProfileCollector>> profile_collectors DUCKDB_GUARDED_BY(mutex);
+	mutable unique_ptr<BaseProfileCollector> default_noop_collector DUCKDB_GUARDED_BY(mutex);
 };
 
 //===--------------------------------------------------------------------===//
@@ -186,16 +197,12 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance);
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context);
 
 // Get instance state as shared_ptr, throw exception if already unreferenced.
-shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(const weak_ptr<CacheHttpfsInstanceState> &instance_state);
+shared_ptr<CacheHttpfsInstanceState> GetInstanceConfigOrThrow(const weak_ptr<CacheHttpfsInstanceState> &instance_state);
 
 // Get the per-connection profile collector, throwing if no collector exists for the given
 // connection. Use this in filesystem and cache reader code where a valid collector is
 // always expected (InitializeGlobalConfig guarantees it).
 BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsInstanceState> &instance_state,
                                                  connection_t conn_id);
-
-// Register a ClientContextState that removes this connection's profile collector
-// when the connection is destroyed. Safe to call multiple times for the same connection.
-void RegisterConnectionCleanupState(ClientContext &context, weak_ptr<CacheHttpfsInstanceState> instance_state);
 
 } // namespace duckdb

@@ -36,6 +36,7 @@ set(EXTENSION_SOURCES
     src/cache_exclusion_manager.cpp
     src/cache_exclusion_utils.cpp
     src/cache_httpfs_extension.cpp
+    src/cache_httpfs_extension_callback.cpp
     src/cache_httpfs_instance_state.cpp
     src/cache_filesystem.cpp
     src/cache_filesystem_config.cpp
