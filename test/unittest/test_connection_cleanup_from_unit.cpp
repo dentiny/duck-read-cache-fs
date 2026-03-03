@@ -7,6 +7,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "duckdb/common/vector.hpp"
+#include "duckdb/main/client_context.hpp"
 #include "duckdb/main/connection.hpp"
 #include "duckdb/main/connection_manager.hpp"
 #include "duckdb/main/database.hpp"
@@ -53,9 +54,12 @@ TEST_CASE_METHOD(ConnectionCleanupFixture,
 
 	for (size_t idx = 0; idx < num_connections; ++idx) {
 		connections.emplace_back(make_uniq<Connection>(db));
-		// Setting cache httpfs profile type to register the connection into profile manager.
-		auto result = connections.back()->Query("SET cache_httpfs_profile_type = 'temp'");
-		REQUIRE(!result->HasError());
+		auto &context = *connections.back()->context;
+		auto conn_id = context.GetConnectionId();
+		
+		// Directly register the connection into the profile manager and cleanup state
+		instance_state->profile_collector_manager.SetProfileCollector(conn_id, "noop");
+		RegisterConnectionCleanupState(context, db_instance_state);
 	}
 
 	auto &connection_manager = ConnectionManager::Get(*instance);

@@ -70,7 +70,7 @@ public:
 	InstanceConfig &GetConfig();
 
 	// Get profile collector for the given connection.
-	BaseProfileCollector *GetProfileCollector(connection_t connection_id = 0);
+	BaseProfileCollector *GetProfileCollector(connection_t connection_id = DConstants::INVALID_INDEX);
 
 private:
 	DuckDB db;

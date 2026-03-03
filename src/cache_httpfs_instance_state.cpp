@@ -73,7 +73,11 @@ BaseProfileCollector *InstanceProfileCollectorManager::GetProfileCollector(conne
 	if (it != profile_collectors.end()) {
 		return it->second.get();
 	}
-	return nullptr;
+	// Return default noop collector if no collector exists for this connection
+	if (!default_noop_collector) {
+		default_noop_collector = make_uniq<NoopProfileCollector>();
+	}
+	return default_noop_collector.get();
 }
 
 void InstanceProfileCollectorManager::ResetProfileCollector(connection_t connection_id) {
@@ -221,9 +225,8 @@ BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsIns
                                                  connection_t conn_id) {
 	D_ASSERT(instance_state);
 	auto *collector = instance_state->profile_collector_manager.GetProfileCollector(conn_id);
-	if (!collector) {
-		throw InternalException("CacheFileSystem: no profile collector for connection %llu", conn_id);
-	}
+	// GetProfileCollector now always returns a valid collector (default noop if not set)
+	D_ASSERT(collector);
 	return *collector;
 }
 
