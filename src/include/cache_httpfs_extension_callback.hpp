@@ -10,13 +10,13 @@
 
 namespace duckdb {
 
+// Forward declaration.
 struct CacheHttpfsInstanceState;
 
 class CacheHttpfsExtensionCallback : public ExtensionCallback {
 public:
 	CacheHttpfsExtensionCallback(weak_ptr<CacheHttpfsInstanceState> instance_state, connection_t connection_id);
 	~CacheHttpfsExtensionCallback() override;
-
 	void OnConnectionClosed(ClientContext &context) override;
 
 private:

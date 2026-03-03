@@ -135,6 +135,7 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 		result.Reference(Value("No valid access to cache filesystem"));
 		return;
 	}
+
 	auto &collector = inst_state.profile_collector_manager.GetProfileCollectorOrDefault(conn_id);
 	auto stats_pair = collector.GetHumanReadableStats();
 	auto &latest_stat = stats_pair.first;
@@ -286,7 +287,7 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 
 	// Register a callback specific to this connection for cleanup
 	auto &config = DBConfig::GetConfig(context);
-	config.extension_callbacks.push_back(
+	config.extension_callbacks.emplace_back(
 	    make_uniq<CacheHttpfsExtensionCallback>(GetInstanceStateShared(*context.db), conn_id));
 }
 
@@ -809,8 +810,6 @@ void LoadInternal(ExtensionLoader &loader) {
 
 	// Register wrapped cache filesystems info.
 	loader.RegisterFunction(GetWrappedCacheFileSystemsFunc());
-
-	// Note: Extension callbacks are now registered per-connection when profile collectors are set
 
 	// Fill in extension load information.
 	string description = StringUtil::Format(
