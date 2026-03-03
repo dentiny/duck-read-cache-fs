@@ -130,8 +130,9 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 	auto &inst_state = GetInstanceStateOrThrow(instance);
 	auto conn_id = GetConnectionId(state);
 
-	auto *collector = inst_state.profile_collector_manager.GetProfileCollector(conn_id);
-	if (collector) {
+	// Check if a profile collector was explicitly set for this connection
+	if (inst_state.profile_collector_manager.HasExplicitProfileCollector(conn_id)) {
+		auto *collector = inst_state.profile_collector_manager.GetProfileCollector(conn_id);
 		auto stats_pair = collector->GetHumanReadableStats();
 		auto &latest_stat = stats_pair.first;
 		if (latest_stat.empty()) {

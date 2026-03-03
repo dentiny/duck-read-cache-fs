@@ -64,6 +64,8 @@ public:
 	// Returns the BaseProfileCollector for the given connection.
 	// If no collector exists for the connection, returns a default noop collector.
 	BaseProfileCollector *GetProfileCollector(connection_t connection_id) const;
+	// Returns true if a profile collector was explicitly set for this connection.
+	bool HasExplicitProfileCollector(connection_t connection_id) const;
 	void ResetProfileCollector(connection_t connection_id);
 	void RemoveProfileCollector(connection_t connection_id);
 	// Returns the number of registered profile collectors (excluding the default noop collector).

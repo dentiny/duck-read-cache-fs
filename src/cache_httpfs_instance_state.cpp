@@ -62,9 +62,16 @@ void InstanceProfileCollectorManager::SetProfileCollector(connection_t connectio
 		return;
 	}
 
-	// PERSISTENT_PROFILE_TYPE ("duckdb") is declared but not yet implemented;
-	// fall back to noop so the setting is accepted without error.
-	profile_collectors[connection_id] = make_uniq<NoopProfileCollector>();
+	if (profile_type == *PERSISTENT_PROFILE_TYPE) {
+		// PERSISTENT_PROFILE_TYPE ("duckdb") is declared but not yet implemented;
+		// fall back to noop so the setting is accepted without error.
+		profile_collectors[connection_id] = make_uniq<NoopProfileCollector>();
+		return;
+	}
+
+	// Invalid profile type
+	throw InvalidInputException("Invalid cache_httpfs_profile_type: '%s'. Valid types are: 'noop', 'temp', 'duckdb'", 
+	                           profile_type);
 }
 
 BaseProfileCollector *InstanceProfileCollectorManager::GetProfileCollector(connection_t connection_id) const {
@@ -78,6 +85,11 @@ BaseProfileCollector *InstanceProfileCollectorManager::GetProfileCollector(conne
 		default_noop_collector = make_uniq<NoopProfileCollector>();
 	}
 	return default_noop_collector.get();
+}
+
+bool InstanceProfileCollectorManager::HasExplicitProfileCollector(connection_t connection_id) const {
+	concurrency::lock_guard<concurrency::mutex> lock(mutex);
+	return profile_collectors.find(connection_id) != profile_collectors.end();
 }
 
 void InstanceProfileCollectorManager::ResetProfileCollector(connection_t connection_id) {
