@@ -9,6 +9,7 @@
 #include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
+#include "cache_httpfs_extension_callback.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "cache_status_query_function.hpp"
 #include "disk_cache_util.hpp"
@@ -283,7 +284,7 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 	inst_state.config.profile_type = profile_type_str;
 	auto conn_id = context.GetConnectionId();
 	inst_state.profile_collector_manager.SetProfileCollector(conn_id, profile_type_str);
-	RegisterConnectionCleanupState(context, GetInstanceStateShared(*context.db));
+	// Note: Cleanup is handled automatically by CacheHttpfsExtensionCallback::OnConnectionClosed
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
@@ -805,6 +806,9 @@ void LoadInternal(ExtensionLoader &loader) {
 
 	// Register wrapped cache filesystems info.
 	loader.RegisterFunction(GetWrappedCacheFileSystemsFunc());
+
+	// Register extension callback for connection lifecycle management
+	config.extension_callbacks.emplace_back(make_uniq<CacheHttpfsExtensionCallback>());
 
 	// Fill in extension load information.
 	string description = StringUtil::Format(

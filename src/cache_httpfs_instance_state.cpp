@@ -70,8 +70,8 @@ void InstanceProfileCollectorManager::SetProfileCollector(connection_t connectio
 	}
 
 	// Invalid profile type
-	throw InvalidInputException("Invalid cache_httpfs_profile_type: '%s'. Valid types are: 'noop', 'temp', 'duckdb'", 
-	                           profile_type);
+	throw InvalidInputException("Invalid cache_httpfs_profile_type: '%s'. Valid types are: 'noop', 'temp', 'duckdb'",
+	                            profile_type);
 }
 
 BaseProfileCollector *InstanceProfileCollectorManager::GetProfileCollector(connection_t connection_id) const {

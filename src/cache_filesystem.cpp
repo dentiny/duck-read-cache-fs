@@ -402,12 +402,7 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	instance_state_locked->profile_collector_manager.SetProfileCollector(conn_id,
 	                                                                     instance_state_locked->config.profile_type);
 
-	if (opener) {
-		auto client_context = FileOpener::TryGetClientContext(opener);
-		if (client_context) {
-			RegisterConnectionCleanupState(*client_context, instance_state);
-		}
-	}
+	// Note: Connection cleanup is handled automatically by CacheHttpfsExtensionCallback::OnConnectionClosed
 
 	instance_state_locked->cache_reader_manager.SetCacheReader(instance_state_locked->config, instance_state);
 
