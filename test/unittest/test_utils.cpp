@@ -70,8 +70,8 @@ InstanceConfig &TestCacheFileSystemHelper::GetConfig() {
 	return instance_state->config;
 }
 
-BaseProfileCollector *TestCacheFileSystemHelper::GetProfileCollector(connection_t connection_id) {
-	return instance_state->profile_collector_manager.GetProfileCollector(connection_id);
+BaseProfileCollector &TestCacheFileSystemHelper::GetProfileCollectorOrDefault(connection_t connection_id) {
+	return instance_state->profile_collector_manager.GetProfileCollectorOrDefault(connection_id);
 }
 
 void InitializeCacheReaderForTest(shared_ptr<CacheHttpfsInstanceState> &instance_state, const InstanceConfig &config) {

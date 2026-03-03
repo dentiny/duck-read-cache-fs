@@ -91,9 +91,8 @@ TEST_CASE_METHOD(FilesystemConfigFixture, "Filesystem profile config test", "[fi
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
-		auto *profiler = helper.GetProfileCollector();
-		REQUIRE(profiler != nullptr);
-		[[maybe_unused]] auto &noop_profiler = profiler->Cast<NoopProfileCollector>();
+		auto &profiler = helper.GetProfileCollectorOrDefault();
+		[[maybe_unused]] auto &noop_profiler = profiler.Cast<NoopProfileCollector>();
 	}
 
 	// Check temp profiler.
@@ -104,8 +103,7 @@ TEST_CASE_METHOD(FilesystemConfigFixture, "Filesystem profile config test", "[fi
 		auto *cache_fs = helper.GetCacheFileSystem();
 
 		cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ);
-		auto *profiler = helper.GetProfileCollector();
-		REQUIRE(profiler != nullptr);
-		[[maybe_unused]] auto &temp_profiler = profiler->Cast<TempProfileCollector>();
+		auto &profiler = helper.GetProfileCollectorOrDefault();
+		[[maybe_unused]] auto &temp_profiler = profiler.Cast<TempProfileCollector>();
 	}
 }

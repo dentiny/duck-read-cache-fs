@@ -74,17 +74,17 @@ void InstanceProfileCollectorManager::SetProfileCollector(connection_t connectio
 	                            profile_type);
 }
 
-BaseProfileCollector *InstanceProfileCollectorManager::GetProfileCollector(connection_t connection_id) const {
+BaseProfileCollector &InstanceProfileCollectorManager::GetProfileCollectorOrDefault(connection_t connection_id) const {
 	concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	auto it = profile_collectors.find(connection_id);
 	if (it != profile_collectors.end()) {
-		return it->second.get();
+		return *it->second;
 	}
 	// Return default noop collector if no collector exists for this connection
-	if (!default_noop_collector) {
+	if (default_noop_collector == nullptr) {
 		default_noop_collector = make_uniq<NoopProfileCollector>();
 	}
-	return default_noop_collector.get();
+	return *default_noop_collector;
 }
 
 bool InstanceProfileCollectorManager::HasExplicitProfileCollector(connection_t connection_id) const {
@@ -237,10 +237,8 @@ GetInstanceConfigOrThrow(const weak_ptr<CacheHttpfsInstanceState> &instance_stat
 BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsInstanceState> &instance_state,
                                                  connection_t conn_id) {
 	D_ASSERT(instance_state);
-	auto *collector = instance_state->profile_collector_manager.GetProfileCollector(conn_id);
-	// GetProfileCollector now always returns a valid collector (default noop if not set)
-	D_ASSERT(collector);
-	return *collector;
+	// GetProfileCollectorOrDefault always returns a valid collector (default noop if not set)
+	return instance_state->profile_collector_manager.GetProfileCollectorOrDefault(conn_id);
 }
 
 } // namespace duckdb

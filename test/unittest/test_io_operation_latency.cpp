@@ -61,9 +61,8 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// Clear profile to start fresh
-	auto *profiler = helper.GetProfileCollector();
-	REQUIRE(profiler != nullptr);
-	profiler->Reset();
+	auto &profiler = helper.GetProfileCollectorOrDefault();
+	profiler.Reset();
 
 	// Perform open operation
 	{
@@ -93,7 +92,7 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 	cache_filesystem->ClearCache(TEST_FILENAME_1);
 
 	// Get profile stats and verify operations are recorded
-	auto stats_pair = profiler->GetHumanReadableStats();
+	auto stats_pair = profiler.GetHumanReadableStats();
 	const string &profile = stats_pair.first;
 
 	// Verify all operations we performed are present in the profile

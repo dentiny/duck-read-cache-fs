@@ -63,19 +63,18 @@ public:
 	void SetProfileCollector(connection_t connection_id, const string &profile_type);
 	// Returns the BaseProfileCollector for the given connection.
 	// If no collector exists for the connection, returns a default noop collector.
-	BaseProfileCollector *GetProfileCollector(connection_t connection_id) const;
+	BaseProfileCollector &GetProfileCollectorOrDefault(connection_t connection_id) const;
 	// Returns true if a profile collector was explicitly set for this connection.
 	bool HasExplicitProfileCollector(connection_t connection_id) const;
 	void ResetProfileCollector(connection_t connection_id);
 	void RemoveProfileCollector(connection_t connection_id);
-	// Returns the number of registered profile collectors (excluding the default noop collector).
+	// Returns the number of registered profile collectors, used for testing and debugging purposes.
 	idx_t GetProfileCollectorCount() const;
 
 private:
 	mutable concurrency::mutex mutex;
 	unordered_map<connection_t, unique_ptr<BaseProfileCollector>> profile_collectors DUCKDB_GUARDED_BY(mutex);
-	// Default noop collector returned when no collector exists for a connection
-	mutable unique_ptr<BaseProfileCollector> default_noop_collector;
+	mutable unique_ptr<BaseProfileCollector> default_noop_collector DUCKDB_GUARDED_BY(mutex);
 };
 
 //===--------------------------------------------------------------------===//
