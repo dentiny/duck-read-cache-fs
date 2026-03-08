@@ -4,9 +4,11 @@
 
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/typedefs.hpp"
-#include "page_aligned_data_chunk.hpp"
 
 namespace duckdb {
+
+// Forward declaration.
+struct PageAlignedDataChunk;
 
 // All read requests are split into chunks, and executed in parallel.
 // A [CacheReadChunk] represents a chunked IO request and its corresponding partial IO request.

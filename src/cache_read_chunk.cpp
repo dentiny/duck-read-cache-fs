@@ -1,6 +1,6 @@
 #include "cache_read_chunk.hpp"
 
-#include <cstring>
+#include "page_aligned_data_chunk.hpp"
 
 namespace duckdb {
 
