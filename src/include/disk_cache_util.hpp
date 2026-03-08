@@ -7,6 +7,7 @@
 #include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
+#include "page_aligned_data_chunk.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -67,13 +68,13 @@ public:
 	// Disk space availability is validated, and eviction is triggered if needed.
 	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
 	static void StoreLocalCacheFile(const string &cache_directory, const LocalCacheDestination &cache_dest,
-	                                const string &content, const string &version_tag, const InstanceConfig &config,
-	                                const std::function<string()> &lru_eviction_decider);
+	                                const PageAlignedDataChunk &content, const string &version_tag,
+	                                const InstanceConfig &config, const std::function<string()> &lru_eviction_decider);
 
 	// Result of a local cache file read attempt.
 	struct LocalCacheReadResult {
 		bool cache_hit = false;
-		string content;
+		PageAlignedDataChunk content;
 	};
 
 	// Attempt to open, validate, and read a local cache file at the already-resolved [cache_filepath].

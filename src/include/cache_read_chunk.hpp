@@ -3,8 +3,8 @@
 #pragma once
 
 #include "duckdb/common/assert.hpp"
-#include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
+#include "page_aligned_data_chunk.hpp"
 
 namespace duckdb {
 
@@ -24,7 +24,7 @@ struct CacheReadChunk {
 	idx_t bytes_to_copy = 0;
 
 	// Copy from [buffer] to application-provided buffer.
-	void CopyBufferToRequestedMemory(const string &buffer);
+	void CopyBufferToRequestedMemory(const PageAlignedDataChunk &buffer);
 };
 
 } // namespace duckdb

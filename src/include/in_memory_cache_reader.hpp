@@ -6,10 +6,12 @@
 #include "cache_filesystem_config.hpp"
 #include "cache_read_chunk.hpp"
 #include "duckdb/common/shared_ptr.hpp"
+#include "duckdb/common/string.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
 #include "in_memory_data_cache_manager.hpp"
 #include "mutex.hpp"
+#include "page_aligned_data_chunk.hpp"
 
 namespace duckdb {
 
@@ -37,7 +39,7 @@ public:
 private:
 	// Cache entry wrapper that stores data along with validation metadata.
 	struct InMemCacheEntry {
-		string data;
+		PageAlignedDataChunk data;
 		string version_tag;
 	};
 

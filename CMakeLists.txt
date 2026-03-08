@@ -55,6 +55,7 @@ set(EXTENSION_SOURCES
     src/temp_profile_collector.cpp
     src/utils/chunk_utils.cpp
     src/utils/fake_filesystem.cpp
+    src/utils/page_aligned_data_chunk.cpp
     src/utils/filesystem_utils.cpp
     src/utils/hash_utils.cpp
     src/utils/mock_filesystem.cpp

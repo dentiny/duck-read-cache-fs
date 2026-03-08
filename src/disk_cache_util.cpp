@@ -10,7 +10,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/hash_utils.hpp"
-#include "utils/include/resize_uninitialized.hpp"
+#include "utils/include/page_aligned_data_chunk.hpp"
 #include "utils/include/url_utils.hpp"
 
 namespace duckdb {
@@ -147,8 +147,9 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 }
 
 /*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory,
-                                                   const LocalCacheDestination &cache_dest, const string &content,
-                                                   const string &version_tag, const InstanceConfig &config,
+                                                   const LocalCacheDestination &cache_dest,
+                                                   const PageAlignedDataChunk &content, const string &version_tag,
+                                                   const InstanceConfig &config,
                                                    const std::function<string()> &lru_eviction_decider) {
 	LocalFileSystem local_filesystem {};
 
@@ -167,12 +168,13 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
 		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
 		// Notice direct IO requires IO size to be aligned with page size.
-		if (config.enable_disk_reader_mem_cache && content.length() % GetFileSystemPageSize() == 0) {
+		// We check capacity since it's always page-aligned; length might not be for partial chunks.
+		if (config.enable_disk_reader_mem_cache && content.capacity % GetFileSystemPageSize() == 0) {
 			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
 		}
 		auto file_handle = local_filesystem.OpenFile(cache_dest.temp_local_filepath, file_open_flags);
-		local_filesystem.Write(*file_handle, const_cast<char *>(content.data()),
-		                       /*nr_bytes=*/content.length(),
+		local_filesystem.Write(*file_handle, const_cast<void *>(static_cast<const void *>(content.data())),
+		                       /*nr_bytes=*/content.length,
 		                       /*location=*/0);
 		file_handle->Sync();
 	}
@@ -214,8 +216,9 @@ DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size
 		return LocalCacheReadResult {};
 	}
 
-	auto content = CreateResizeUninitializedString(chunk_size);
-	local_filesystem.Read(*file_handle, const_cast<char *>(content.data()), chunk_size, /*location=*/0);
+	auto content = AllocatePageAlignedChunk(chunk_size);
+	local_filesystem.Read(*file_handle, content.data(), chunk_size, /*location=*/0);
+	content.length = chunk_size;
 
 	// Update access and modification timestamp for the cache file, so it won't get evicted.
 	// Intentionally ignore the return value, since it's possible the cache file has been requested to

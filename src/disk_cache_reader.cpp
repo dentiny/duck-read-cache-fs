@@ -15,7 +15,7 @@
 #include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/filesystem_utils.hpp"
-#include "utils/include/resize_uninitialized.hpp"
+#include "utils/include/page_aligned_data_chunk.hpp"
 #include "utils/include/thread_pool.hpp"
 #include "utils/include/thread_utils.hpp"
 #include "utils/include/url_utils.hpp"
@@ -158,16 +158,16 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// We suffer a cache loss, fallback to remote access then local filesystem write.
 	collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss, cache_read_chunk.bytes_to_copy);
 	DUCKDB_LOG_READ_CACHE_MISS((handle));
-	auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
-	void *addr = const_cast<char *>(content.data());
+	auto content = AllocatePageAlignedChunk(cache_read_chunk.chunk_size);
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
 
 	{
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kRead);
-		internal_filesystem->Read(*disk_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
+		internal_filesystem->Read(*disk_cache_handle.internal_file_handle, content.data(), cache_read_chunk.chunk_size,
 		                          cache_read_chunk.aligned_start_offset);
 	}
+	content.length = cache_read_chunk.chunk_size;
 
 	// Copy to destination buffer, if bytes are read into [content] buffer rather than user-provided buffer.
 	cache_read_chunk.CopyBufferToRequestedMemory(content);
