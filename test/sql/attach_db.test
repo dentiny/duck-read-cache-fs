@@ -5,6 +5,9 @@
 require cache_httpfs
 
 statement ok
+SELECT cache_httpfs_clear_cache();
+
+statement ok
 ATTACH 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/sample.duckdb' as db;
 
 query III

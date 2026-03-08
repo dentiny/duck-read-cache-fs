@@ -136,8 +136,13 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
 	{
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kDiskCacheRead);
-		auto read_result =
-		    DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath, cache_read_chunk.chunk_size, version_tag);
+		DiskCacheUtil::ReadOption read_options {
+		    // If on-disk in-memory cache is enabled, use direct IO to avoid double buffering.
+		    // Otherwise, rely on page cache for repeated access.
+		    .attempt_direct_io = config.enable_disk_reader_mem_cache,
+		};
+		auto read_result = DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath,
+		                                                     cache_read_chunk.chunk_size, version_tag, read_options);
 		if (read_result.cache_hit) {
 			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));

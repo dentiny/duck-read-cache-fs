@@ -71,6 +71,11 @@ public:
 	                                const PageAlignedDataChunk &content, const string &version_tag,
 	                                const InstanceConfig &config, const std::function<string()> &lru_eviction_decider);
 
+	// Options for reading local cache files.
+	struct ReadOption {
+		// Whether to attempt direct I/O when conditions allow.
+		bool attempt_direct_io = false;
+	};
 	// Result of a local cache file read attempt.
 	struct LocalCacheReadResult {
 		bool cache_hit = false;
@@ -79,8 +84,9 @@ public:
 
 	// Attempt to open, validate, and read a local cache file at the already-resolved [cache_filepath].
 	// If the local cache file doesn't match requested [version_tag], it will be deleted.
+	// Uses direct I/O when [options.attempt_direct_io] is true and conditions allow (avoids double buffering).
 	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size,
-	                                               const string &version_tag);
+	                                               const string &version_tag, const ReadOption &options);
 
 	// Remove dead temporary cache files (write-to-temp-then-swap leftovers) under [cache_directories].
 	// Returns the number of files deleted.
