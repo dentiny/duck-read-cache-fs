@@ -136,7 +136,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
 	{
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kDiskCacheRead);
-		DiskCacheUtil::ReadOption read_options {
+		const DiskCacheUtil::ReadOption read_options {
 		    // If on-disk in-memory cache is enabled, use direct IO to avoid double buffering.
 		    // Otherwise, rely on page cache for repeated access.
 		    .attempt_direct_io = config.enable_disk_reader_mem_cache,
