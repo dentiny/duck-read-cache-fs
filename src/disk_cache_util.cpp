@@ -300,27 +300,47 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 
 /*static*/ idx_t DiskCacheUtil::CleanupDeadTempFiles(const vector<string> &cache_directories) {
 	LocalFileSystem local_filesystem {};
-	idx_t deleted_count = 0;
-	const timestamp_t now = Timestamp::GetCurrentTimestamp();
+	vector<string> temp_file_paths;
 
 	for (const auto &cache_directory : cache_directories) {
-		local_filesystem.ListFiles(cache_directory, [&local_filesystem, &cache_directory, &deleted_count,
-		                                             now](const string &fname, bool /*unused*/) {
-			if (!StringUtil::EndsWith(fname, TEMP_CACHE_FILE_SUFFIX)) {
-				return;
-			}
-			const string full_path = StringUtil::Format("%s/%s", cache_directory, fname);
-			auto file_handle = local_filesystem.OpenFile(full_path, FileOpenFlags::FILE_FLAGS_READ |
-			                                                            FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+		local_filesystem.ListFiles(
+		    cache_directory, [&temp_file_paths, &cache_directory](const string &fname, bool /*unused*/) {
+			    if (!StringUtil::EndsWith(fname, TEMP_CACHE_FILE_SUFFIX)) {
+				    return;
+			    }
+			    temp_file_paths.emplace_back(StringUtil::Format("%s/%s", cache_directory, fname));
+		    });
+	}
+
+	if (temp_file_paths.empty()) {
+		return 0;
+	}
+
+	const timestamp_t now = Timestamp::GetCurrentTimestamp();
+	const size_t thread_num = std::min<size_t>(GetCpuCoreCount(), temp_file_paths.size());
+	ThreadPool tp(thread_num);
+	vector<std::future<idx_t>> futures;
+	futures.reserve(temp_file_paths.size());
+	for (auto &path : temp_file_paths) {
+		futures.emplace_back(tp.Push([path = std::move(path), now]() -> idx_t {
+			LocalFileSystem fs;
+			auto file_handle =
+			    fs.OpenFile(path, FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
 			if (file_handle == nullptr) {
-				return;
+				return 0;
 			}
-			const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
+			const timestamp_t last_mod_time = fs.GetLastModifiedTime(*file_handle);
 			const idx_t diff_microsec = static_cast<idx_t>(now.value - last_mod_time.value);
-			if (diff_microsec >= DEAD_TEMP_STALENESS_MICROSEC && local_filesystem.TryRemoveFile(full_path)) {
-				++deleted_count;
+			if (diff_microsec >= DEAD_TEMP_STALENESS_MICROSEC && fs.TryRemoveFile(path)) {
+				return 1;
 			}
-		});
+			return 0;
+		}));
+	}
+	tp.Wait();
+	idx_t deleted_count = 0;
+	for (auto &f : futures) {
+		deleted_count += f.get();
 	}
 	return deleted_count;
 }
