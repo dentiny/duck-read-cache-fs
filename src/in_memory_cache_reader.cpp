@@ -10,7 +10,7 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
-#include "utils/include/resize_uninitialized.hpp"
+#include "utils/include/page_aligned_data_chunk.hpp"
 #include "utils/include/thread_pool.hpp"
 #include "utils/include/thread_utils.hpp"
 #include "utils/include/url_utils.hpp"
@@ -81,15 +81,15 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	// We suffer a cache loss, fallback to remote access then local filesystem write.
 	collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss, cache_read_chunk.bytes_to_copy);
 	DUCKDB_LOG_OPEN_CACHE_MISS((handle));
-	auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
-	void *addr = const_cast<char *>(content.data());
+	auto content = AllocatePageAlignedChunk(cache_read_chunk.chunk_size);
 	auto &in_mem_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	auto *internal_filesystem = in_mem_cache_handle.GetInternalFileSystem();
 
 	{
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kRead);
-		internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
-		                          cache_read_chunk.aligned_start_offset);
+		internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, content.data(),
+		                          cache_read_chunk.chunk_size, cache_read_chunk.aligned_start_offset);
+		content.length = cache_read_chunk.chunk_size;
 	}
 
 	// Copy to destination buffer.

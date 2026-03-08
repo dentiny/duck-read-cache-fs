@@ -40,6 +40,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_noop_cache_reader_from_unit.cpp
     test_optional.cpp
     test_oversized_cache_filepath.cpp
+    test_page_aligned_data_chunk.cpp
     test_read_exception_propagation.cpp
     test_scoped_directory.cpp
     test_set_extension_config_from_unit.cpp

@@ -15,7 +15,7 @@
 #include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/filesystem_utils.hpp"
-#include "utils/include/resize_uninitialized.hpp"
+#include "utils/include/page_aligned_data_chunk.hpp"
 #include "utils/include/thread_pool.hpp"
 #include "utils/include/thread_utils.hpp"
 #include "utils/include/url_utils.hpp"
@@ -136,8 +136,13 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
 	{
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kDiskCacheRead);
-		auto read_result =
-		    DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath, cache_read_chunk.chunk_size, version_tag);
+		const DiskCacheUtil::ReadOption read_options {
+		    // If on-disk in-memory cache is enabled, use direct IO to avoid double buffering.
+		    // Otherwise, rely on page cache for repeated access.
+		    .attempt_direct_io = config.enable_disk_reader_mem_cache,
+		};
+		auto read_result = DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath,
+		                                                     cache_read_chunk.chunk_size, version_tag, read_options);
 		if (read_result.cache_hit) {
 			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
@@ -158,15 +163,15 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// We suffer a cache loss, fallback to remote access then local filesystem write.
 	collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheMiss, cache_read_chunk.bytes_to_copy);
 	DUCKDB_LOG_READ_CACHE_MISS((handle));
-	auto content = CreateResizeUninitializedString(cache_read_chunk.chunk_size);
-	void *addr = const_cast<char *>(content.data());
+	auto content = AllocatePageAlignedChunk(cache_read_chunk.chunk_size);
 	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
 	auto *internal_filesystem = disk_cache_handle.GetInternalFileSystem();
 
 	{
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kRead);
-		internal_filesystem->Read(*disk_cache_handle.internal_file_handle, addr, cache_read_chunk.chunk_size,
+		internal_filesystem->Read(*disk_cache_handle.internal_file_handle, content.data(), cache_read_chunk.chunk_size,
 		                          cache_read_chunk.aligned_start_offset);
+		content.length = cache_read_chunk.chunk_size;
 	}
 
 	// Copy to destination buffer, if bytes are read into [content] buffer rather than user-provided buffer.

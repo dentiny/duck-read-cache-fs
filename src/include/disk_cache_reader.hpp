@@ -14,6 +14,7 @@
 #include "in_mem_cache_block.hpp"
 #include "in_memory_data_cache_manager.hpp"
 #include "mutex.hpp"
+#include "page_aligned_data_chunk.hpp"
 #include "thread_annotation.hpp"
 
 namespace duckdb {
@@ -45,7 +46,7 @@ public:
 
 private:
 	struct InMemCacheEntry {
-		string data;
+		PageAlignedDataChunk data;
 		string version_tag;
 	};
 

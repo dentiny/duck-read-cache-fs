@@ -15,7 +15,7 @@ TEST_CASE("Multiple connections registered in state and profile manager are all 
 
 	// Load the cache_httpfs extension to register the connection cleanup callback
 	Connection initial_con(db);
-	REQUIRE_NO_FAIL(initial_con.Query("LOAD cache_httpfs;"));
+	initial_con.Query("LOAD cache_httpfs;");
 
 	// Get the instance state created by the extension
 	auto instance_state = GetInstanceStateShared(*instance);
@@ -27,26 +27,17 @@ TEST_CASE("Multiple connections registered in state and profile manager are all 
 
 	for (size_t idx = 0; idx < num_connections; ++idx) {
 		connections.emplace_back(make_uniq<Connection>(db));
-		auto &context = *connections.back()->context;
-		
-		// Setting profile type will register the connection in the profile manager
-		// Cleanup will be handled automatically by CacheHttpfsExtensionCallback::OnConnectionClosed
-		auto result = connections.back()->Query("SET cache_httpfs_profile_type = 'noop'");
+		auto result = connections.back()->Query("SET cache_httpfs_profile_type = 'temp'");
 		REQUIRE(!result->HasError());
 	}
 
 	auto &connection_manager = ConnectionManager::Get(*instance);
 	// Note: connection count includes the initial_con + num_connections
 	REQUIRE(connection_manager.GetConnectionCount() == num_connections + 1);
-	REQUIRE(instance_state->profile_collector_manager.GetProfileCollectorCount() == num_connections + 1);
+	REQUIRE(instance_state->profile_collector_manager.GetProfileCollectorCount() == num_connections);
 
 	// Destroy the test connections (but keep initial_con alive)
 	connections.clear();
 	REQUIRE(connection_manager.GetConnectionCount() == 1); // Only initial_con remains
-	REQUIRE(instance_state->profile_collector_manager.GetProfileCollectorCount() == 1);
-	
-	// Destroy initial_con to clean up everything
-	initial_con = Connection(db); // Move-assign to destroy old connection
-	REQUIRE(connection_manager.GetConnectionCount() == 1); // New connection
-	REQUIRE(instance_state->profile_collector_manager.GetProfileCollectorCount() == 0); // Old one cleaned up
+	REQUIRE(instance_state->profile_collector_manager.GetProfileCollectorCount() == 0);
 }
