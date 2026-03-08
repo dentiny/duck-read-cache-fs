@@ -1,5 +1,7 @@
 #include "disk_cache_util.hpp"
 
+#include <future>
+
 #include "cache_filesystem_config.hpp"
 #include "crypto.hpp"
 #include "cache_httpfs_instance_state.hpp"
@@ -11,6 +13,7 @@
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/hash_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
+#include "utils/include/thread_pool.hpp"
 #include "utils/include/url_utils.hpp"
 
 namespace duckdb {
@@ -317,7 +320,7 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	}
 
 	const timestamp_t now = Timestamp::GetCurrentTimestamp();
-	const size_t thread_num = std::min<size_t>(GetCpuCoreCount(), temp_file_paths.size());
+	const size_t thread_num = temp_file_paths.size();
 	ThreadPool tp(thread_num);
 	vector<std::future<idx_t>> futures;
 	futures.reserve(temp_file_paths.size());
