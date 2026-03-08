@@ -1,8 +1,8 @@
-// Unit test for PageAlignedDataChunk: exercises CopyFrom(pointer, length).
+// Unit test for PageAlignedDataChunk: exercises CopyTo(dest, src_offset, copy_length).
 
 #include "catch/catch.hpp"
 
-#include "duckdb/common/string_util.hpp"
+#include "duckdb/common/vector.hpp"
 #include "filesystem_utils.hpp"
 #include "page_aligned_data_chunk.hpp"
 
@@ -10,16 +10,16 @@
 
 using namespace duckdb;
 
-TEST_CASE("PageAlignedDataChunk CopyFrom copies data and sets length", "[page_aligned_data_chunk]") {
+TEST_CASE("PageAlignedDataChunk CopyTo copies data to destination", "[page_aligned_data_chunk]") {
 	const idx_t page_size = GetFileSystemPageSize();
-	const string source = "hello world";
+	const string expected = "hello world";
 
 	auto chunk = AllocatePageAlignedChunk(page_size);
-	REQUIRE(chunk.length == 0);
-	REQUIRE(chunk.capacity >= page_size);
+	std::memcpy(chunk.data(), expected.data(), expected.length());
+	chunk.length = expected.length();
 
-	chunk.CopyFrom(source.data(), source.length());
+	vector<char> dest(expected.length(), 0);
+	chunk.CopyTo(dest.data(), /*src_offset=*/0, expected.length());
 
-	REQUIRE(chunk.length == source.length());
-	REQUIRE(std::memcmp(chunk.data(), source.data(), source.length()) == 0);
+	REQUIRE(std::memcmp(dest.data(), expected.data(), expected.length()) == 0);
 }

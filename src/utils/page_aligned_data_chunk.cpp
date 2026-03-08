@@ -24,14 +24,6 @@ void PageAlignedDeleter::operator()(char *p) const noexcept {
 #endif
 }
 
-void PageAlignedDataChunk::CopyFrom(const void *src, idx_t src_length) {
-	if (src_length > capacity) {
-		throw InvalidInputException("CopyFrom: src_length is greater than capacity");
-	}
-	std::memcpy(chunk.get(), src, src_length);
-	length = src_length;
-}
-
 void PageAlignedDataChunk::CopyTo(char *dest, idx_t src_offset, idx_t copy_length) const {
 	if (src_offset + copy_length > length) {
 		throw InvalidInputException("src_offset + copy_length is greater than length");
