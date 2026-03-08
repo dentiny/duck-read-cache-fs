@@ -2,8 +2,8 @@
 
 ## Did you find a bug?
 
-* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/dentiny/duckdb-query-condition-cache]/issues).
-* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/dentiny/duckdb-query-condition-cache]/issues/new/choose). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
+* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/dentiny/duck-read-cache-fs/issues).
+* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/dentiny/duck-read-cache-fs/issues/new/choose). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
 
 ## Did you write a patch that fixes a bug?
 
@@ -106,9 +106,9 @@ ubuntu@hjiang-devbox-pg$ docker build -t duckdb-ci-linux-amd64-musl  .
 # Start docker container and build the extension.
 ubuntu@hjiang-devbox-pg$ docker run -it duckdb-ci-linux-amd64-musl
 # Inside of the container.
-/duckdb_build_dir # git clone https://github.com/dentiny/duckdb-query-condition-cache].git && cd duckdb-query-condition-cache]
-/duckdb_build_dir/duckdb-query-condition-cache] # git submodule update --init --recursive
-/duckdb_build_dir/duckdb-query-condition-cache] # CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) make
+/duckdb_build_dir # git clone https://github.com/dentiny/duck-read-cache-fs.git && cd duck-read-cache-fs
+/duckdb_build_dir/duck-read-cache-fs # git submodule update --init --recursive
+/duckdb_build_dir/duck-read-cache-fs # CMAKE_BUILD_PARALLEL_LEVEL=$(nproc) make
 ```
 See [link](https://github.com/duckdb/extension-ci-tools/tree/main/docker) for all required environments and docker files.
 
