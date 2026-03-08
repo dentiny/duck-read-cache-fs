@@ -166,8 +166,8 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kRead);
 		internal_filesystem->Read(*disk_cache_handle.internal_file_handle, content.data(), cache_read_chunk.chunk_size,
 		                          cache_read_chunk.aligned_start_offset);
+		content.length = cache_read_chunk.chunk_size;
 	}
-	content.length = cache_read_chunk.chunk_size;
 
 	// Copy to destination buffer, if bytes are read into [content] buffer rather than user-provided buffer.
 	cache_read_chunk.CopyBufferToRequestedMemory(content);

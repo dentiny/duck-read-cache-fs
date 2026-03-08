@@ -168,8 +168,7 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
 		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
 		// Notice direct IO requires IO size to be aligned with page size.
-		// We check capacity since it's always page-aligned; length might not be for partial chunks.
-		if (config.enable_disk_reader_mem_cache && content.capacity % GetFileSystemPageSize() == 0) {
+		if (config.enable_disk_reader_mem_cache && content.length % GetFileSystemPageSize() == 0) {
 			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
 		}
 		auto file_handle = local_filesystem.OpenFile(cache_dest.temp_local_filepath, file_open_flags);

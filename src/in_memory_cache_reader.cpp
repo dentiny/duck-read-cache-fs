@@ -89,8 +89,8 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kRead);
 		internal_filesystem->Read(*in_mem_cache_handle.internal_file_handle, content.data(),
 		                          cache_read_chunk.chunk_size, cache_read_chunk.aligned_start_offset);
+		content.length = cache_read_chunk.chunk_size;
 	}
-	content.length = cache_read_chunk.chunk_size;
 
 	// Copy to destination buffer.
 	cache_read_chunk.CopyBufferToRequestedMemory(content);
