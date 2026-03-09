@@ -3,10 +3,12 @@
 #pragma once
 
 #include "duckdb/common/assert.hpp"
-#include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
 
 namespace duckdb {
+
+// Forward declaration.
+struct PageAlignedDataChunk;
 
 // All read requests are split into chunks, and executed in parallel.
 // A [CacheReadChunk] represents a chunked IO request and its corresponding partial IO request.
@@ -24,7 +26,7 @@ struct CacheReadChunk {
 	idx_t bytes_to_copy = 0;
 
 	// Copy from [buffer] to application-provided buffer.
-	void CopyBufferToRequestedMemory(const string &buffer);
+	void CopyBufferToRequestedMemory(const PageAlignedDataChunk &buffer);
 };
 
 } // namespace duckdb

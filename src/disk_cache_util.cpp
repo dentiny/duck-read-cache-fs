@@ -1,5 +1,7 @@
 #include "disk_cache_util.hpp"
 
+#include <future>
+
 #include "cache_filesystem_config.hpp"
 #include "crypto.hpp"
 #include "cache_httpfs_instance_state.hpp"
@@ -10,7 +12,8 @@
 #include "duckdb/common/types/uuid.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/hash_utils.hpp"
-#include "utils/include/resize_uninitialized.hpp"
+#include "utils/include/page_aligned_data_chunk.hpp"
+#include "utils/include/thread_pool.hpp"
 #include "utils/include/url_utils.hpp"
 
 namespace duckdb {
@@ -147,8 +150,9 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 }
 
 /*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory,
-                                                   const LocalCacheDestination &cache_dest, const string &content,
-                                                   const string &version_tag, const InstanceConfig &config,
+                                                   const LocalCacheDestination &cache_dest,
+                                                   const PageAlignedDataChunk &content, const string &version_tag,
+                                                   const InstanceConfig &config,
                                                    const std::function<string()> &lru_eviction_decider) {
 	LocalFileSystem local_filesystem {};
 
@@ -167,12 +171,12 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 		auto file_open_flags = FileOpenFlags::FILE_FLAGS_WRITE | FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW;
 		// When we enable write-through/read-through cache for disk cache reader, use direct IO to avoid double caching.
 		// Notice direct IO requires IO size to be aligned with page size.
-		if (config.enable_disk_reader_mem_cache && content.length() % GetFileSystemPageSize() == 0) {
+		if (config.enable_disk_reader_mem_cache && content.length % GetFileSystemPageSize() == 0) {
 			file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
 		}
 		auto file_handle = local_filesystem.OpenFile(cache_dest.temp_local_filepath, file_open_flags);
-		local_filesystem.Write(*file_handle, const_cast<char *>(content.data()),
-		                       /*nr_bytes=*/content.length(),
+		local_filesystem.Write(*file_handle, const_cast<void *>(static_cast<const void *>(content.data())),
+		                       /*nr_bytes=*/content.length,
 		                       /*location=*/0);
 		file_handle->Sync();
 	}
@@ -195,9 +199,19 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 	}
 }
 
-/*static*/ DiskCacheUtil::LocalCacheReadResult
-DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size, const string &version_tag) {
-	constexpr auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
+/*static*/ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath,
+                                                                                 idx_t chunk_size,
+                                                                                 const string &version_tag,
+                                                                                 const ReadOption &options) {
+	auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
+
+	// Enable direct IO when requested and size is page-aligned.
+	// PageAlignedDataChunk guarantees the buffer address and capacity are page-aligned.
+	const idx_t page_size = GetFileSystemPageSize();
+	if (options.attempt_direct_io && chunk_size % page_size == 0) {
+		file_open_flags |= FileOpenFlags::FILE_FLAGS_DIRECT_IO;
+	}
+
 	LocalFileSystem local_filesystem {};
 	// On all platform, DuckDB opens option guarantee reference counting, which means even if the file is requested to
 	// delete, already-opened file handle could still be accessed with no problem.
@@ -214,8 +228,9 @@ DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size
 		return LocalCacheReadResult {};
 	}
 
-	auto content = CreateResizeUninitializedString(chunk_size);
-	local_filesystem.Read(*file_handle, const_cast<char *>(content.data()), chunk_size, /*location=*/0);
+	auto content = AllocatePageAlignedChunk(chunk_size);
+	local_filesystem.Read(*file_handle, content.data(), chunk_size, /*location=*/0);
+	content.length = chunk_size;
 
 	// Update access and modification timestamp for the cache file, so it won't get evicted.
 	// Intentionally ignore the return value, since it's possible the cache file has been requested to
@@ -288,27 +303,47 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 
 /*static*/ idx_t DiskCacheUtil::CleanupDeadTempFiles(const vector<string> &cache_directories) {
 	LocalFileSystem local_filesystem {};
-	idx_t deleted_count = 0;
-	const timestamp_t now = Timestamp::GetCurrentTimestamp();
+	vector<string> temp_file_paths;
 
 	for (const auto &cache_directory : cache_directories) {
-		local_filesystem.ListFiles(cache_directory, [&local_filesystem, &cache_directory, &deleted_count,
-		                                             now](const string &fname, bool /*unused*/) {
-			if (!StringUtil::EndsWith(fname, TEMP_CACHE_FILE_SUFFIX)) {
-				return;
-			}
-			const string full_path = StringUtil::Format("%s/%s", cache_directory, fname);
-			auto file_handle = local_filesystem.OpenFile(full_path, FileOpenFlags::FILE_FLAGS_READ |
-			                                                            FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
+		local_filesystem.ListFiles(
+		    cache_directory, [&temp_file_paths, &cache_directory](const string &fname, bool /*unused*/) {
+			    if (!StringUtil::EndsWith(fname, TEMP_CACHE_FILE_SUFFIX)) {
+				    return;
+			    }
+			    temp_file_paths.emplace_back(StringUtil::Format("%s/%s", cache_directory, fname));
+		    });
+	}
+
+	if (temp_file_paths.empty()) {
+		return 0;
+	}
+
+	const timestamp_t now = Timestamp::GetCurrentTimestamp();
+	const size_t thread_num = temp_file_paths.size();
+	ThreadPool tp(thread_num);
+	vector<std::future<idx_t>> futures;
+	futures.reserve(temp_file_paths.size());
+	for (auto &path : temp_file_paths) {
+		futures.emplace_back(tp.Push([path = std::move(path), now]() -> idx_t {
+			LocalFileSystem fs;
+			auto file_handle =
+			    fs.OpenFile(path, FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
 			if (file_handle == nullptr) {
-				return;
+				return 0;
 			}
-			const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
+			const timestamp_t last_mod_time = fs.GetLastModifiedTime(*file_handle);
 			const idx_t diff_microsec = static_cast<idx_t>(now.value - last_mod_time.value);
-			if (diff_microsec >= DEAD_TEMP_STALENESS_MICROSEC && local_filesystem.TryRemoveFile(full_path)) {
-				++deleted_count;
+			if (diff_microsec >= DEAD_TEMP_STALENESS_MICROSEC && fs.TryRemoveFile(path)) {
+				return 1;
 			}
-		});
+			return 0;
+		}));
+	}
+	tp.Wait();
+	idx_t deleted_count = 0;
+	for (auto &f : futures) {
+		deleted_count += f.get();
 	}
 	return deleted_count;
 }

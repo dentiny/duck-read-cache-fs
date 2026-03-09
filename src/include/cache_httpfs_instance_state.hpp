@@ -4,18 +4,18 @@
 #pragma once
 
 #include "base_cache_reader.hpp"
+#include "base_profile_collector.hpp"
 #include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_config.hpp"
-#include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/unique_ptr.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/unordered_set.hpp"
 #include "duckdb/common/vector.hpp"
 #include "duckdb/storage/object_cache.hpp"
 #include "filesystem_utils.hpp"
-#include "mutex.hpp"
 #include "thread_annotation.hpp"
 
 namespace duckdb {
@@ -47,11 +47,44 @@ private:
 };
 
 //===--------------------------------------------------------------------===//
-// Per-instance cache reader manager
+// Per-connection profile collector manager
 //===--------------------------------------------------------------------===//
 
 // Forward declaration
 struct InstanceConfig;
+
+// Manages per-connection profile collectors.
+// Each connection has its own profiler so stats can be tracked independently.
+class InstanceProfileCollectorManager {
+public:
+	// Sets the BaseProfileCollector for the given connection.
+	// If the collector already exists and the profile type is the same, the function does nothing, otherwise it creates
+	// a new collector and replaces the existing one.
+	void SetProfileCollector(connection_t connection_id, const string &profile_type);
+	// Returns the profile collector for the given connection.
+	// If no collector exists for the connection, returns a default noop collector.
+	BaseProfileCollector &GetProfileCollectorOrDefault(connection_t connection_id) const;
+	// Returns the profile collector for the given connection.
+	// If no collector exists for the connection, throws an exception.
+	BaseProfileCollector &GetProfileCollectorOrThrow(connection_t connection_id) const;
+	// Returns true if a profile collector was explicitly set for this connection.
+	bool HasExplicitProfileCollector(connection_t connection_id) const;
+	// Resets the profile collector for the given connection.
+	void ResetProfileCollector(connection_t connection_id);
+	// Removes the profile collector for the given connection.
+	void RemoveProfileCollector(connection_t connection_id);
+	// Returns the number of registered profile collectors, expose for testing and debugging purposes.
+	idx_t GetProfileCollectorCount() const;
+
+private:
+	mutable concurrency::mutex mutex;
+	unordered_map<connection_t, unique_ptr<BaseProfileCollector>> profile_collectors DUCKDB_GUARDED_BY(mutex);
+	mutable unique_ptr<BaseProfileCollector> default_noop_collector DUCKDB_GUARDED_BY(mutex);
+};
+
+//===--------------------------------------------------------------------===//
+// Per-instance cache reader manager
+//===--------------------------------------------------------------------===//
 
 class InstanceCacheReaderManager {
 public:
@@ -60,8 +93,6 @@ public:
 	vector<BaseCacheReader *> GetCacheReaders() const;
 	void InitializeDiskCacheReader(const vector<string> &cache_directories,
 	                               weak_ptr<CacheHttpfsInstanceState> instance_state_p);
-	// Update existing readers to use a new profile collector (when profile type changes).
-	void UpdateProfileCollector(BaseProfileCollector &profile_collector);
 	void ClearCache();
 	void ClearCache(const string &fname);
 	void Reset();
@@ -133,20 +164,12 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	InstanceConfig config;
 	// Cache filesystem registry.
 	InstanceCacheFsRegistry registry;
-
 	InstanceCacheReaderManager cache_reader_manager;
+	InstanceProfileCollectorManager profile_collector_manager;
 	CacheExclusionManager exclusion_manager;
-	// Per-database profile collector, which is shared by all cache filesystems and cache readers.
-	//
-	// Thread-safety and ownership guarantee:
-	// - Profile collector is a "singleton" owned by per-database cache httpfs instance state
-	// - Both cache filesystems and cache readers make IO operation, so they hold a reference for profile collector to
-	// record metrics
-	// - Profile collector could be updated at extension setting update callback, which doesn't hold lock intentionally,
-	// based on the assumption that setting update doesn't run concurrently with IO operation
-	unique_ptr<BaseProfileCollector> profile_collector;
 
-	CacheHttpfsInstanceState();
+	CacheHttpfsInstanceState() = default;
+	~CacheHttpfsInstanceState() override;
 
 	// ObjectCacheEntry interface
 	string GetObjectType() override {
@@ -186,6 +209,12 @@ CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance);
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(ClientContext &context);
 
 // Get instance state as shared_ptr, throw exception if already unreferenced.
-shared_ptr<CacheHttpfsInstanceState> GetInstanceConfig(weak_ptr<CacheHttpfsInstanceState> instance_state);
+shared_ptr<CacheHttpfsInstanceState> GetInstanceConfigOrThrow(const weak_ptr<CacheHttpfsInstanceState> &instance_state);
+
+// Get the per-connection profile collector, throwing if no collector exists for the given
+// connection. Use this in filesystem and cache reader code where a valid collector is
+// always expected (InitializeGlobalConfig guarantees it).
+BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsInstanceState> &instance_state,
+                                                 connection_t conn_id);
 
 } // namespace duckdb

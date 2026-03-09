@@ -4,7 +4,6 @@
 
 #include "base_cache_reader.hpp"
 #include "cache_filesystem_config.hpp"
-#include "cache_filesystem_config.hpp"
 #include "cache_read_chunk.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/map.hpp"
@@ -13,7 +12,9 @@
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
-#include "shared_value_lru_cache.hpp"
+#include "in_memory_data_cache_manager.hpp"
+#include "mutex.hpp"
+#include "page_aligned_data_chunk.hpp"
 #include "thread_annotation.hpp"
 
 namespace duckdb {
@@ -24,8 +25,7 @@ struct InstanceConfig;
 
 class DiskCacheReader final : public BaseCacheReader {
 public:
-	// Constructor: cache_directories defines where cache files are stored.
-	DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p, BaseProfileCollector &profile_collector_p);
+	explicit DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_state_p);
 	~DiskCacheReader() override = default;
 
 	string GetName() const override {
@@ -46,12 +46,11 @@ public:
 
 private:
 	struct InMemCacheEntry {
-		string data;
+		PageAlignedDataChunk data;
 		string version_tag;
 	};
 
-	using InMemCache =
-	    ThreadSafeSharedValueLruCache<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockHash, InMemCacheBlockEqual>;
+	using InMemCacheManager = InMemoryDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>;
 
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
@@ -69,12 +68,10 @@ private:
 	    cache_file_creation_timestamp_map DUCKDB_GUARDED_BY(cache_file_creation_timestamp_map_mutex);
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
-	// LRU cache to store blocks; late initialized after first access.
+	// In-memory cache to store blocks; late initialized after first access.
 	// Used to avoid local disk IO.
 	// NOTICE: cache key uses remote filepath, instead of local cache filepath.
-	unique_ptr<InMemCache> in_mem_cache_blocks;
-	// Instance state for config lookup.
-	weak_ptr<CacheHttpfsInstanceState> instance_state;
+	unique_ptr<InMemCacheManager> in_mem_cache_manager;
 };
 
 } // namespace duckdb

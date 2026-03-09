@@ -36,6 +36,7 @@ set(EXTENSION_SOURCES
     src/cache_exclusion_manager.cpp
     src/cache_exclusion_utils.cpp
     src/cache_httpfs_extension.cpp
+    src/cache_httpfs_extension_callback.cpp
     src/cache_httpfs_instance_state.cpp
     src/cache_filesystem.cpp
     src/cache_filesystem_config.cpp
@@ -54,6 +55,7 @@ set(EXTENSION_SOURCES
     src/temp_profile_collector.cpp
     src/utils/chunk_utils.cpp
     src/utils/fake_filesystem.cpp
+    src/utils/page_aligned_data_chunk.cpp
     src/utils/filesystem_utils.cpp
     src/utils/hash_utils.cpp
     src/utils/mock_filesystem.cpp

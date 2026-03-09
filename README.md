@@ -82,6 +82,10 @@ For more example usage, checkout [example usage](/doc/example_usage.md)
 
 ![random-read.cpp](benchmark-graph/random-performance-barchart.svg)
 
+## [Performance Troubleshooting](/doc/performance_troubleshooting_notes.md)
+
+For guidance on diagnosing and optimizing query performance, including how to use profiling, interpret cache metrics, and troubleshoot common issues, see the [Performance Troubleshooting Guide](/doc/performance_troubleshooting_notes.md).
+
 ## Platform support
 
 At the moment macOS and Linux are supported, shoot us a [feature request](https://github.com/dentiny/duck-read-cache-fs/issues/new?template=feature_request.md) if you would like to run extension on other platforms.

@@ -61,7 +61,7 @@ TEST_CASE("Test IO operation latency recording", "[io operation latency]") {
 	auto *cache_filesystem = helper.GetCacheFileSystem();
 
 	// Clear profile to start fresh
-	auto &profiler = cache_filesystem->GetProfileCollector();
+	auto &profiler = helper.GetProfileCollectorOrDefault();
 	profiler.Reset();
 
 	// Perform open operation

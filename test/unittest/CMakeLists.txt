@@ -17,6 +17,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_clear_cache_on_delete.cpp
     test_clear_cache_on_write.cpp
     test_copiable_value_lru_cache.cpp
+    test_connection_cleanup.cpp
     test_constants.cpp
     test_counter.cpp
     test_disk_cache_filesystem_from_unit.cpp
@@ -30,6 +31,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_histogram.cpp
     test_in_memory_cache_filesystem_from_unit.cpp
     test_io_operation_latency.cpp
+    test_latency_guard.cpp
     test_large_file_disk_reader_from_unit.cpp
     test_large_file_inmem_reader_from_unit.cpp
     test_max_fanout_subrequest.cpp
@@ -38,6 +40,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_noop_cache_reader_from_unit.cpp
     test_optional.cpp
     test_oversized_cache_filepath.cpp
+    test_page_aligned_data_chunk.cpp
     test_read_exception_propagation.cpp
     test_scoped_directory.cpp
     test_set_extension_config_from_unit.cpp

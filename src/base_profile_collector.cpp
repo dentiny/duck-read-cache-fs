@@ -12,6 +12,13 @@ LatencyGuard::LatencyGuard(BaseProfileCollector &profile_collector_p, IoOperatio
       start_timestamp(GetSteadyNowMilliSecSinceEpoch()) {
 }
 
+LatencyGuard::LatencyGuard(LatencyGuard &&other) noexcept
+    : profile_collector(other.profile_collector), io_operation(other.io_operation),
+      start_timestamp(other.start_timestamp) {
+	other.io_operation = IoOperation::kUnknown;
+	other.start_timestamp = 0;
+}
+
 LatencyGuard::~LatencyGuard() {
 	if (io_operation == IoOperation::kUnknown) {
 		return;

@@ -14,7 +14,7 @@ public:
 	LatencyGuard RecordOperationStart(IoOperation io_oper) override;
 	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override {
 	}
-	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override {
+	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access, idx_t byte_count) override {
 	}
 	void RecordActualCacheRead(idx_t cache_size, idx_t actual_bytes) override {
 	}

@@ -20,7 +20,7 @@ public:
 
 	LatencyGuard RecordOperationStart(IoOperation io_oper) override;
 	void RecordOperationEnd(IoOperation io_oper, int64_t latency_millisec) override;
-	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access) override;
+	void RecordCacheAccess(CacheEntity cache_entity, CacheAccess cache_access, idx_t byte_count) override;
 	void RecordActualCacheRead(idx_t cache_bytes, idx_t actual_bytes) override;
 	void RecordBytesWritten(idx_t bytes) override;
 	string GetProfilerType() override {
@@ -41,6 +41,10 @@ private:
 	uint64_t total_bytes_to_read DUCKDB_GUARDED_BY(stats_mutex) = 0;
 	// Total number of bytes to cache.
 	uint64_t total_bytes_to_cache DUCKDB_GUARDED_BY(stats_mutex) = 0;
+	// Number of bytes served from cache (cache hits).
+	uint64_t bytes_read_from_hits DUCKDB_GUARDED_BY(stats_mutex) = 0;
+	// Number of bytes fetched from remote (cache misses).
+	uint64_t bytes_read_from_misses DUCKDB_GUARDED_BY(stats_mutex) = 0;
 	// Total number of bytes written.
 	uint64_t total_bytes_written DUCKDB_GUARDED_BY(stats_mutex) = 0;
 

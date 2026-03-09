@@ -9,7 +9,7 @@
 #include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
-#include "cache_filesystem_config.hpp"
+#include "cache_httpfs_extension_callback.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "cache_status_query_function.hpp"
 #include "disk_cache_util.hpp"
@@ -26,7 +26,6 @@
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
-#include "temp_profile_collector.hpp"
 
 #include <algorithm>
 
@@ -45,6 +44,12 @@ DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
 	auto *executor = state.root.executor;
 	auto &client_context = executor->GetContext();
 	return *client_context.db.get();
+}
+
+connection_t GetConnectionId(ExpressionState &state) {
+	auto *executor = state.root.executor;
+	auto &client_context = executor->GetContext();
+	return client_context.GetConnectionId();
 }
 
 // Clear both in-memory and on-disk data block cache.
@@ -68,9 +73,9 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 		cur_cache_fs->ClearCache();
 	}
 
-	// Clear profile collection.
-	CACHE_HTTPFS_ALWAYS_ASSERT(inst_state.profile_collector != nullptr);
-	inst_state.profile_collector->Reset();
+	// Clear profile collection for this connection.
+	auto conn_id = GetConnectionId(state);
+	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
 
 	result.Reference(Value(SUCCESS));
 }
@@ -86,9 +91,10 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 	inst_state.cache_reader_manager.ClearCache(filepath);
 
 	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
+	auto conn_id = GetConnectionId(state);
 	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_cache_fs : cache_filesystem_instances) {
-		cur_cache_fs->ClearCache(filepath);
+		cur_cache_fs->ClearCache(filepath, conn_id);
 	}
 
 	result.Reference(Value(SUCCESS));
@@ -123,29 +129,16 @@ void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vecto
 void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
+	auto conn_id = GetConnectionId(state);
 
-	string latest_stat;
-	uint64_t latest_timestamp = 0;
-	const auto cache_file_systems = inst_state.registry.GetAllCacheFs();
-	for (auto *cur_filesystem : cache_file_systems) {
-		auto &profile_collector = cur_filesystem->GetProfileCollector();
-		auto stats_pair = profile_collector.GetHumanReadableStats();
-		const auto &cur_profile_stat = stats_pair.first;
-		const auto &cur_timestamp = stats_pair.second;
-		// Skip collectors that have never been accessed.
-		if (cur_timestamp == 0) {
-			continue;
-		}
-		if (cur_timestamp > latest_timestamp) {
-			latest_timestamp = cur_timestamp;
-			latest_stat = std::move(stats_pair.first);
-			continue;
-		}
-		if (cur_timestamp == latest_timestamp) {
-			latest_stat = MaxValue<string>(latest_stat, cur_profile_stat);
-		}
+	if (!inst_state.profile_collector_manager.HasExplicitProfileCollector(conn_id)) {
+		result.Reference(Value("No valid access to cache filesystem"));
+		return;
 	}
 
+	auto &collector = inst_state.profile_collector_manager.GetProfileCollectorOrDefault(conn_id);
+	auto stats_pair = collector.GetHumanReadableStats();
+	auto &latest_stat = stats_pair.first;
 	if (latest_stat.empty()) {
 		latest_stat = "No valid access to cache filesystem";
 	}
@@ -155,7 +148,8 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
-	inst_state.ResetProfileCollector();
+	auto conn_id = GetConnectionId(state);
+	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
 	result.Reference(Value(SUCCESS));
 }
 
@@ -287,7 +281,14 @@ void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &paramet
 void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	auto profile_type_str = parameter.ToString();
-	inst_state.SetProfileCollector(std::move(profile_type_str));
+	inst_state.config.profile_type = profile_type_str;
+	auto conn_id = context.GetConnectionId();
+	inst_state.profile_collector_manager.SetProfileCollector(conn_id, profile_type_str);
+
+	// Register a callback specific to this connection for cleanup
+	auto &config = DBConfig::GetConfig(context);
+	config.extension_callbacks.emplace_back(
+	    make_uniq<CacheHttpfsExtensionCallback>(GetInstanceStateShared(*context.db), conn_id));
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
@@ -310,7 +311,8 @@ void UpdateClearCacheOnWrite(ClientContext &context, SetScope scope, Value &para
 }
 
 // Implementation for check cache directories and create directories if necessary.
-void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<string> directories) {
+void UpdateCacheDirectoriesImpl(ClientContext &context, CacheHttpfsInstanceState &inst_state,
+                                vector<string> directories) {
 	// Sanitize directories, to make sure they're not suffixed with trailing slash.
 	for (auto &dir : directories) {
 		if (dir.empty()) {
@@ -323,6 +325,8 @@ void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<str
 
 	std::sort(directories.begin(), directories.end());
 	if (directories == inst_state.config.on_disk_cache_directories) {
+		DUCKDB_LOG_DEBUG(DatabaseInstance::GetDatabase(context),
+		                 "Skipping cache directory update - directories unchanged");
 		return;
 	}
 
@@ -331,6 +335,9 @@ void UpdateCacheDirectoriesImpl(CacheHttpfsInstanceState &inst_state, vector<str
 		local_fs->CreateDirectory(dir);
 	}
 	inst_state.config.on_disk_cache_directories = std::move(directories);
+	DUCKDB_LOG_DEBUG(DatabaseInstance::GetDatabase(context),
+	                 StringUtil::Format("Created cache directories: %s",
+	                                    StringUtil::Join(inst_state.config.on_disk_cache_directories, ", ")));
 }
 
 void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &parameter) {
@@ -344,7 +351,7 @@ void UpdateCacheDirectory(ClientContext &context, SetScope scope, Value &paramet
 
 	vector<string> directories;
 	directories.emplace_back(std::move(new_cache_directory));
-	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
+	UpdateCacheDirectoriesImpl(context, inst_state, std::move(directories));
 }
 
 void UpdateCacheDirectoriesConfig(ClientContext &context, SetScope scope, Value &parameter) {
@@ -360,7 +367,7 @@ void UpdateCacheDirectoriesConfig(ClientContext &context, SetScope scope, Value 
 		directories.emplace_back(GetDefaultOnDiskCacheDirectory());
 	}
 
-	UpdateCacheDirectoriesImpl(inst_state, std::move(directories));
+	UpdateCacheDirectoriesImpl(context, inst_state, std::move(directories));
 }
 
 void UpdateMinDiskBytesForCache(ClientContext &context, SetScope scope, Value &parameter) {
