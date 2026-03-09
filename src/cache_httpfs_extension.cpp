@@ -17,6 +17,7 @@
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/opener_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/main/extension_callback_manager.hpp"
 #include "duckdb/main/extension_manager.hpp"
 #include "duckdb/main/setting_info.hpp"
 #include "duckdb/storage/external_file_cache.hpp"
@@ -286,9 +287,8 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 	inst_state.profile_collector_manager.SetProfileCollector(conn_id, profile_type_str);
 
 	// Register a callback specific to this connection for cleanup
-	auto &config = DBConfig::GetConfig(context);
-	config.extension_callbacks.emplace_back(
-	    make_uniq<CacheHttpfsExtensionCallback>(GetInstanceStateShared(*context.db), conn_id));
+	ExtensionCallbackManager::Get(context).Register(
+	    make_shared_ptr<CacheHttpfsExtensionCallback>(GetInstanceStateShared(*context.db), conn_id));
 }
 
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {

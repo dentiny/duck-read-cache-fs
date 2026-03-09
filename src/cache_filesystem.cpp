@@ -337,7 +337,9 @@ FileMetadata CacheFileSystem::Stats(FileHandle &handle) {
 		    }
 	    });
 	const CacheAccess cache_access = metadata_cache_hit ? CacheAccess::kCacheHit : CacheAccess::kCacheMiss;
-	GetProfileCollector().RecordCacheAccess(CacheEntity::kMetadata, cache_access);
+	auto state = instance_state.lock();
+	auto &collector = GetProfileCollectorOrThrow(state, disk_cache_handle.GetConnectionId());
+	collector.RecordCacheAccess(CacheEntity::kMetadata, cache_access);
 	return *metadata;
 }
 
