@@ -261,7 +261,8 @@ private:
 	unique_ptr<FileHandle> CreateCacheFileHandleForRead(unique_ptr<FileHandle> internal_file_handle,
 	                                                    connection_t conn_id);
 
-	// Fallback method (if `Stats` is not supported) to get file metadata by calling getting file size and last modification time separately.
+	// Fallback method (if `Stats` is not supported) to get file metadata by calling getting file size and last
+	// modification time separately.
 	FileMetadata GetMetadataFallback(FileHandle &handle);
 
 	// Read from [location] on [nr_bytes] for the given [handle] into [buffer].
