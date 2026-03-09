@@ -73,7 +73,8 @@ set(EXTENSION_SOURCES
     duckdb-httpfs/src/httpfs_curl_client.cpp
     duckdb-httpfs/src/httpfs_extension.cpp
     duckdb-httpfs/src/httpfs_httplib_client.cpp
-    duckdb-httpfs/src/s3fs.cpp)
+    duckdb-httpfs/src/s3fs.cpp
+    duckdb-httpfs/src/s3_multi_part_upload.cpp)
 
 # Avoid building tooling we won't need for release.
 set(BUILD_BENCHMARKS
