@@ -200,6 +200,17 @@ void CacheFileSystem::ClearCache() {
 	instance_state.lock()->cache_reader_manager.ClearCache();
 }
 
+void CacheFileSystem::ClearInMemoryCache() {
+	ClearFileHandleCache();
+
+	if (metadata_cache) {
+		metadata_cache->Clear();
+	}
+	if (glob_cache) {
+		glob_cache->Clear();
+	}
+}
+
 void CacheFileSystem::ClearCache(const string &filepath, connection_t conn_id) {
 	auto state = instance_state.lock();
 	auto &collector = GetProfileCollectorOrThrow(state, conn_id);

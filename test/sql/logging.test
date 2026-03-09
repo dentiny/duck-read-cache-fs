@@ -22,8 +22,3 @@ query I
 SELECT COUNT(*) FROM duckdb_logs WHERE type = 'FileSystem' AND 'FILE OPEN CACHE HIT' IN message;
 ----
 1
-
-# A workaround due to global variable destruction.
-# Reference issue: https://github.com/dentiny/duck-read-cache-fs/issues/264
-statement ok
-SELECT cache_httpfs_clear_cache();

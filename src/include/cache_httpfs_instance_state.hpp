@@ -169,6 +169,7 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	CacheExclusionManager exclusion_manager;
 
 	CacheHttpfsInstanceState() = default;
+	~CacheHttpfsInstanceState() override;
 
 	// ObjectCacheEntry interface
 	string GetObjectType() override {

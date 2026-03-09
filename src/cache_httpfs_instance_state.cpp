@@ -16,6 +16,21 @@
 namespace duckdb {
 
 //===--------------------------------------------------------------------===//
+// CacheHttpfsInstanceState implementation
+//===--------------------------------------------------------------------===//
+
+CacheHttpfsInstanceState::~CacheHttpfsInstanceState() {
+	// Clear in-memory cache entries to prevent potential invalid memory access.
+	// Reference: https://github.com/dentiny/duck-read-cache-fs/issues/452
+	auto cache_filesystems = registry.GetAllCacheFs();
+	for (auto *fs : cache_filesystems) {
+		D_ASSERT(fs != nullptr);
+		// Only clear in-memory caches.
+		fs->ClearInMemoryCache();
+	}
+}
+
+//===--------------------------------------------------------------------===//
 // InstanceCacheFsRegistry implementation
 //===--------------------------------------------------------------------===//
 
