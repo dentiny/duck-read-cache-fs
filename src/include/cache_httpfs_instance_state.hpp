@@ -169,11 +169,6 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	CacheExclusionManager exclusion_manager;
 
 	CacheHttpfsInstanceState() = default;
-
-	// Destructor: Clear in-memory caches to prevent file handles from logging after LogManager destruction
-	// ObjectCache is destroyed at line 82, BEFORE LogManager at line 87 in DatabaseInstance destructor,
-	// so logging during this cleanup is safe. We clear file handles here to prevent them from being
-	// destroyed later (during db_file_system destruction) when LogManager is already gone.
 	~CacheHttpfsInstanceState() override;
 
 	// ObjectCacheEntry interface

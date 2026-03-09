@@ -201,8 +201,6 @@ void CacheFileSystem::ClearCache() {
 }
 
 void CacheFileSystem::ClearInMemoryCache() {
-	// Clear only in-memory caches without triggering cache reader operations
-	// This is safe to call during destruction, even while LogManager is being destroyed
 	ClearFileHandleCache();
 
 	if (metadata_cache) {
