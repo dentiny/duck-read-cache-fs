@@ -2,6 +2,11 @@
 
 cache httpfs extension bakes observability from the beginning of the design: users are able to enable stats for IO operations and dump reports for better display.
 
+Certain operations (i.e., open file, cache hit, etc) are logged, which you could enable with
+```sql
+D CALL enable_logging(storage='memory', level='trace');
+```
+
 For a slow query, it's usually not easy to tell it's CPU bottlenecked or IO bottlenecked, and how much time does your query spend on IO operations, etc.
 With cache httpfs extension, one thing you could do to understand the system and query better is:
 
@@ -39,6 +44,7 @@ For shared cache resources (e.g., metadata cache, data block cache), the cache h
 For exclusive cache resources (e.g., file handles), a high miss count alone may not be sufficient to diagnose inefficiency. In such cases, the misses due to in-use metric offers additional insight:
 - If the total miss count is high but misses due to in-use are low, this likely indicates a low hit rate, and the cache policy or access pattern may need optimization.
 - If both the total miss count and misses due to in-use are high, it suggests that many cached items are actively and exclusively in use. In this case, users should consider increasing the cache size to reduce contention.
+- If the cache access count doesn't match your expectation (i.e., repeated access should all hit cache assume sufficient resource). you could check with `SELECT * FROM cache_httpfs_cache_status_query()` to inspect cache entries.
 
 Third, in theory, as long as the requested file is not too big (so that cache space gets exhausted too quickly), we shouldn't suffer any cache miss.
 Now it's good to elimintate the possibility of slow IO operations.
