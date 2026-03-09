@@ -113,6 +113,11 @@ public:
 	// It's worth noting data block cache won't get deleted.
 	void ClearCache(const string &filepath, connection_t conn_id = 0);
 
+	// Clear only in-memory caches (file handle cache, metadata cache, glob cache).
+	// Used during destruction to prevent file handles from logging after LogManager is destroyed.
+	// Unlike ClearCache(), this doesn't touch disk-based caches or trigger cache readers.
+	void ClearInMemoryCache();
+
 	// Remove file from both internal filesystem and cache.
 	bool TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
 	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
