@@ -1,3 +1,40 @@
+# 0.13.1
+
+## Fixed
+
+- Fix database instance destruction ([#453])
+
+[#453]: https://github.com/dentiny/duck-read-cache-fs/pull/453
+
+## Improved
+
+- Use ordered map instead of hashmap to store certain cache entries to accelerate cache deletion ([#445], [#446])
+
+[#445]: https://github.com/dentiny/duck-read-cache-fs/pull/445
+[#446]: https://github.com/dentiny/duck-read-cache-fs/pull/446
+
+- Improved logging for important operations ([#448])
+
+[#448]: https://github.com/dentiny/duck-read-cache-fs/pull/448
+
+- Avoid double caching with direct IO usage ([#450])
+
+[#450]: https://github.com/dentiny/duck-read-cache-fs/pull/450
+
+- Parallelize stale temporary files deletion ([#451])
+
+[#451]: https://github.com/dentiny/duck-read-cache-fs/pull/451
+
+## Added
+
+- Add per-connection metrics collection ([#442])
+
+[#442]: https://github.com/dentiny/duck-read-cache-fs/pull/442
+
+- Bumpup all dependencies, including DuckDB, httpfs extension, and extension-ci-tools ([#438])
+
+[#438]: https://github.com/dentiny/duck-read-cache-fs/pull/438
+
 # 0.13.0
 
 ## Fixed
