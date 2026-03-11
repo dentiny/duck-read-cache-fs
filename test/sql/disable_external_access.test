@@ -1,0 +1,79 @@
+# name: test/sql/disable_external_access.test
+# description: test that caching filesystem respects enable_external_access when serving from cache
+# group: [sql]
+
+require notwindows
+
+require cache_httpfs
+
+require parquet
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+statement ok
+SET cache_httpfs_profile_type='temp';
+
+statement ok
+SET cache_httpfs_disk_cache_reader_enable_memory_cache=false;
+
+statement ok
+SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_cache_1';
+
+# Cache directory isn't inclued in the allowed directory lists.
+statement ok
+SET allowed_directories=['https://raw.githubusercontent.com/', '/tmp/duckdb_cache_httpfs_cache'];
+
+statement ok
+SET enable_external_access = false;
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3');
+----
+251
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3');
+----
+251
+
+query II
+SELECT cache_hit_count, cache_miss_count FROM cache_httpfs_cache_access_info_query() WHERE cache_type = 'data';
+----
+0	2
+
+# =============================================
+# Restart the database to allow disk access.
+# =============================================
+restart
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+statement ok
+SET cache_httpfs_profile_type='temp';
+
+statement ok
+SET cache_httpfs_disk_cache_reader_enable_memory_cache=false;
+
+# Switch cache directory to make it allowed.
+statement ok
+SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_cache';
+
+statement ok
+SET enable_external_access = false;
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3');
+----
+251
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3');
+----
+251
+
+query II
+SELECT cache_hit_count, cache_miss_count FROM cache_httpfs_cache_access_info_query() WHERE cache_type = 'data';
+----
+1	1

@@ -134,7 +134,9 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// deleted by cleanup thread and lead to data race.
 	//
 	// TODO(hjiang): With in-memory cache block involved, we could place disk write to background thread.
-	{
+	// Check local disk access before serving from cache.
+	const bool can_access_cache_file = state->CanAccessFile(cache_dest.dest_local_filepath);
+	if (can_access_cache_file) {
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kDiskCacheRead);
 		const DiskCacheUtil::ReadOption read_options {
 		    // If on-disk in-memory cache is enabled, use direct IO to avoid double buffering.
@@ -179,6 +181,9 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 	// Attempt to cache file locally.
 	// We're tolerate of local cache file write failure, which doesn't affect returned content correctness.
+	if (!can_access_cache_file) {
+		return;
+	}
 	try {
 		DiskCacheUtil::StoreLocalCacheFile(cache_directory, cache_dest, content, version_tag, config,
 		                                   [this]() { return EvictCacheBlockLru(); });
