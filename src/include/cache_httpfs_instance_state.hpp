@@ -13,7 +13,9 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/unordered_set.hpp"
+#include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/vector.hpp"
+#include "duckdb/main/config.hpp"
 #include "duckdb/storage/object_cache.hpp"
 #include "filesystem_utils.hpp"
 #include "thread_annotation.hpp"
@@ -162,6 +164,8 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 
 	// Extension config for the current duckdb instance.
 	InstanceConfig config;
+	// Database config.
+	optional_ptr<DBConfig> db_config;
 	// Cache filesystem registry.
 	InstanceCacheFsRegistry registry;
 	InstanceCacheReaderManager cache_reader_manager;
@@ -190,6 +194,8 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	void ResetProfileCollector();
 	// Set the profile collector.
 	void SetProfileCollector(string profile_type);
+	// Return if the path is allowed by current DB config.
+	bool CanAccessFile(const string &path);
 };
 
 //===--------------------------------------------------------------------===//

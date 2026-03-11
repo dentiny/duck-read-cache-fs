@@ -517,6 +517,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	auto state = make_shared_ptr<CacheHttpfsInstanceState>();
 	// Register instance state with duckdb database instance.
 	SetInstanceState(instance, state);
+	state->db_config = &instance.config;
 
 	// Ensure cache directory exists
 	auto local_fs = LocalFileSystem::CreateLocal();

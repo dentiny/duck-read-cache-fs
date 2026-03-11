@@ -4,6 +4,8 @@
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
 #include "disk_cache_reader.hpp"
+#include "duckdb/common/exception.hpp"
+#include "duckdb/common/file_system.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "duckdb/main/client_context_state.hpp"
@@ -18,6 +20,14 @@ namespace duckdb {
 //===--------------------------------------------------------------------===//
 // CacheHttpfsInstanceState implementation
 //===--------------------------------------------------------------------===//
+
+bool CacheHttpfsInstanceState::CanAccessFile(const string &path) {
+	if (!db_config) {
+		throw InternalException("DB config is not set!");
+	}
+	return db_config->CanAccessFile(path, FileType::FILE_TYPE_REGULAR);
+	// TODO(hjiang): add logging if requested file not accessible.
+}
 
 CacheHttpfsInstanceState::~CacheHttpfsInstanceState() {
 	// Clear in-memory cache entries to prevent potential invalid memory access.
