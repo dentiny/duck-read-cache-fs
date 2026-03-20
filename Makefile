@@ -16,7 +16,6 @@ format-all: format
 HTTPFS_TEST_TMPDIR := /tmp/cache-httpfs-duckdb-httpfs-test
 
 # httpfs tests to skip, since caching layer changes behavior.
-# TODO(hjiang): validate if these tests are still valid
 HTTPFS_TEST_BLACKLIST := \
 	test/sql/httpfs/hffs.test_slow \
 	test/sql/httpfs/globbing.test \
@@ -36,9 +35,7 @@ define PREPARE_HTTPFS_TESTS
 	@mkdir -p $(HTTPFS_TEST_TMPDIR)
 	@cp -r duckdb-httpfs/test $(HTTPFS_TEST_TMPDIR)/test
 	@find $(HTTPFS_TEST_TMPDIR)/test -type f \( -name "*.test" -o -name "*.test_slow" \) -exec \
-		sed -i 's/^require httpfs$$/require cache_httpfs/' {} +
-	@find $(HTTPFS_TEST_TMPDIR)/test -type f \( -name "*.test" -o -name "*.test_slow" \) -exec \
-		sed -i '/^require cache_httpfs$$/a\\nstatement ok\nSELECT cache_httpfs_clear_cache();' {} +
+		sed -i 's/^require httpfs$$/require cache_httpfs\n\nstatement ok\nSET cache_httpfs_type='"'"'in_mem'"'"';\n\nstatement ok\nSELECT cache_httpfs_clear_cache();/' {} +
 	@for f in $(HTTPFS_TEST_BLACKLIST); do rm -f $(HTTPFS_TEST_TMPDIR)/$$f; done
 endef
 
