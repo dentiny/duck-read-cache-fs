@@ -74,6 +74,7 @@ TEST_CASE_METHOD(SetExtensionConfigFixture, "Test on changing extension config c
 	// Set up per-instance state for the extension
 	auto instance_state = make_shared_ptr<CacheHttpfsInstanceState>();
 	instance_state->config.cache_type = *ON_DISK_CACHE_TYPE;
+	instance_state->db_config = &instance->config;
 	SetInstanceState(*instance, instance_state);
 	InitializeCacheReaderForTest(instance_state, instance_state->config);
 

@@ -44,6 +44,7 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(TestCacheConfig config) : d
 		local_fs->CreateDirectory(dir);
 	}
 
+	instance_state->db_config = &db.instance->config;
 	SetInstanceState(*db.instance.get(), instance_state);
 	InitializeCacheReaderForTest(instance_state, inst_config);
 	auto internal_fs =
