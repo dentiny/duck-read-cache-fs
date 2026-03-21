@@ -107,6 +107,7 @@ struct TestFsHelper {
 		auto local_filesystem = LocalFileSystem::CreateLocal();
 		local_filesystem->CreateDirectory(cache_directory);
 
+		instance_state->db_config = &db.instance->config;
 		SetInstanceState(*db.instance.get(), instance_state);
 		instance_state->cache_reader_manager.SetCacheReader(config, instance_state);
 		slow_fs = slow_fs_p.get();
