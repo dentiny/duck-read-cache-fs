@@ -7,30 +7,26 @@
 namespace duckdb {
 
 namespace {
-// Heuristic estimation of single IO request latency, out of which range are classified as outliers.
-struct LatencyHeuristic {
-	double min_latency_ms;
-	double max_latency_ms;
-	int num_buckets;
-};
 
-inline constexpr std::array<LatencyHeuristic, kIoOperationCount> kLatencyHeuristics = {{
-    // Open
-    {0, 1000, 100},
-    // Read
-    {0, 1000, 100},
-    // Write
-    {0, 1000, 100},
-    // File sync
-    {0, 1000, 100},
-    // File remove
-    {0, 1000, 100},
-    // Glob.
-    {0, 1000, 100},
-    // Disk cache read
-    {0, 500, 100},
-    // File path cache clear
-    {0, 100, 100},
+// Latency bucket boundaries in milliseconds.
+const vector<double> kDefaultLatencyBucketsMs = {1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000};
+
+// Disk cache read has lower latency, use finer-grained buckets.
+const vector<double> kDiskCacheReadLatencyBucketsMs = {0.5, 1, 2, 5, 10, 25, 50, 100, 250, 500};
+
+// File path cache clear has even lower latency.
+const vector<double> kPathClearLatencyBucketsMs = {0.1, 0.5, 1, 2, 5, 10, 25, 50, 100};
+
+// Bucket boundaries per IO operation, indexed by IoOperation enum.
+const std::array<const vector<double> *, kIoOperationCount> kLatencyBuckets = {{
+    &kDefaultLatencyBucketsMs,       // Open
+    &kDefaultLatencyBucketsMs,       // Read
+    &kDefaultLatencyBucketsMs,       // Write
+    &kDefaultLatencyBucketsMs,       // FileSync
+    &kDefaultLatencyBucketsMs,       // FileRemove
+    &kDefaultLatencyBucketsMs,       // Glob
+    &kDiskCacheReadLatencyBucketsMs, // DiskCacheRead
+    &kPathClearLatencyBucketsMs,     // FilePathCacheClear
 }};
 
 const NoDestructor<string> LATENCY_HISTOGRAM_ITEM {"latency"};
@@ -39,9 +35,7 @@ const NoDestructor<string> LATENCY_HISTOGRAM_UNIT {"millisec"};
 
 TempProfileCollector::TempProfileCollector() {
 	for (idx_t idx = 0; idx < kIoOperationCount; ++idx) {
-		histograms[idx] =
-		    make_uniq<Histogram>(kLatencyHeuristics[idx].min_latency_ms, kLatencyHeuristics[idx].max_latency_ms,
-		                         kLatencyHeuristics[idx].num_buckets);
+		histograms[idx] = make_uniq<Histogram>(*kLatencyBuckets[idx]);
 		histograms[idx]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM, *LATENCY_HISTOGRAM_UNIT);
 	}
 }
