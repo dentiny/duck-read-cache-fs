@@ -73,6 +73,7 @@ struct ValidationTestHelper {
 		local_fs->CreateDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
 
 		// Register state with instance
+		instance_state->db_config = &db.instance->config;
 		SetInstanceState(*db.instance.get(), instance_state);
 		InitializeCacheReaderForTest(instance_state, config);
 
