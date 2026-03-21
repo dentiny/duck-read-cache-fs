@@ -4,12 +4,15 @@
 #include <limits>
 
 #include "duckdb/common/assert.hpp"
+#include "duckdb/common/exception.hpp"
 #include "duckdb/common/string_util.hpp"
 
 namespace duckdb {
 
 Histogram::Histogram(vector<double> boundaries) {
-	D_ASSERT(!boundaries.empty());
+	if (boundaries.empty()) {
+		throw InvalidInputException("Histogram boundaries must not be empty");
+	}
 	boundaries_ = std::move(boundaries);
 	D_ASSERT(std::is_sorted(boundaries_.begin(), boundaries_.end()));
 	Reset();
@@ -26,7 +29,7 @@ void Histogram::Reset() {
 	total_counts_ = 0;
 	sum_ = 0;
 	// Bucket count = boundaries count + 1 (last bucket is overflow: [last_boundary, +inf)).
-	hist_ = std::vector<size_t>(boundaries_.size() + 1, 0);
+	hist_ = vector<size_t>(boundaries_.size() + 1, 0);
 }
 
 size_t Histogram::Bucket(double val) const {
