@@ -11,6 +11,13 @@ if(UNIX OR APPLE)
   )
 endif()
 
+# Override DuckDB encryption library, mimics httpfs extension behavior.
+if (NOT EMSCRIPTEN)
+  add_definitions(-DOVERRIDE_ENCRYPTION_UTILS=1)
+else()
+  set(DUCKDB_EXTENSION_HTTPFS_LINKED_LIBS "../../third_party/mbedtls/libduckdb_mbedtls.a")
+endif()
+
 # Check if compiler is Clang (case-insensitive check)
 string(TOLOWER "${CMAKE_CXX_COMPILER_ID}" CMAKE_CXX_COMPILER_ID_LOWER)
 string(TOLOWER "${CMAKE_CXX_COMPILER}" CMAKE_CXX_COMPILER_LOWER)

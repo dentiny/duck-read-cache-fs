@@ -23,11 +23,7 @@ HTTPFS_TEST_BLACKLIST := \
 	test/sql/logging/http_logging.test \
 	test/sql/settings/test_disabled_file_system_httpfs.test \
 	test/sql/storage/external_file_cache/external_file_cache_read_blob.test_slow \
-	test/sql/copy/encryption/different_aes_engines.test \
-	test/sql/copy/parquet/parquet_encryption_mbedtls_openssl.test \
-	test/sql/copy/parquet/parquet_encryption_httpfs.test \
-	test/sql/copy/s3/glob_s3_recursive.test_slow \
-	test/sql/crypto/test_openssl_crypto.test
+	test/sql/copy/s3/glob_s3_recursive.test_slow
 
 # Prepare httpfs tests: rewrite require directives, inject cache clear, and remove blacklisted tests.
 define PREPARE_HTTPFS_TESTS
