@@ -1,10 +1,8 @@
 #include "catch/catch.hpp"
 
-#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <future>
-#include <memory>
 #include <thread>
 #include <tuple>
 
