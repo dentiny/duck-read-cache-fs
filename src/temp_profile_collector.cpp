@@ -1,5 +1,6 @@
 #include "temp_profile_collector.hpp"
 
+#include "duckdb/common/array.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "utils/include/no_destructor.hpp"
 #include "utils/include/time_utils.hpp"
@@ -7,30 +8,61 @@
 namespace duckdb {
 
 namespace {
-// Heuristic estimation of single IO request latency, out of which range are classified as outliers.
-struct LatencyHeuristic {
-	double min_latency_ms;
-	double max_latency_ms;
-	int num_buckets;
-};
 
-inline constexpr std::array<LatencyHeuristic, kIoOperationCount> kLatencyHeuristics = {{
-    // Open
-    {0, 1000, 100},
-    // Read
-    {0, 1000, 100},
-    // Write
-    {0, 1000, 100},
-    // File sync
-    {0, 1000, 100},
-    // File remove
-    {0, 1000, 100},
-    // Glob.
-    {0, 1000, 100},
-    // Disk cache read
-    {0, 500, 100},
-    // File path cache clear
-    {0, 100, 100},
+// Latency bucket boundaries in milliseconds.
+// Bucket values reference: Apache OpenDAL (Apache License 2.0)
+// https://github.com/apache/opendal/blob/main/core/layers/observe-metrics-common/src/lib.rs
+constexpr array<double, 10> kDefaultLatencyBucketsMs = {{
+    1,     // 1ms - Fastest operations, cached responses
+    10,    // 10ms - Fast metadata operations, local operations
+    50,    // 50ms - Quick operations, nearby cloud resources
+    100,   // 100ms - Standard API response times, typical cloud latency
+    250,   // 250ms - Medium operations, small data transfers
+    500,   // 500ms - Medium-long operations, larger metadata operations
+    1000,  // 1s - Long operations, small file transfers
+    2500,  // 2.5s - Extended operations, medium file transfers
+    5000,  // 5s - Long-running operations, large transfers
+    10000, // 10s - Very long operations, very large transfers
+}};
+
+// Disk cache read has lower latency, use finer-grained buckets.
+constexpr array<double, 10> kDiskCacheReadLatencyBucketsMs = {{
+    0.5,
+    1,
+    2,
+    5,
+    10,
+    25,
+    50,
+    100,
+    250,
+    500,
+}};
+
+// File path cache clear has even lower latency.
+constexpr array<double, 10> kPathClearLatencyBucketsMs = {{
+    0.1,
+    0.5,
+    1,
+    2,
+    5,
+    10,
+    25,
+    50,
+    100,
+    250,
+}};
+
+// Bucket boundaries per IO operation, indexed by IoOperation enum.
+constexpr array<const array<double, 10> *, kIoOperationCount> kLatencyBuckets = {{
+    &kDefaultLatencyBucketsMs,       // Open
+    &kDefaultLatencyBucketsMs,       // Read
+    &kDefaultLatencyBucketsMs,       // Write
+    &kDefaultLatencyBucketsMs,       // FileSync
+    &kDefaultLatencyBucketsMs,       // FileRemove
+    &kDefaultLatencyBucketsMs,       // Glob
+    &kDiskCacheReadLatencyBucketsMs, // DiskCacheRead
+    &kPathClearLatencyBucketsMs,     // FilePathCacheClear
 }};
 
 const NoDestructor<string> LATENCY_HISTOGRAM_ITEM {"latency"};
@@ -39,9 +71,8 @@ const NoDestructor<string> LATENCY_HISTOGRAM_UNIT {"millisec"};
 
 TempProfileCollector::TempProfileCollector() {
 	for (idx_t idx = 0; idx < kIoOperationCount; ++idx) {
-		histograms[idx] =
-		    make_uniq<Histogram>(kLatencyHeuristics[idx].min_latency_ms, kLatencyHeuristics[idx].max_latency_ms,
-		                         kLatencyHeuristics[idx].num_buckets);
+		const auto &buckets = *kLatencyBuckets[idx];
+		histograms[idx] = make_uniq<Histogram>(vector<double>(buckets.begin(), buckets.end()));
 		histograms[idx]->SetStatsDistribution(*LATENCY_HISTOGRAM_ITEM, *LATENCY_HISTOGRAM_UNIT);
 	}
 }
