@@ -223,7 +223,7 @@ vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
 	for (auto &cur_key : keys) {
 		cache_entries_info.emplace_back(DataCacheEntryInfo {
 		    .cache_filepath = "(no disk cache)",
-		    .remote_filename = std::move(cur_key.fname),
+		    .original_remote_path = std::move(cur_key.fname),
 		    .start_offset = cur_key.start_off,
 		    .end_offset = cur_key.start_off + cur_key.blk_size,
 		    .cache_type = "in-mem",

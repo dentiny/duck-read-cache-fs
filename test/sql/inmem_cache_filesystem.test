@@ -303,12 +303,12 @@ SELECT COUNT(*) FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.pa
 7433139
 
 query I
-SELECT COUNT(*) FROM cache_httpfs_cache_status_query() WHERE remote_filename = 'https://blobs.duckdb.org/data/taxi_2019_04.parquet';
+SELECT COUNT(*) FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://blobs.duckdb.org/data/taxi_2019_04.parquet';
 ----
 2
 
 query IIIII
-SELECT * FROM cache_httpfs_cache_status_query() WHERE remote_filename = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv';
+SELECT * FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv';
 ----
 (no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem
 

@@ -140,7 +140,7 @@ TEST_CASE("TryGetOriginalRemotePath roundtrip via SetFileAttributes", "[disk_cac
 	const string test_file = StringUtil::Format("%s/cache_file", dir);
 	{
 		auto fh = local_filesystem->OpenFile(test_file, FileOpenFlags::FILE_FLAGS_WRITE |
-		                                                     FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		                                                    FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
 		local_filesystem->Write(*fh, const_cast<void *>(static_cast<const void *>("data")), 4, /*location=*/0);
 		fh->Sync();
 	}

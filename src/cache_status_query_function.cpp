@@ -32,16 +32,12 @@ unique_ptr<FunctionData> DataCacheStatusQueryFuncBind(ClientContext &context, Ta
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
 
-	return_types.reserve(6);
-	names.reserve(6);
+	return_types.reserve(5);
+	names.reserve(5);
 
 	// Cache filepath.
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("cache_filepath");
-
-	// Remote object name.
-	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
-	names.emplace_back("remote_filename");
 
 	// Original remote/source file path (full URL).
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
@@ -108,9 +104,6 @@ void DataCacheStatusQueryTableFunc(ClientContext &context, TableFunctionInput &d
 
 		// Cache filepath.
 		output.SetValue(col++, count, entry.cache_filepath);
-
-		// Remote filename.
-		output.SetValue(col++, count, entry.remote_filename);
 
 		// Original remote path.
 		output.SetValue(col++, count, entry.original_remote_path);

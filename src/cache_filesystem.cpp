@@ -410,8 +410,6 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 }
 
 vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opener) {
-	std::cout << "Glob called with path: " << path << std::endl;
-
 	auto conn_id = GetConnectionId(opener);
 	InitializeGlobalConfig(opener);
 	if (glob_cache == nullptr) {
