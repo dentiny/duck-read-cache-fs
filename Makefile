@@ -18,7 +18,6 @@ HTTPFS_TEST_TMPDIR := /tmp/cache-httpfs-duckdb-httpfs-test
 # httpfs tests to skip, since caching layer changes behavior.
 HTTPFS_TEST_BLACKLIST := \
 	test/sql/httpfs/hffs.test_slow \
-	test/sql/httpfs/globbing.test \
 	test/sql/logging/file_system_logging.test \
 	test/sql/logging/http_logging.test \
 	test/sql/settings/test_disabled_file_system_httpfs.test \
