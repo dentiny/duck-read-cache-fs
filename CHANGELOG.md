@@ -1,3 +1,26 @@
+# 0.13.2
+
+## Fixed
+
+- Fix IO exception on LRU cache, which leads to a hanging process ([#468], [#466])
+
+[#468]: https://github.com/dentiny/duck-read-cache-fs/pull/468
+[#466]: https://github.com/dentiny/duck-read-cache-fs/pull/466
+
+- Fix encryption util override DuckDB Mbed TLS ([$464])
+
+[#464]: https://github.com/dentiny/duck-read-cache-fs/pull/464
+
+- Fix disabled external access ([#458])
+
+[#458]: https://github.com/dentiny/duck-read-cache-fs/pull/458
+
+## Improved
+
+- Latency histogram for IO operations ([#465])
+
+[#465]: https://github.com/dentiny/duck-read-cache-fs/pull/465
+
 # 0.13.1
 
 ## Fixed
