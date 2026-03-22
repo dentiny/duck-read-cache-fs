@@ -105,8 +105,10 @@ void DataCacheStatusQueryTableFunc(ClientContext &context, TableFunctionInput &d
 		// Cache filepath.
 		output.SetValue(col++, count, entry.cache_filepath);
 
-		// Original remote path.
-		output.SetValue(col++, count, entry.original_remote_path);
+		// Original remote path; NULL when unavailable (i.e., for compatibility).
+		output.SetValue(col++, count,
+		                entry.original_remote_path.empty() ? Value(LogicalType {LogicalTypeId::VARCHAR})
+		                                                   : Value(entry.original_remote_path));
 
 		// Start offset.
 		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.start_offset)));
