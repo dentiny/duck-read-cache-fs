@@ -280,12 +280,22 @@ public:
 		}
 
 		// Place factory out of critical section.
-		shared_ptr<Val> val = factory(key);
+		shared_ptr<Val> val;
+		std::exception_ptr eptr;
+		try {
+			val = factory(key);
+		} catch (...) {
+			eptr = std::current_exception();
+		}
 
 		{
 			const concurrency::lock_guard<concurrency::mutex> lck(mu);
-			internal_cache.Put(key, val);
-			creation_token->val = val;
+			if (!eptr) {
+				internal_cache.Put(key, val);
+				creation_token->val = val;
+			} else {
+				creation_token->eptr = eptr;
+			}
 			creation_token->cv.notify_all();
 			int new_count = --creation_token->count;
 			if (new_count == 0) {
@@ -294,6 +304,10 @@ public:
 			}
 		}
 
+		// Throw exception if error.
+		if (eptr) {
+			std::rethrow_exception(eptr);
+		}
 		return val;
 	}
 
@@ -302,6 +316,8 @@ private:
 		std::condition_variable cv;
 		// Nullptr indicate creation unfinished.
 		shared_ptr<Val> val;
+		// Potential exception pointer if factory throws.
+		std::exception_ptr eptr;
 		// Counter for ongoing creation.
 		int count = 0;
 	};

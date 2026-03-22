@@ -141,3 +141,22 @@ TEST_CASE("SharedValueLru Put and get with timeout", "[shared value lru test]") 
 	val = cache.Get("key");
 	REQUIRE(val == nullptr);
 }
+
+TEST_CASE("SharedValueLru GetOrCreate factory exception cleans up", "[shared value lru test]") {
+	using CacheType = ThreadSafeSharedValueLruCache<std::string, std::string>;
+	CacheType cache {/*max_entries=*/10, /*timeout_millisec=*/0};
+	const string key = "key";
+
+	// First attempt fails with an exception.
+	auto throwing_factory = [](const std::string &) -> shared_ptr<std::string> {
+		throw std::runtime_error("factory failed");
+	};
+	REQUIRE_THROWS_AS(cache.GetOrCreate(key, throwing_factory), std::runtime_error);
+
+	// After an exception, the creation token should be cleaned up so a subsequent call should attempt a new request.
+	auto good_factory = [](const std::string &k) -> shared_ptr<std::string> {
+		return make_shared_ptr<std::string>(k);
+	};
+	auto result = cache.GetOrCreate(key, good_factory);
+	REQUIRE(*result == key);
+}
