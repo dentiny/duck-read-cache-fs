@@ -145,8 +145,8 @@ TEST_CASE("SharedValueLru Put and get with timeout", "[shared value lru test]") 
 }
 
 TEST_CASE("SharedValueLru GetOrCreate factory exception cleans up", "[shared value lru test]") {
-	auto cache =
-	    std::make_shared<ThreadSafeSharedValueLruCache<std::string, std::string>>(/*max_entries=*/10, /*timeout_millisec=*/0);
+	auto cache = std::make_shared<ThreadSafeSharedValueLruCache<std::string, std::string>>(/*max_entries=*/10,
+	                                                                                       /*timeout_millisec=*/0);
 	const string key = "key";
 
 	// First attempt fails with an exception.
