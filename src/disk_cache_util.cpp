@@ -37,12 +37,15 @@ constexpr idx_t DEAD_TEMP_STALENESS_MICROSEC = 10 * 60 * 1000 * 1000;
 // Zero-padded indices (e.g. .001, .002) ensure lexicographic sort matches chunk order.
 constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_filepath";
 
-// Try to reconstruct the original (non-shortened) local cache filepath from chunked xattr entries.
-// Returns empty string if no attributes are found (i.e. the filepath was never shortened).
-string TryGetOriginalCacheFilepath(const string &filepath) {
+// xattr key prefix for storing chunked original remote/source file path.
+constexpr const char *REMOTE_PATH_ATTR_PREFIX = "user.cache_httpfs_remote_path";
+
+// Reconstruct a string value from chunked xattr entries with the given key prefix.
+// Returns empty string if no attributes are found.
+string ReadChunkedXattr(const string &filepath, const char *key_prefix) {
 	string result;
 	for (idx_t idx = 0;; ++idx) {
-		const string key = StringUtil::Format("%s.%03llu", CACHE_FILEPATH_ATTR_PREFIX, idx);
+		const string key = StringUtil::Format("%s.%03llu", key_prefix, idx);
 		string chunk = GetFileAttribute(filepath, key);
 		if (chunk.empty()) {
 			break;
@@ -52,7 +55,30 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 	return result;
 }
 
+// Try to reconstruct the original (non-shortened) local cache filepath from chunked xattr entries.
+// Returns empty string if no attributes are found (i.e. the filepath was never shortened).
+string TryGetOriginalCacheFilepath(const string &filepath) {
+	return ReadChunkedXattr(filepath, CACHE_FILEPATH_ATTR_PREFIX);
+}
+
+// Write a string value as chunked xattr entries into [file_attrs] with the given key prefix.
+void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const char *key_prefix, const string &value) {
+	const idx_t max_xattr_val_size = GetMaxXattrValueSize();
+	const idx_t value_len = value.length();
+	const idx_t chunk_count = (value_len + max_xattr_val_size - 1) / max_xattr_val_size;
+	for (idx_t idx = 0; idx < chunk_count; ++idx) {
+		const idx_t offset = idx * max_xattr_val_size;
+		const idx_t len = MinValue(max_xattr_val_size, value_len - offset);
+		const string key = StringUtil::Format("%s.%03llu", key_prefix, idx);
+		file_attrs[key] = value.substr(offset, len);
+	}
+}
+
 } // namespace
+
+/*static*/ string DiskCacheUtil::TryGetOriginalRemotePath(const string &filepath) {
+	return ReadChunkedXattr(filepath, REMOTE_PATH_ATTR_PREFIX);
+}
 
 /*static*/ DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vector<string> &cache_directories,
                                                                                 const string &remote_file,
@@ -258,7 +284,8 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 }
 
 /*static*/ DiskCacheUtil::LocalCacheDestination
-DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const string &local_cache_file) {
+DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const string &local_cache_file,
+                                            const string &original_remote_path) {
 	if (StringUtil::EndsWith(cache_directory, "/")) {
 		throw InvalidInputException("Cache directory %s cannot ends with '/'", cache_directory);
 	}
@@ -267,35 +294,28 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	auto local_temp_filepath = GetTempCacheFilePath(local_cache_file);
 	auto local_temp_filename = StringUtil::GetFileName(local_temp_filepath);
 
-	// If there's no oversized filepath or filename, no special handling.
+	LocalCacheDestination local_cache_dest;
+
+	// If there's no oversized filepath or filename, no special handling for the destination path.
 	if (local_temp_filename.length() <= filepath_limit.max_filename_len &&
 	    local_temp_filepath.length() <= filepath_limit.max_filepath_len) {
-		LocalCacheDestination local_cache_dest {
-		    .dest_local_filepath = local_cache_file,
-		    .temp_local_filepath = std::move(local_temp_filepath),
-		    .file_attrs = {},
-		};
-		return local_cache_dest;
+		local_cache_dest.dest_local_filepath = local_cache_file;
+		local_cache_dest.temp_local_filepath = std::move(local_temp_filepath);
+	} else {
+		// Otherwise, special handle oversized filepath and filename: use the hash value as filename.
+		auto local_cache_filepath_sha256 = GetSha256(local_cache_file);
+		local_cache_dest.dest_local_filepath =
+		    StringUtil::Format("%s/%s", cache_directory, local_cache_filepath_sha256);
+		local_cache_dest.temp_local_filepath = GetTempCacheFilePath(local_cache_dest.dest_local_filepath);
+
+		// Store the original cache filepath in file attributes as chunked entries, since xattr values have
+		// platform-specific size limits.
+		AddChunkedXattrEntries(local_cache_dest.file_attrs, CACHE_FILEPATH_ATTR_PREFIX, local_cache_file);
 	}
 
-	// Otherwise, special handle oversized filepath and filename: use the hash value as filename.
-	auto local_cache_filepath_sha256 = GetSha256(local_cache_file);
-	LocalCacheDestination local_cache_dest;
-	local_cache_dest.dest_local_filepath = StringUtil::Format("%s/%s", cache_directory, local_cache_filepath_sha256);
-	local_cache_dest.temp_local_filepath = GetTempCacheFilePath(local_cache_dest.dest_local_filepath);
-
-	// Store the original cache filepath in file attributes as chunked entries, since xattr values have
-	// platform-specific size limits.
-	const idx_t max_xattr_val_size = GetMaxXattrValueSize();
-	const idx_t filepath_len = local_cache_file.length();
-	const idx_t chunk_count = (filepath_len + max_xattr_val_size - 1) / max_xattr_val_size;
-
-	local_cache_dest.file_attrs.reserve(chunk_count);
-	for (idx_t idx = 0; idx < chunk_count; ++idx) {
-		const idx_t offset = idx * max_xattr_val_size;
-		const idx_t len = MinValue(max_xattr_val_size, filepath_len - offset);
-		const string key = StringUtil::Format("%s.%03llu", CACHE_FILEPATH_ATTR_PREFIX, idx);
-		local_cache_dest.file_attrs[key] = local_cache_file.substr(offset, len);
+	// Always store the original remote/source file path so it can be read back when querying cache contents.
+	if (!original_remote_path.empty()) {
+		AddChunkedXattrEntries(local_cache_dest.file_attrs, REMOTE_PATH_ATTR_PREFIX, original_remote_path);
 	}
 
 	return local_cache_dest;

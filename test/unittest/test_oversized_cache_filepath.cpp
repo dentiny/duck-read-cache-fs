@@ -103,6 +103,7 @@ TEST_CASE("Oversized filename caching roundtrip", "[disk_cache_util]") {
 	// Then comes on-disk cache.
 	REQUIRE(cache_entries_info[1].cache_type == "on-disk");
 	REQUIRE(cache_entries_info[1].remote_filename == oversized_file.filename);
+	REQUIRE(cache_entries_info[1].original_remote_path == oversized_file.filepath);
 	REQUIRE(cache_entries_info[1].start_offset == 0);
 	REQUIRE(cache_entries_info[1].end_offset == TEST_FILESIZE);
 }

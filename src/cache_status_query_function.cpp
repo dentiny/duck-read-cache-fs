@@ -32,8 +32,8 @@ unique_ptr<FunctionData> DataCacheStatusQueryFuncBind(ClientContext &context, Ta
 	D_ASSERT(return_types.empty());
 	D_ASSERT(names.empty());
 
-	return_types.reserve(5);
-	names.reserve(5);
+	return_types.reserve(6);
+	names.reserve(6);
 
 	// Cache filepath.
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
@@ -42,6 +42,10 @@ unique_ptr<FunctionData> DataCacheStatusQueryFuncBind(ClientContext &context, Ta
 	// Remote object name.
 	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
 	names.emplace_back("remote_filename");
+
+	// Original remote/source file path (full URL).
+	return_types.emplace_back(LogicalType {LogicalTypeId::VARCHAR});
+	names.emplace_back("original_remote_path");
 
 	// Start offset for cache file.
 	return_types.emplace_back(LogicalType {LogicalTypeId::UBIGINT});
@@ -107,6 +111,9 @@ void DataCacheStatusQueryTableFunc(ClientContext &context, TableFunctionInput &d
 
 		// Remote filename.
 		output.SetValue(col++, count, entry.remote_filename);
+
+		// Original remote path.
+		output.SetValue(col++, count, entry.original_remote_path);
 
 		// Start offset.
 		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.start_offset)));

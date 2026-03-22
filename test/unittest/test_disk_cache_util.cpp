@@ -17,12 +17,14 @@ using namespace duckdb;
 
 namespace {
 
-// Reassemble chunked file attributes.
-string ReassembleFileAttrs(const unordered_map<string, string> &file_attrs) {
+// Reassemble chunked file attributes for a given key prefix.
+string ReassembleFileAttrsForPrefix(const unordered_map<string, string> &file_attrs, const string &prefix) {
 	vector<string> keys;
 	keys.reserve(file_attrs.size());
 	for (const auto &kv : file_attrs) {
-		keys.emplace_back(kv.first);
+		if (StringUtil::StartsWith(kv.first, prefix)) {
+			keys.emplace_back(kv.first);
+		}
 	}
 	std::sort(keys.begin(), keys.end());
 
@@ -32,6 +34,9 @@ string ReassembleFileAttrs(const unordered_map<string, string> &file_attrs) {
 	}
 	return reassembled;
 }
+
+const string CACHE_FILEPATH_PREFIX = "user.cache_httpfs_cache_filepath";
+const string REMOTE_PATH_PREFIX = "user.cache_httpfs_remote_path";
 
 } // namespace
 
@@ -70,42 +75,82 @@ TEST_CASE("ResolveLocalCacheDestination - normal filepath, no fallback for overs
           "[disk_cache_util]") {
 	const string cache_dir = "/tmp/cache";
 	const string local_cache_file = "/tmp/cache/abc123-file.parquet-0-4096";
+	const string remote_path = "s3://bucket/path/to/file.parquet";
 
-	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file);
+	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file, remote_path);
 	REQUIRE(result.dest_local_filepath == local_cache_file);
 	REQUIRE(StringUtil::StartsWith(result.temp_local_filepath, local_cache_file));
 	REQUIRE(StringUtil::EndsWith(result.temp_local_filepath, ".httpfs_local_cache"));
+	// Remote path is always stored.
+	REQUIRE_FALSE(result.file_attrs.empty());
+	REQUIRE(ReassembleFileAttrsForPrefix(result.file_attrs, REMOTE_PATH_PREFIX) == remote_path);
+	// No cache filepath fallback for non-oversized files.
+	REQUIRE(ReassembleFileAttrsForPrefix(result.file_attrs, CACHE_FILEPATH_PREFIX).empty());
+}
+
+TEST_CASE("ResolveLocalCacheDestination - empty remote path produces no remote path attrs", "[disk_cache_util]") {
+	const string cache_dir = "/tmp/cache";
+	const string local_cache_file = "/tmp/cache/abc123-file.parquet-0-4096";
+
+	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file, /*original_remote_path=*/"");
+	REQUIRE(result.dest_local_filepath == local_cache_file);
 	REQUIRE(result.file_attrs.empty());
 }
 
 TEST_CASE("ResolveLocalCacheDestination - oversized filename triggers fallback", "[disk_cache_util]") {
 	const string cache_dir = "/tmp/cache";
 	const auto limits = GetMaxFileNameLength();
+	const string remote_path = "s3://bucket/oversized-file.parquet";
 
 	const string long_name(limits.max_filename_len + 100, 'x');
 	const string local_cache_file = StringUtil::Format("%s/%s", cache_dir, long_name);
 
-	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file);
+	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file, remote_path);
 	const auto expected_sha = GetSha256(local_cache_file);
 	REQUIRE(result.dest_local_filepath == StringUtil::Format("%s/%s", cache_dir, expected_sha));
 	REQUIRE(StringUtil::StartsWith(result.temp_local_filepath, result.dest_local_filepath));
 	REQUIRE(StringUtil::EndsWith(result.temp_local_filepath, ".httpfs_local_cache"));
 	REQUIRE_FALSE(result.file_attrs.empty());
-	REQUIRE(ReassembleFileAttrs(result.file_attrs) == local_cache_file);
+	// Both oversized cache filepath and remote path should be present.
+	REQUIRE(ReassembleFileAttrsForPrefix(result.file_attrs, CACHE_FILEPATH_PREFIX) == local_cache_file);
+	REQUIRE(ReassembleFileAttrsForPrefix(result.file_attrs, REMOTE_PATH_PREFIX) == remote_path);
 }
 
 TEST_CASE("ResolveLocalCacheDestination - oversized filepath triggers fallback", "[disk_cache_util]") {
 	const auto limits = GetMaxFileNameLength();
+	const string remote_path = "https://example.com/deep/nested/file.parquet";
 
 	const string deep_dir(limits.max_filepath_len, 'd');
 	const string cache_dir = StringUtil::Format("/%s", deep_dir);
 	const string local_cache_file = StringUtil::Format("%s/file.parquet", cache_dir);
 
-	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file);
+	auto result = DiskCacheUtil::ResolveLocalCacheDestination(cache_dir, local_cache_file, remote_path);
 	const auto expected_sha = GetSha256(local_cache_file);
 	REQUIRE(result.dest_local_filepath == StringUtil::Format("%s/%s", cache_dir, expected_sha));
 	REQUIRE_FALSE(result.file_attrs.empty());
-	REQUIRE(ReassembleFileAttrs(result.file_attrs) == local_cache_file);
+	REQUIRE(ReassembleFileAttrsForPrefix(result.file_attrs, CACHE_FILEPATH_PREFIX) == local_cache_file);
+	REQUIRE(ReassembleFileAttrsForPrefix(result.file_attrs, REMOTE_PATH_PREFIX) == remote_path);
+}
+
+TEST_CASE("TryGetOriginalRemotePath roundtrip via SetFileAttributes", "[disk_cache_util]") {
+	ScopedDirectory scoped_dir("/tmp/duckdb_test_remote_path_xattr");
+	const auto &dir = scoped_dir.GetPath();
+	auto local_filesystem = LocalFileSystem::CreateLocal();
+
+	const string test_file = StringUtil::Format("%s/cache_file", dir);
+	{
+		auto fh = local_filesystem->OpenFile(test_file, FileOpenFlags::FILE_FLAGS_WRITE |
+		                                                     FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
+		local_filesystem->Write(*fh, const_cast<void *>(static_cast<const void *>("data")), 4, /*location=*/0);
+		fh->Sync();
+	}
+
+	const string remote_path = "s3://my-bucket/path/to/data/file.parquet";
+	auto result = DiskCacheUtil::ResolveLocalCacheDestination(dir, test_file, remote_path);
+	REQUIRE_FALSE(result.file_attrs.empty());
+	REQUIRE(SetFileAttributes(test_file, result.file_attrs));
+
+	REQUIRE(DiskCacheUtil::TryGetOriginalRemotePath(test_file) == remote_path);
 }
 
 #if !defined(_WIN32)

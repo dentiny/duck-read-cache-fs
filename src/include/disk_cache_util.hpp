@@ -56,13 +56,21 @@ public:
 		string dest_local_filepath;
 		// Temporary local filepath (persisting local cache files are implemented by swapping temp files).
 		string temp_local_filepath;
-		// File attributes, which will be assigned for oversized filepath or filename.
+		// File attributes: always includes the original remote path; also includes the original cache filepath
+		// for oversized filepath/filename cases.
 		unordered_map<string, string> file_attrs;
 	};
 
 	// Resolve local cache destination, which handles oversized filepath and filename.
+	// [original_remote_path] is the source URL/path (e.g. "s3://bucket/file.parquet") and is always
+	// stored as a file attribute on the cache file.
 	static LocalCacheDestination ResolveLocalCacheDestination(const string &cache_directory,
-	                                                          const string &local_cache_file);
+	                                                          const string &local_cache_file,
+	                                                          const string &original_remote_path);
+
+	// Read the original remote/source file path stored in the cache file's extended attributes.
+	// Returns empty string if the attribute is not present (e.g. cache files created before this feature).
+	static string TryGetOriginalRemotePath(const string &filepath);
 
 	// Store content to a local cache file using the pre-resolved [cache_dest].
 	// Disk space availability is validated, and eviction is triggered if needed.

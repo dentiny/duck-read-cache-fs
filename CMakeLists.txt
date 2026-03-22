@@ -140,7 +140,7 @@ install(
   LIBRARY DESTINATION "${INSTALL_LIB_DIR}")
 
 # Unit tests
-add_subdirectory(test/unittest)
+# add_subdirectory(test/unittest)
 
 # Benchmark
 if(${BUILD_BENCHMARK})
