@@ -14,7 +14,9 @@ Histogram::Histogram(vector<double> boundaries) {
 		throw InvalidInputException("Histogram boundaries must not be empty");
 	}
 	boundaries_ = std::move(boundaries);
-	D_ASSERT(std::is_sorted(boundaries_.begin(), boundaries_.end()));
+	if (!std::is_sorted(boundaries_.begin(), boundaries_.end())) {
+		throw InvalidInputException("Histogram boundaries must be sorted in ascending order");
+	}
 	Reset();
 }
 
