@@ -10,10 +10,10 @@ namespace duckdb {
 // Entry information for data cache, which applies to both in-memory cache and on-disk cache.
 struct DataCacheEntryInfo {
 	string cache_filepath;
-	string remote_filename;
-	uint64_t start_offset = 0; // Inclusive.
-	uint64_t end_offset = 0;   // Exclusive.
-	string cache_type;         // Either in-memory or on-disk.
+	string original_remote_path; // Full remote/source file path.
+	uint64_t start_offset = 0;   // Inclusive.
+	uint64_t end_offset = 0;     // Exclusive.
+	string cache_type;           // Either in-memory or on-disk.
 };
 
 bool operator<(const DataCacheEntryInfo &lhs, const DataCacheEntryInfo &rhs);

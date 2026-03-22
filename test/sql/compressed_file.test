@@ -32,7 +32,7 @@ SELECT MIN(i), MAX(i), COUNT(*) FROM read_parquet('/tmp/cache_httpfs_fake_filesy
 0	999	1000
 
 query I
-SELECT COUNT(*) FROM cache_httpfs_cache_status_query() WHERE remote_filename = '/tmp/cache_httpfs_fake_filesystem/data.parquet.zstd';
+SELECT COUNT(*) FROM cache_httpfs_cache_status_query() WHERE original_remote_path = '/tmp/cache_httpfs_fake_filesystem/data.parquet.zstd';
 ----
 1
 

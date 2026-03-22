@@ -391,7 +391,7 @@ idx_t GetFileSystemPageSize() {
 	return static_cast<idx_t>(result);
 
 #else
-	return 4096;                        // conservative fallback
+	return 4096; // conservative fallback
 #endif
 }
 

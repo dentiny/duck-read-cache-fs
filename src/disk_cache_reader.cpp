@@ -66,7 +66,7 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 		for (auto &cur_key : keys) {
 			cache_entries_info.emplace_back(DataCacheEntryInfo {
 			    .cache_filepath = "(no disk cache)",
-			    .remote_filename = std::move(cur_key.fname),
+			    .original_remote_path = std::move(cur_key.fname),
 			    .start_offset = cur_key.start_off,
 			    .end_offset = cur_key.start_off + cur_key.blk_size,
 			    .cache_type = "in-mem-disk-cache",
@@ -78,18 +78,19 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
 	const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
 	for (const auto &cur_cache_dir : cache_directories) {
-		local_filesystem->ListFiles(cur_cache_dir,
-		                            [&cache_entries_info, cur_cache_dir](const string &fname, bool /*unused*/) {
-			                            auto cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname);
-			                            auto remote_file_info = DiskCacheUtil::GetRemoteFileInfo(cache_filepath);
-			                            cache_entries_info.emplace_back(DataCacheEntryInfo {
-			                                .cache_filepath = std::move(cache_filepath),
-			                                .remote_filename = std::move(remote_file_info.remote_filename),
-			                                .start_offset = remote_file_info.start_offset,
-			                                .end_offset = remote_file_info.end_offset,
-			                                .cache_type = "on-disk",
-			                            });
-		                            });
+		local_filesystem->ListFiles(
+		    cur_cache_dir, [&cache_entries_info, cur_cache_dir](const string &fname, bool /*unused*/) {
+			    auto cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname);
+			    auto remote_file_info = DiskCacheUtil::GetRemoteFileInfo(cache_filepath);
+			    auto original_remote_path = DiskCacheUtil::TryGetOriginalRemotePath(cache_filepath);
+			    cache_entries_info.emplace_back(DataCacheEntryInfo {
+			        .cache_filepath = std::move(cache_filepath),
+			        .original_remote_path = std::move(original_remote_path),
+			        .start_offset = remote_file_info.start_offset,
+			        .end_offset = remote_file_info.end_offset,
+			        .cache_type = "on-disk",
+			    });
+		    });
 	}
 
 	return cache_entries_info;
@@ -109,7 +110,8 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	    DiskCacheUtil::GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(),
 	                                     cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
 	const auto &cache_directory = config.on_disk_cache_directories[cache_file.cache_directory_idx];
-	auto cache_dest = DiskCacheUtil::ResolveLocalCacheDestination(cache_directory, cache_file.cache_filepath);
+	auto cache_dest =
+	    DiskCacheUtil::ResolveLocalCacheDestination(cache_directory, cache_file.cache_filepath, handle.GetPath());
 
 	const InMemCacheBlock block_key {handle.GetPath(), cache_read_chunk.aligned_start_offset,
 	                                 cache_read_chunk.chunk_size};
