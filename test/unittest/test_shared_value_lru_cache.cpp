@@ -104,12 +104,12 @@ TEST_CASE("SharedValueLru GetOrCreate", "[shared value lru test]") {
 
 	CacheType cache {/*max_entries_p=*/1, /*timeout_millisec_p=*/0};
 
-	constexpr size_t kFutureNum = 100;
+	constexpr size_t FUTURE_NUMBER = 100;
 	std::vector<std::future<shared_ptr<string>>> futures;
-	futures.reserve(kFutureNum);
+	futures.reserve(FUTURE_NUMBER);
 
 	const string key = "key";
-	for (size_t idx = 0; idx < kFutureNum; ++idx) {
+	for (size_t idx = 0; idx < FUTURE_NUMBER; ++idx) {
 		futures.emplace_back(
 		    std::async(std::launch::async, [&cache, &key, &factory]() { return cache.GetOrCreate(key, factory); }));
 	}
@@ -158,5 +158,38 @@ TEST_CASE("SharedValueLru GetOrCreate factory exception cleans up", "[shared val
 		return make_shared_ptr<string>(k);
 	};
 	auto result = cache.GetOrCreate(key, good_factory);
+	REQUIRE(*result == key);
+}
+
+TEST_CASE("SharedValueLru GetOrCreate exception propagates to waiting threads", "[shared value lru test]") {
+	using CacheType = ThreadSafeSharedValueLruCache<string, string>;
+	CacheType cache {/*max_entries=*/10, /*timeout_millisec=*/0};
+	const string key = "key";
+
+	auto throwing_factory = [](const string &) -> shared_ptr<string> {
+		// Sleep for a while so multiple threads could kick in and get blocked.
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		throw std::runtime_error("factory failed");
+	};
+
+	constexpr size_t FUTURE_NUMBER = 10;
+	vector<std::future<shared_ptr<string>>> futures;
+	futures.reserve(FUTURE_NUMBER);
+
+	for (size_t idx = 0; idx < FUTURE_NUMBER; ++idx) {
+		futures.emplace_back(std::async(std::launch::async, [&cache, &key, &throwing_factory]() {
+			return cache.GetOrCreate(key, throwing_factory);
+		}));
+	}
+	for (auto &fut : futures) {
+		REQUIRE_THROWS_AS(fut.get(), std::runtime_error);
+	}
+
+	// Cache should be usable after all threads received the exception.
+	auto good_factory = [](const string &k) -> shared_ptr<string> {
+		return make_shared_ptr<string>(k);
+	};
+	auto result = cache.GetOrCreate(key, good_factory);
+	REQUIRE(result != nullptr);
 	REQUIRE(*result == key);
 }
