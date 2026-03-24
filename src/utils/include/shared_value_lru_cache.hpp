@@ -261,14 +261,18 @@ public:
 			if (creation_iter != ongoing_creation.end()) {
 				creation_token = creation_iter->second;
 				++creation_token->count;
-				creation_token->cv.wait(
-				    lck, [creation_token = creation_token.get()]() { return creation_token->val != nullptr; });
+				creation_token->cv.wait(lck, [creation_token = creation_token.get()]() {
+					return creation_token->val != nullptr || creation_token->eptr != nullptr;
+				});
 
 				// Creation finished.
 				--creation_token->count;
 				if (creation_token->count == 0) {
 					// [creation_iter] could be invalidated here due to new insertion/deletion.
 					ongoing_creation.erase(key);
+				}
+				if (creation_token->eptr) {
+					std::rethrow_exception(creation_token->eptr);
 				}
 				return creation_token->val;
 			}
