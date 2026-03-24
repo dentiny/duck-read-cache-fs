@@ -271,6 +271,9 @@ public:
 					// [creation_iter] could be invalidated here due to new insertion/deletion.
 					ongoing_creation.erase(key);
 				}
+				if (creation_token->eptr) {
+					std::rethrow_exception(creation_token->eptr);
+				}
 				return creation_token->val;
 			}
 
