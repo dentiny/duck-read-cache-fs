@@ -261,8 +261,9 @@ public:
 			if (creation_iter != ongoing_creation.end()) {
 				creation_token = creation_iter->second;
 				++creation_token->count;
-				creation_token->cv.wait(
-				    lck, [creation_token = creation_token.get()]() { return creation_token->val != nullptr; });
+				creation_token->cv.wait(lck, [creation_token = creation_token.get()]() {
+					return creation_token->val != nullptr || creation_token->eptr != nullptr;
+				});
 
 				// Creation finished.
 				--creation_token->count;
