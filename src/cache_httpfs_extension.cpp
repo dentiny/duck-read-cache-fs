@@ -28,8 +28,6 @@
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
 
-#include <algorithm>
-
 namespace duckdb {
 
 namespace {

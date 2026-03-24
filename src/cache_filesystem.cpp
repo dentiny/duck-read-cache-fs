@@ -225,7 +225,7 @@ void CacheFileSystem::ClearCache(const string &filepath, connection_t conn_id) {
 	}
 	ClearFileHandleCache(cache_key);
 	// TODO(hjiang): This seems a duplicate function call, extension statement funtion has already cleared the cache.
-	instance_state.lock()->cache_reader_manager.ClearCache(cache_key);
+	state->cache_reader_manager.ClearCache(cache_key);
 }
 
 bool CacheFileSystem::CanHandleFile(const string &fpath) {
