@@ -1,3 +1,27 @@
+# 0.13.3
+
+## Fixed
+
+- Fix hang when IO exception happens in LRU cache ([#472])
+
+[#472]: https://github.com/dentiny/duck-read-cache-fs/pull/472
+
+- Fix duplicate key insertion into LRU cache ([#475])
+
+[#475]: https://github.com/dentiny/duck-read-cache-fs/pull/475
+
+- Fix valid max fanout value for extension setting ([#476])
+
+[#474]: https://github.com/dentiny/duck-read-cache-fs/pull/474
+
+## Added
+
+- Original remote filepath is set as cache file attribute ([#471])
+
+[#471]: https://github.com/dentiny/duck-read-cache-fs/pull/471
+
+- Bumpup DuckDB core, httpfs extension, extension-ci-tools to v1.5.1
+
 # 0.13.2
 
 ## Fixed
