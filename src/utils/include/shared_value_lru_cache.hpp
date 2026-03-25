@@ -48,6 +48,15 @@ public:
 
 	// Insert `value` with key `key`. This will replace any previous entry with the same key.
 	void Put(Key key, shared_ptr<Val> value) {
+		// Check if the key already exists in the cache.
+		auto existing = entry_map.find(key);
+		if (existing != entry_map.end()) {
+			auto old_lru_iter = existing->second.lru_iterator;
+			entry_map.erase(existing);
+			lru_list.erase(old_lru_iter);
+		}
+
+		// Now we could insert the new key-value fresh new.
 		lru_list.emplace_front(key);
 		Entry new_entry {
 		    .value = std::move(value),

@@ -130,3 +130,31 @@ TEST_CASE("ExclusiveLru Evicted value", "[exclusive lru test]") {
 	REQUIRE(values.size() == 1);
 	REQUIRE(*values[0] == "val3");
 }
+
+TEST_CASE("ExclusiveLru DuplicateKeyPut", "[exclusive lru test]") {
+	ThreadSafeExclusiveLruCache<std::string, std::string> cache {/*max_entries_p=*/3, /*timeout_millisec_p=*/0};
+
+	cache.Put("a", make_uniq<std::string>("a1"));
+	cache.Put("b", make_uniq<std::string>("b1"));
+	cache.Put("c", make_uniq<std::string>("c1"));
+
+	// Insert duplicate keys.
+	cache.Put("a", make_uniq<std::string>("a2"));
+	cache.Put("a", make_uniq<std::string>("a3"));
+
+	// The latest value for "a" must be visible.
+	auto val = cache.GetAndPop("a");
+	REQUIRE(val != nullptr);
+	REQUIRE(*val == "a3");
+
+	val = cache.GetAndPop("b");
+	REQUIRE(val != nullptr);
+	REQUIRE(*val == "b1");
+
+	val = cache.GetAndPop("c");
+	REQUIRE(val != nullptr);
+	REQUIRE(*val == "c1");
+
+	auto remaining = cache.ClearAndGetValues();
+	REQUIRE(remaining.empty());
+}
