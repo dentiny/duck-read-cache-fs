@@ -191,3 +191,32 @@ TEST_CASE("CopiableValueLru GetOrCreate exception propagates to waiting threads"
 	auto result = cache.GetOrCreate(key, good_factory);
 	REQUIRE(result == key);
 }
+
+TEST_CASE("CopiableValueLru DuplicateKeyPut", "[exclusive lru test]") {
+	using CacheType = ThreadSafeCopiableValLruCache<string, string>;
+	CacheType cache {/*max_entries_p=*/3, /*timeout_millisec_p=*/0};
+
+	cache.Put("a", string("a1"));
+	cache.Put("b", string("b1"));
+	cache.Put("c", string("c1"));
+
+	// Insert duplicate keys.
+	cache.Put("a", string("a2"));
+	cache.Put("a", string("a3"));
+
+	// The latest value for "a" must be visible.
+	auto val = cache.Get("a");
+	REQUIRE(val.has_value());
+	REQUIRE(*val == "a3");
+
+	val = cache.Get("b");
+	REQUIRE(val.has_value());
+	REQUIRE(*val == "b1");
+
+	val = cache.Get("c");
+	REQUIRE(val.has_value());
+	REQUIRE(*val == "c1");
+
+	auto keys = cache.Keys();
+	REQUIRE(keys.size() == 3);
+}

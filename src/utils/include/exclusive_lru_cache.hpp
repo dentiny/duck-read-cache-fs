@@ -58,6 +58,15 @@ public:
 	// 1. Caller is able to do processing for the value.
 	// 2. For thread-safe lru cache, processing could be moved out of critical section.
 	unique_ptr<Val> Put(Key key, unique_ptr<Val> value) {
+		// Check if the key already exists in the cache.
+		auto existing = entry_map.find(key);
+		if (existing != entry_map.end()) {
+			auto old_lru_iter = existing->second.lru_iterator;
+			entry_map.erase(existing);
+			lru_list.erase(old_lru_iter);
+		}
+
+		// Now we could insert the new key-value fresh new.
 		lru_list.emplace_front(key);
 		Entry new_entry {
 		    .value = std::move(value),
