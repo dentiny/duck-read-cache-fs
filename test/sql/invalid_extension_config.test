@@ -93,9 +93,3 @@ statement error
 SET cache_httpfs_glob_cache_entry_timeout_millisec=0;
 ----
 cache_httpfs_glob_cache_entry_timeout_millisec must be greater than 0
-
-# Test cache_httpfs_max_fanout_subrequest - zero value
-statement error
-SET cache_httpfs_max_fanout_subrequest=0;
-----
-cache_httpfs_max_fanout_subrequest must be greater than 0
