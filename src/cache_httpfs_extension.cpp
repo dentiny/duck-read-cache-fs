@@ -292,9 +292,6 @@ void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter)
 void UpdateMaxFanoutSubrequest(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	const auto max_subrequest_count = parameter.GetValue<uint64_t>();
-	if (max_subrequest_count == 0) {
-		throw InvalidInputException("cache_httpfs_max_fanout_subrequest must be greater than 0");
-	}
 	inst_state.config.max_subrequest_count = max_subrequest_count;
 }
 

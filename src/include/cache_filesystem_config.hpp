@@ -45,10 +45,10 @@ extern const NoDestructor<unordered_set<string>> ALL_PROFILE_TYPES;
 extern const idx_t DEFAULT_CACHE_BLOCK_SIZE;
 
 // Default to use on-disk cache filesystem.
-extern NoDestructor<string> DEFAULT_CACHE_TYPE;
+extern const NoDestructor<string> DEFAULT_CACHE_TYPE;
 
 // Default to timestamp-based on-disk cache eviction policy.
-extern NoDestructor<string> DEFAULT_ON_DISK_EVICTION_POLICY;
+extern const NoDestructor<string> DEFAULT_ON_DISK_EVICTION_POLICY;
 
 // To prevent go out of disk space, we set a threshold to disallow local caching if insufficient. It applies to all
 // filesystems. The value here is the decimal representation for percentage value; for example, 0.05 means 5%.
