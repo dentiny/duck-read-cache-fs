@@ -3,7 +3,9 @@
 #include "assert_utils.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
+#include "duckdb/common/enums/file_glob_options.hpp"
 #include "duckdb/common/exception.hpp"
+#include "duckdb/common/multi_file/multi_file_list.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "in_memory_cache_reader.hpp"
 #include "utils/include/url_utils.hpp"
@@ -362,7 +364,12 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 	vector<OpenFileInfo> open_file_info;
 	{
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kGlob);
-		open_file_info = internal_filesystem->Glob(path, opener);
+		// Use the 3-arg Glob overload which internally dispatches to GlobFilesExtended
+		// when the filesystem supports it (e.g., S3FileSystem). The 2-arg Glob() inherited
+		// from HTTPFileSystem returns the literal path without expansion, while the actual
+		// S3 glob logic lives in GlobFilesExtended/S3GlobResult.
+		auto result = internal_filesystem->Glob(path, FileGlobOptions::ALLOW_EMPTY, opener);
+		open_file_info = result->GetAllFiles();
 	}
 
 	// Certain filesystem (i.e., s3 filesystem) populates file size within extended file info, make an attempt to
