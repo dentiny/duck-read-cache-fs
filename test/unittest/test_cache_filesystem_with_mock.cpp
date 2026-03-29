@@ -283,10 +283,10 @@ TEST_CASE("Test clear cache with mock filesystem", "[mock filesystem test]") {
 }
 
 // MockS3LikeFileSystem mimics the S3FileSystem/HTTPFileSystem inheritance pattern:
-// - The 2-arg Glob() returns the literal path (HTTPFileSystem behavior)
+// - The base Glob() returns the literal path (HTTPFileSystem behavior)
 // - GlobFilesExtended() properly expands globs (S3FileSystem behavior)
 // - SupportsGlobExtended() returns true
-// This reproduces the bug where CacheFileSystem called the wrong Glob overload.
+// This reproduces the bug where CacheFileSystem bypassed GlobFilesExtended.
 namespace {
 
 class MockS3LikeFileSystem : public MockFileSystem {
@@ -295,7 +295,7 @@ public:
 
 	// Mimics HTTPFileSystem::Glob — returns the literal path without expansion.
 	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override {
-		++glob_2arg_invocation;
+		++base_glob_invocation;
 		return {OpenFileInfo(path)};
 	}
 
@@ -305,8 +305,8 @@ public:
 		extended_glob_results = std::move(results);
 	}
 
-	uint64_t GetGlob2ArgInvocation() const {
-		return glob_2arg_invocation;
+	uint64_t GetBaseGlobInvocation() const {
+		return base_glob_invocation;
 	}
 	uint64_t GetGlobExtendedInvocation() const {
 		return glob_extended_invocation;
@@ -324,16 +324,16 @@ protected:
 	}
 
 private:
-	uint64_t glob_2arg_invocation = 0;
+	uint64_t base_glob_invocation = 0;
 	uint64_t glob_extended_invocation = 0;
 	vector<OpenFileInfo> extended_glob_results;
 };
 
 } // namespace
 
-// Regression test: CacheFileSystem must use GlobFilesExtended (not the 2-arg Glob) when the
-// internal filesystem supports it. The 2-arg Glob on HTTPFileSystem returns the literal path,
-// so calling it on S3FileSystem (which inherits from HTTPFileSystem) skips S3 glob expansion.
+// Regression test: CacheFileSystem must dispatch to GlobFilesExtended when the internal
+// filesystem supports it. The base HTTPFileSystem::Glob returns the literal path, so calling
+// it on S3FileSystem (which inherits from HTTPFileSystem) skips S3 glob expansion.
 // See: https://github.com/dentiny/duck-read-cache-fs/pull/477
 TEST_CASE("Test S3-like glob uses GlobFilesExtended", "[mock filesystem test]") {
 	auto close_callback = []() {};
@@ -357,8 +357,8 @@ TEST_CASE("Test S3-like glob uses GlobFilesExtended", "[mock filesystem test]") 
 	// Glob with a wildcard pattern — CacheFileSystem should delegate to GlobFilesExtended.
 	auto results = cache_filesystem->Glob("s3://bucket/snapshots/*.parquet");
 
-	// Must NOT have called the 2-arg Glob (which returns the literal).
-	REQUIRE(mock_ptr->GetGlob2ArgInvocation() == 0);
+	// Must NOT have called the base Glob (which returns the literal).
+	REQUIRE(mock_ptr->GetBaseGlobInvocation() == 0);
 	// Must have called GlobFilesExtended.
 	REQUIRE(mock_ptr->GetGlobExtendedInvocation() == 1);
 	// Must have returned the expanded files, not the literal glob pattern.

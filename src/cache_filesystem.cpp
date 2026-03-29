@@ -364,10 +364,10 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 	vector<OpenFileInfo> open_file_info;
 	{
 		const auto latency_guard = collector.RecordOperationStart(IoOperation::kGlob);
-		// Use the 3-arg Glob overload which internally dispatches to GlobFilesExtended
-		// when the filesystem supports it (e.g., S3FileSystem). The 2-arg Glob() inherited
-		// from HTTPFileSystem returns the literal path without expansion, while the actual
-		// S3 glob logic lives in GlobFilesExtended/S3GlobResult.
+		// Use the Glob overload that accepts FileGlobOptions, which dispatches to
+		// GlobFilesExtended when the filesystem supports it (e.g., S3FileSystem).
+		// Without this, the base HTTPFileSystem::Glob returns the literal path
+		// without expansion, skipping the actual S3 glob logic.
 		auto result = internal_filesystem->Glob(path, FileGlobOptions::ALLOW_EMPTY, opener);
 		open_file_info = result->GetAllFiles();
 	}
