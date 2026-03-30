@@ -253,7 +253,8 @@ void InMemoryCacheReader::RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block
 		return;
 	}
 	auto taken = cache_manager->Take();
-	auto rebuilt = RemapInMemCacheEntries(std::move(taken), new_block_size);
+	// TODO: pass known remote file sizes (e.g. from metadata cache) so remap matches EOF behavior of real reads.
+	auto rebuilt = RemapInMemCacheEntries(std::move(taken), new_block_size, /*file_size_by_path=*/ {});
 	for (auto &kv : rebuilt) {
 		cache_manager->Put(std::move(kv.first), std::move(kv.second));
 	}

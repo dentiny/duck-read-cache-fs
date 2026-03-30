@@ -20,6 +20,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_connection_cleanup.cpp
     test_constants.cpp
     test_counter.cpp
+    test_data_cache_remap.cpp
     test_disk_cache_filesystem_from_unit.cpp
     test_disk_cache_util.cpp
     test_disk_cache_validation_from_unit.cpp
