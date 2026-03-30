@@ -1,5 +1,3 @@
-// Bytes + validation metadata for in-memory cache blocks (shared by readers and remap).
-
 #pragma once
 
 #include "duckdb/common/string.hpp"

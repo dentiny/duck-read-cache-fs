@@ -46,12 +46,12 @@ string DiskCacheReader::EvictCacheBlockLru() {
 	return filepath;
 }
 
-bool DiskCacheReader::ValidateCacheEntry(InMemCacheDataEntry *cache_entry, const string &version_tag) {
+bool DiskCacheReader::ValidateCacheEntry(const InMemCacheDataEntry &cache_entry, const string &version_tag) {
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;
 	}
-	return cache_entry->version_tag == version_tag;
+	return cache_entry.version_tag == version_tag;
 }
 
 // TODO(hjiang): For oversized filepath, both in-memory cache and on-disk cache stores resolved path, which uses SHA-256
@@ -120,7 +120,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	// Attempt in-memory cache first, so potentially we don't need to access disk storage.
 	if (in_mem_cache_manager != nullptr) {
 		auto cache_entry = in_mem_cache_manager->Get(block_key);
-		if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag)) {
+		if (cache_entry != nullptr && !ValidateCacheEntry(*cache_entry, version_tag)) {
 			in_mem_cache_manager->Delete(block_key);
 			cache_entry = nullptr;
 			local_filesystem->TryRemoveFile(cache_dest.dest_local_filepath);

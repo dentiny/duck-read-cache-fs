@@ -41,15 +41,11 @@ public:
 	// Clear cache for the given [fname].
 	virtual void ClearCache(const string &fname) = 0;
 
-	// Remap in-memory data LRU entries when `cache_httpfs_cache_block_size` changes.
-	virtual void RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_size) {
-		(void)new_block_size;
-	}
+	// Remap in-memory data LRU entries when cache block size changes.
+	virtual void RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_size) = 0;
 
 	// Get name for cache reader.
-	virtual string GetName() const {
-		throw NotImplementedException("Base cache reader doesn't implement GetName.");
-	}
+	virtual string GetName() const = 0;
 
 	template <class TARGET>
 	TARGET &Cast() {

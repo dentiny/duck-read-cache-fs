@@ -50,7 +50,7 @@ private:
 	using InMemCacheManager = InMemoryDataCacheManager<InMemCacheBlock, InMemCacheDataEntry, InMemCacheBlockLess>;
 
 	// Return whether the given cache entry is still valid and usable.
-	bool ValidateCacheEntry(InMemCacheDataEntry *cache_entry, const string &version_tag);
+	bool ValidateCacheEntry(const InMemCacheDataEntry &cache_entry, const string &version_tag);
 
 	// Process a single cache read chunk in a worker thread.
 	void ProcessCacheReadChunk(FileHandle &handle, const InstanceConfig &config, const string &version_tag,

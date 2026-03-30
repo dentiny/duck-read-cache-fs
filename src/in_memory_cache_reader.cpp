@@ -45,12 +45,12 @@ InMemoryCacheReaderConfig GetConfig(const CacheHttpfsInstanceState &instance_sta
 
 } // namespace
 
-bool InMemoryCacheReader::ValidateCacheEntry(InMemCacheDataEntry *cache_entry, const string &version_tag) {
+bool InMemoryCacheReader::ValidateCacheEntry(const InMemCacheDataEntry &cache_entry, const string &version_tag) {
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;
 	}
-	return cache_entry->version_tag == version_tag;
+	return cache_entry.version_tag == version_tag;
 }
 
 void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string &version_tag,
@@ -67,7 +67,7 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	auto cache_entry = cache_manager->Get(block_key);
 
 	// Check cache entry validity and clear if necessary.
-	if (cache_entry != nullptr && !ValidateCacheEntry(cache_entry.get(), version_tag)) {
+	if (cache_entry != nullptr && !ValidateCacheEntry(*cache_entry, version_tag)) {
 		cache_manager->Delete(block_key);
 		cache_entry = nullptr;
 	}
