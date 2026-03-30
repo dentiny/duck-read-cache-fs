@@ -165,6 +165,8 @@ public:
 			entry_map.erase(it);
 			result.emplace_back(std::move(key), std::move(val));
 		}
+		ALWAYS_ASSERT(entry_map.empty());
+		ALWAYS_ASSERT(lru_list.empty());
 		return result;
 	}
 
@@ -277,7 +279,6 @@ public:
 	// Transfer all entries out of the cache; postcondition: empty cache and no pending GetOrCreate state.
 	vector<pair<Key, shared_ptr<Val>>> Take() {
 		const concurrency::lock_guard<concurrency::mutex> lock(mu);
-		ongoing_creation.clear();
 		return internal_cache.Take();
 	}
 

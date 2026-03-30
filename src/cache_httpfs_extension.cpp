@@ -13,6 +13,7 @@
 #include "cache_httpfs_instance_state.hpp"
 #include "cache_status_query_function.hpp"
 #include "disk_cache_util.hpp"
+#include "duckdb/common/constants.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/opener_file_system.hpp"
@@ -274,7 +275,7 @@ void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &paramet
 	if (cache_block_size == 0) {
 		throw InvalidInputException("cache_httpfs_cache_block_size must be greater than 0");
 	}
-	if ((cache_block_size & (cache_block_size - 1)) != 0) {
+	if (!IsPowerOfTwo(cache_block_size)) {
 		throw InvalidInputException("cache_httpfs_cache_block_size must be a power of two");
 	}
 	const idx_t new_bs = NumericCast<idx_t>(cache_block_size);

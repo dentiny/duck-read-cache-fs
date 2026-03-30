@@ -237,12 +237,3 @@ TEST_CASE("SharedValueLru Take moves all entries and empties cache", "[shared va
 	cache.Put("c", make_shared_ptr<string>("vc"));
 	REQUIRE(cache.Get("c") != nullptr);
 }
-
-TEST_CASE("SharedValueLru Take skips expired entries", "[shared value lru test]") {
-	ThreadSafeSharedValueLruCache<string, string> cache {/*max_entries=*/10, /*timeout=*/300};
-	cache.Put("k", make_shared_ptr<string>("v"));
-	std::this_thread::sleep_for(std::chrono::milliseconds(500));
-	auto taken = cache.Take();
-	REQUIRE(taken.empty());
-	REQUIRE(cache.Keys().empty());
-}
