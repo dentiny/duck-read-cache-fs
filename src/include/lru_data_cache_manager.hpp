@@ -41,6 +41,10 @@ public:
 		return lru_cache.Keys();
 	}
 
+	vector<pair<Key, shared_ptr<Val>>> Take() override {
+		return lru_cache.Take();
+	}
+
 protected:
 	void ClearWithFilter(const Key &start_key, std::function<bool(const Key &)> key_filter) override {
 		lru_cache.Clear(start_key, std::move(key_filter));

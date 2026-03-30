@@ -145,6 +145,29 @@ public:
 		return keys;
 	}
 
+	// Transfer all non-expired entries out of the cache; postcondition: empty cache. Order of pairs is unspecified.
+	vector<pair<Key, shared_ptr<Val>>> Take() {
+		vector<pair<Key, shared_ptr<Val>>> result;
+		result.reserve(entry_map.size());
+		while (!entry_map.empty()) {
+			auto it = entry_map.begin();
+			if (timeout_millisec > 0) {
+				const auto now = GetSteadyNowMilliSecSinceEpoch();
+				if (now - it->second.timestamp > timeout_millisec) {
+					DeleteImpl(it);
+					continue;
+				}
+			}
+			Key key = it->first.get();
+			const auto lru_iter = it->second.lru_iterator;
+			shared_ptr<Val> val = std::move(it->second.value);
+			lru_list.erase(lru_iter);
+			entry_map.erase(it);
+			result.emplace_back(std::move(key), std::move(val));
+		}
+		return result;
+	}
+
 private:
 	struct Entry {
 		// The entry's value.
@@ -249,6 +272,13 @@ public:
 	vector<Key> Keys() const {
 		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		return internal_cache.Keys();
+	}
+
+	// Transfer all entries out of the cache; postcondition: empty cache and no pending GetOrCreate state.
+	vector<pair<Key, shared_ptr<Val>>> Take() {
+		const concurrency::lock_guard<concurrency::mutex> lock(mu);
+		ongoing_creation.clear();
+		return internal_cache.Take();
 	}
 
 	// Get or creation for cached key-value pairs.

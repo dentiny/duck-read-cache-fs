@@ -274,7 +274,14 @@ void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &paramet
 	if (cache_block_size == 0) {
 		throw InvalidInputException("cache_httpfs_cache_block_size must be greater than 0");
 	}
-	inst_state.config.cache_block_size = cache_block_size;
+	if ((cache_block_size & (cache_block_size - 1)) != 0) {
+		throw InvalidInputException("cache_httpfs_cache_block_size must be a power of two");
+	}
+	const idx_t new_bs = NumericCast<idx_t>(cache_block_size);
+	if (inst_state.config.cache_block_size != new_bs) {
+		inst_state.cache_reader_manager.RemapInMemoryDataCachesAfterBlockSizeChange(new_bs);
+	}
+	inst_state.config.cache_block_size = new_bs;
 }
 
 void UpdateProfileType(ClientContext &context, SetScope scope, Value &parameter) {

@@ -8,6 +8,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "in_mem_cache_remap.hpp"
 #include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
@@ -44,7 +45,7 @@ InMemoryCacheReaderConfig GetConfig(const CacheHttpfsInstanceState &instance_sta
 
 } // namespace
 
-bool InMemoryCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag) {
+bool InMemoryCacheReader::ValidateCacheEntry(InMemCacheDataEntry *cache_entry, const string &version_tag) {
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;
@@ -95,12 +96,11 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	// Copy to destination buffer.
 	cache_read_chunk.CopyBufferToRequestedMemory(content);
 
-	InMemoryCacheReader::InMemCacheEntry new_cache_entry {
+	InMemCacheDataEntry new_cache_entry {
 	    .data = std::move(content),
 	    .version_tag = version_tag,
 	};
-	cache_manager->Put(std::move(block_key),
-	                   make_shared_ptr<InMemoryCacheReader::InMemCacheEntry>(std::move(new_cache_entry)));
+	cache_manager->Put(std::move(block_key), make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
 }
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
@@ -112,7 +112,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	const auto config = GetConfig(*instance_state.lock());
 
 	std::call_once(cache_init_flag, [this, &config]() {
-		cache_manager = make_uniq<LruDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>>(
+		cache_manager = make_uniq<LruDataCacheManager<InMemCacheBlock, InMemCacheDataEntry, InMemCacheBlockLess>>(
 		    config.max_cache_block_count, config.cache_block_timeout_millisec);
 	});
 
@@ -245,6 +245,17 @@ void InMemoryCacheReader::ClearCache(const string &fname) {
 		const InMemCacheBlock start_key {cache_key.Path(), /*start_off_p=*/0, /*blk_size_p=*/0};
 		cache_manager->Clear(start_key,
 		                     [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
+	}
+}
+
+void InMemoryCacheReader::RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_size) {
+	if (cache_manager == nullptr) {
+		return;
+	}
+	auto taken = cache_manager->Take();
+	auto rebuilt = RemapInMemCacheEntries(std::move(taken), new_block_size);
+	for (auto &kv : rebuilt) {
+		cache_manager->Put(std::move(kv.first), std::move(kv.second));
 	}
 }
 

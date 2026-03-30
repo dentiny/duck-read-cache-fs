@@ -9,9 +9,9 @@
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
+#include "in_mem_cache_data_entry.hpp"
 #include "in_memory_data_cache_manager.hpp"
 #include "mutex.hpp"
-#include "page_aligned_data_chunk.hpp"
 
 namespace duckdb {
 
@@ -35,18 +35,13 @@ public:
 	void ReadAndCache(FileHandle &handle, char *buffer, uint64_t requested_start_offset,
 	                  uint64_t requested_bytes_to_read, uint64_t file_size) override;
 	vector<DataCacheEntryInfo> GetCacheEntriesInfo() const override;
+	void RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_size) override;
 
 private:
-	// Cache entry wrapper that stores data along with validation metadata.
-	struct InMemCacheEntry {
-		PageAlignedDataChunk data;
-		string version_tag;
-	};
-
-	using InMemCacheManager = InMemoryDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>;
+	using InMemCacheManager = InMemoryDataCacheManager<InMemCacheBlock, InMemCacheDataEntry, InMemCacheBlockLess>;
 
 	// Return whether the given cache entry is still valid and usable.
-	bool ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag);
+	bool ValidateCacheEntry(InMemCacheDataEntry *cache_entry, const string &version_tag);
 
 	// Process a single cache read chunk in a worker thread.
 	void ProcessCacheReadChunk(FileHandle &handle, const string &version_tag, CacheReadChunk cache_read_chunk);

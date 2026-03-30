@@ -12,6 +12,7 @@
 #include "disk_cache_util.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "in_mem_cache_remap.hpp"
 #include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/filesystem_utils.hpp"
@@ -45,7 +46,7 @@ string DiskCacheReader::EvictCacheBlockLru() {
 	return filepath;
 }
 
-bool DiskCacheReader::ValidateCacheEntry(InMemCacheEntry *cache_entry, const string &version_tag) {
+bool DiskCacheReader::ValidateCacheEntry(InMemCacheDataEntry *cache_entry, const string &version_tag) {
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;
@@ -154,11 +155,11 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 			// Update in-memory cache if applicable.
 			if (in_mem_cache_manager != nullptr) {
-				InMemCacheEntry new_cache_entry {
+				InMemCacheDataEntry new_cache_entry {
 				    .data = std::move(read_result.content),
 				    .version_tag = version_tag,
 				};
-				in_mem_cache_manager->Put(block_key, make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
+				in_mem_cache_manager->Put(block_key, make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
 			}
 			return;
 		}
@@ -192,11 +193,11 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 		// Update in-memory cache if applicable.
 		if (in_mem_cache_manager != nullptr) {
-			InMemCacheEntry new_cache_entry {
+			InMemCacheDataEntry new_cache_entry {
 			    .data = std::move(content),
 			    .version_tag = version_tag,
 			};
-			in_mem_cache_manager->Put(block_key, make_shared_ptr<InMemCacheEntry>(std::move(new_cache_entry)));
+			in_mem_cache_manager->Put(block_key, make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
 		}
 	} catch (...) {
 	}
@@ -213,7 +214,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	std::call_once(cache_init_flag, [this, &config]() {
 		if (config.enable_disk_reader_mem_cache) {
 			in_mem_cache_manager =
-			    make_uniq<LruDataCacheManager<InMemCacheBlock, InMemCacheEntry, InMemCacheBlockLess>>(
+			    make_uniq<LruDataCacheManager<InMemCacheBlock, InMemCacheDataEntry, InMemCacheBlockLess>>(
 			        config.disk_reader_max_mem_cache_block_count, config.disk_reader_max_mem_cache_timeout_millisec);
 		}
 	});
@@ -361,6 +362,17 @@ void DiskCacheReader::ClearCache(const string &fname) {
 		const InMemCacheBlock start_key {cache_key.Path(), /*start_off=*/0, /*blk_size=*/0};
 		in_mem_cache_manager->Clear(
 		    start_key, [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
+	}
+}
+
+void DiskCacheReader::RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_size) {
+	if (in_mem_cache_manager == nullptr) {
+		return;
+	}
+	auto taken = in_mem_cache_manager->Take();
+	auto rebuilt = RemapInMemCacheEntries(std::move(taken), new_block_size);
+	for (auto &kv : rebuilt) {
+		in_mem_cache_manager->Put(std::move(kv.first), std::move(kv.second));
 	}
 }
 
