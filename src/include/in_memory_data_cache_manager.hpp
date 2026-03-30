@@ -16,6 +16,8 @@ public:
 
 	// Insert value with the given key.
 	// This will replace any previous entry with the same key.
+	//
+	// TOOD(hjiang): Add a batch version of Put.
 	virtual void Put(Key key, shared_ptr<Val> value) = 0;
 
 	// Look up the entry with the given key.
