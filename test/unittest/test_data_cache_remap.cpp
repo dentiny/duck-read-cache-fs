@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <tuple>
 #include <utility>
 
 using namespace duckdb; // NOLINT
@@ -38,6 +39,12 @@ vector<char> PatternBytes(idx_t len, char seed) {
 void SortByFileAndOffset(vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> &out) {
 	std::sort(out.begin(), out.end(),
 	          [](const auto &a, const auto &b) { return a.first.start_off < b.first.start_off; });
+}
+
+void SortByFileThenOffset(vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> &out) {
+	std::sort(out.begin(), out.end(), [](const auto &a, const auto &b) {
+		return std::tie(a.first.fname, a.first.start_off) < std::tie(b.first.fname, b.first.start_off);
+	});
 }
 
 void ExpectContiguousBytes(const vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> &sorted,
@@ -187,4 +194,51 @@ TEST_CASE("RemapInMemCacheEntries: two small blocks merge onto larger new block 
 	REQUIRE(out[1].first.start_off == 1000);
 	REQUIRE(out[1].first.blk_size == 24);
 	ExpectContiguousBytes(out, full);
+}
+
+TEST_CASE("RemapInMemCacheEntries: multiple files remapped independently", "[data cache remap]") {
+	const char *PATH_A = "/test/multi_file_a.bin";
+	const char *PATH_B = "/test/multi_file_b.bin";
+	const idx_t new_bs = 512;
+
+	// File A: 1024 bytes fully cached (EOF); expect two full new_bs blocks.
+	const idx_t file_a_len = 1024;
+	const idx_t cached_a_len = file_a_len;
+	auto bytes_a = PatternBytes(cached_a_len, 'A');
+	// File B: 2048-byte remote file, only [0, 1000) cached — one full new_bs reuse, tail dropped.
+	const idx_t file_b_len = 2048;
+	const idx_t cached_b_len = 1000;
+	auto bytes_b = PatternBytes(cached_b_len, 'B');
+	vector<char> expected_b_reuse(bytes_b.begin(), bytes_b.begin() + static_cast<ptrdiff_t>(new_bs));
+
+	unordered_map<string, idx_t> file_sizes;
+	file_sizes[string(PATH_A)] = file_a_len;
+	file_sizes[string(PATH_B)] = file_b_len;
+
+	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken;
+	taken.emplace_back(InMemCacheBlock(PATH_A, 0, cached_a_len), MakeEntry(bytes_a, "multi"));
+	taken.emplace_back(InMemCacheBlock(PATH_B, 0, cached_b_len), MakeEntry(bytes_b, "multi"));
+
+	auto out = RemapInMemCacheEntries(std::move(taken), new_bs, file_sizes);
+	REQUIRE(out.size() == 3);
+	SortByFileThenOffset(out);
+
+	REQUIRE(out[0].first.fname == string(PATH_A));
+	REQUIRE(out[0].first.start_off == 0);
+	REQUIRE(out[0].first.blk_size == new_bs);
+	REQUIRE(std::memcmp(out[0].second->data.data(), bytes_a.data(), new_bs) == 0);
+
+	REQUIRE(out[1].first.fname == string(PATH_A));
+	REQUIRE(out[1].first.start_off == new_bs);
+	REQUIRE(out[1].first.blk_size == new_bs);
+	REQUIRE(std::memcmp(out[1].second->data.data(), bytes_a.data() + new_bs, new_bs) == 0);
+
+	REQUIRE(out[2].first.fname == string(PATH_B));
+	REQUIRE(out[2].first.start_off == 0);
+	REQUIRE(out[2].first.blk_size == new_bs);
+	REQUIRE(std::memcmp(out[2].second->data.data(), expected_b_reuse.data(), new_bs) == 0);
+
+	REQUIRE(out[0].second->version_tag == "multi");
+	REQUIRE(out[1].second->version_tag == "multi");
+	REQUIRE(out[2].second->version_tag == "multi");
 }
