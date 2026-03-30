@@ -1,11 +1,11 @@
 #include "in_mem_cache_remap.hpp"
 
 #include "duckdb/common/helper.hpp"
+#include "duckdb/common/map.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "page_aligned_data_chunk.hpp"
 
 #include <cstring>
-#include <map>
-#include <unordered_map>
 
 namespace duckdb {
 
@@ -52,10 +52,10 @@ static void CopyRange(const vector<Segment> &segs, idx_t global_start, idx_t cop
 
 } // namespace
 
-vector<pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>>
-RemapInMemCacheEntries(vector<pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken,
+vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>>
+RemapInMemCacheEntries(vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken,
                        idx_t new_block_size) {
-	vector<pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> out;
+	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> out;
 	if (new_block_size == 0) {
 		return out;
 	}
@@ -67,8 +67,8 @@ RemapInMemCacheEntries(vector<pair<InMemCacheBlock, shared_ptr<InMemCacheDataEnt
 		if (!val || val->data.empty() || val->data.length != key.blk_size) {
 			continue;
 		}
-		const auto inserted = by_file[key.fname].emplace(
-		    key.start_off, CachedSlice {/*byte_len=*/key.blk_size, /*entry=*/val});
+		const auto inserted =
+		    by_file[key.fname].emplace(key.start_off, CachedSlice {/*byte_len=*/key.blk_size, /*entry=*/val});
 		if (!inserted.second) {
 			continue;
 		}
@@ -88,7 +88,7 @@ RemapInMemCacheEntries(vector<pair<InMemCacheBlock, shared_ptr<InMemCacheDataEnt
 			if (!in_run) {
 				return;
 			}
-			for (idx_t B = AlignUpToBlock(run_start, new_block_size); B < run_end; B += new_block_size) {
+			for (idx_t B = AlignUpToBlock(run_start, new_block_size); B < run_end;) {
 				const idx_t piece_len = MinValue<idx_t>(new_block_size, run_end - B);
 				auto chunk = AllocatePageAlignedChunk(piece_len);
 				CopyRange(run_segments, B, piece_len, chunk.data());
@@ -97,6 +97,7 @@ RemapInMemCacheEntries(vector<pair<InMemCacheBlock, shared_ptr<InMemCacheDataEnt
 				new_entry->data = std::move(chunk);
 				new_entry->version_tag = run_tag;
 				out.emplace_back(InMemCacheBlock {fname, B, piece_len}, std::move(new_entry));
+				B = AlignUpToBlock(B + piece_len, new_block_size);
 			}
 			run_segments.clear();
 			in_run = false;

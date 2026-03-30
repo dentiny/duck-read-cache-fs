@@ -126,8 +126,8 @@ public:
 		return *this;
 	}
 
-	optional &operator=(optional &&rhs) noexcept(std::is_nothrow_move_assignable<T>::value &&
-	                                             std::is_nothrow_move_constructible<T>::value) {
+	optional &operator=(optional &&rhs) noexcept(
+	    std::is_nothrow_move_assignable<T>::value &&std::is_nothrow_move_constructible<T>::value) {
 		if (this == &rhs)
 			return *this;
 		if (rhs.has_value_) {
@@ -169,9 +169,9 @@ public:
 		return value();
 	}
 
-	void swap(optional &other) noexcept(std::is_nothrow_move_constructible<T>::value &&
-	                                    std::is_nothrow_move_assignable<T>::value &&
-	                                    noexcept(std::swap(std::declval<T &>(), std::declval<T &>()))) {
+	void swap(optional &other) noexcept(
+	    std::is_nothrow_move_constructible<T>::value &&std::is_nothrow_move_assignable<T>::value &&noexcept(
+	        std::swap(std::declval<T &>(), std::declval<T &>()))) {
 		using std::swap;
 		if (has_value_ && other.has_value_) {
 			swap(*data_ptr(), *other.data_ptr());

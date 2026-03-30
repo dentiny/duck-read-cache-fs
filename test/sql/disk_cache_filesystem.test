@@ -14,7 +14,7 @@ SET cache_httpfs_type='on_disk';
 # The test file to read is ~16KiB.
 
 statement ok
-SET cache_httpfs_cache_block_size=1000000;
+SET cache_httpfs_cache_block_size=1048576;
 
 statement ok
 SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_cache';
@@ -325,7 +325,7 @@ SELECT COUNT(*) FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.pa
 
 # Test cases when cache block size and IO request size is smaller than file size.
 statement ok
-SET cache_httpfs_cache_block_size=1000;
+SET cache_httpfs_cache_block_size=1024;
 
 statement ok
 SELECT cache_httpfs_clear_cache();
@@ -347,11 +347,11 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 3	Africa	South Africa	ZAR X	ZARX	2018-11-18
 
 # Check local cache files.
-# File count = 16KiB / 1KiB = 17
+# File count = ceil(16222 / 1024) = 16 on-disk chunk files for this CSV.
 query I
 SELECT COUNT(*) FROM glob('/tmp/duckdb_cache_httpfs_cache/*');
 ----
-17
+16
 
 # Clear cache after test.
 statement ok

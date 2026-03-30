@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "in_mem_cache_block.hpp"
 #include "in_mem_cache_data_entry.hpp"
 #include "duckdb/common/shared_ptr.hpp"
@@ -10,8 +12,7 @@
 
 namespace duckdb {
 
-vector<pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>>
-RemapInMemCacheEntries(vector<pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken,
-                       idx_t new_block_size);
+vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>>
+RemapInMemCacheEntries(vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken, idx_t new_block_size);
 
 } // namespace duckdb

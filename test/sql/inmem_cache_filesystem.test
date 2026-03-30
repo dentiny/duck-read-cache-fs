@@ -12,7 +12,7 @@ SET cache_httpfs_type='in_mem';
 # The test file to read is ~16KiB.
 
 statement ok
-SET cache_httpfs_cache_block_size=1000000;
+SET cache_httpfs_cache_block_size=1048576;
 
 statement ok
 SELECT cache_httpfs_clear_cache();
@@ -305,7 +305,7 @@ SELECT COUNT(*) FROM read_parquet('https://blobs.duckdb.org/data/taxi_2019_04.pa
 query I
 SELECT COUNT(*) FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://blobs.duckdb.org/data/taxi_2019_04.parquet';
 ----
-2
+1
 
 query IIIII
 SELECT * FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv';
