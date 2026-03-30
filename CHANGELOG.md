@@ -1,3 +1,17 @@
+# 0.13.4
+
+## Fixed
+
+- Fix S3 glob expansion failing when wrapped by CacheFileSystem ([#477])
+
+[#477]: https://github.com/dentiny/duck-read-cache-fs/pull/477
+
+## Changed
+
+- Bumpup extension-ci-tools to v1.5.1 ([#482])
+
+[#482]: https://github.com/dentiny/duck-read-cache-fs/pull/482
+
 # 0.13.3
 
 ## Fixed
