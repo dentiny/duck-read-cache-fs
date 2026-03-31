@@ -139,6 +139,14 @@ void CacheFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener
 	internal_filesystem->RemoveFile(filename, opener);
 }
 
+void CacheFileSystem::RemoveFiles(const vector<string> &filenames, optional_ptr<FileOpener> opener) {
+	auto conn_id = GetConnectionId(opener);
+	for (const auto &filename : filenames) {
+		ClearCache(filename, conn_id);
+	}
+	internal_filesystem->RemoveFiles(filenames, opener);
+}
+
 void CacheFileSystem::SetGlobCache() {
 	const auto &config = instance_state.lock()->config;
 	if (!config.enable_glob_cache) {

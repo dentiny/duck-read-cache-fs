@@ -117,6 +117,22 @@ public:
 		throw_exception_on_read = throw_on_read;
 	}
 
+	void RemoveFiles(const vector<string> &filenames, optional_ptr<FileOpener> opener) override {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
+		++remove_files_invocation;
+		for (const auto &f : filenames) {
+			removed_files.push_back(f);
+		}
+	}
+	uint64_t GetRemoveFilesInvocation() const {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
+		return remove_files_invocation;
+	}
+	vector<string> GetRemovedFiles() const {
+		const concurrency::lock_guard<concurrency::mutex> lck(mtx);
+		return removed_files;
+	}
+
 private:
 	int64_t file_size = 0;
 	timestamp_t last_modification_time = timestamp_t::infinity();
@@ -132,6 +148,8 @@ private:
 	uint64_t get_last_mod_time_invocation DUCKDB_GUARDED_BY(mtx) = 0; // Number of `GetLastModificationTime` called.
 	uint64_t get_version_tag_invocation DUCKDB_GUARDED_BY(mtx) = 0;   // Number of `GetVersionTag` called.
 	vector<ReadOper> read_operations DUCKDB_GUARDED_BY(mtx);
+	uint64_t remove_files_invocation DUCKDB_GUARDED_BY(mtx) = 0; // Number of `RemoveFiles` batch calls.
+	vector<string> removed_files DUCKDB_GUARDED_BY(mtx);         // Files passed to `RemoveFiles`.
 	mutable concurrency::mutex mtx;
 	bool throw_exception_on_read = false; // Whether to throw exception on Read operations.
 };
