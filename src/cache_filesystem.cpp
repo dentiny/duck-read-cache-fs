@@ -440,6 +440,11 @@ vector<OpenFileInfo> CacheFileSystem::Glob(const string &path, FileOpener *opene
 	return *res;
 }
 
+string CacheFileSystem::GetVersionTag(FileHandle &handle) {
+	auto &disk_cache_handle = handle.Cast<CacheFileSystemHandle>();
+	return internal_filesystem->GetVersionTag(*disk_cache_handle.internal_file_handle);
+}
+
 // TODO(hjiang): remove the function and switch to extension setting callback.
 void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 	auto instance_state_locked = instance_state.lock();
