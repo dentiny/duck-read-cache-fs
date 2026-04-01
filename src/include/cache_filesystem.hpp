@@ -142,6 +142,9 @@ public:
 	void CreateDirectory(const string &directory, optional_ptr<FileOpener> opener = nullptr) override {
 		internal_filesystem->CreateDirectory(directory, opener);
 	}
+	void CreateDirectoriesRecursive(const string &path, optional_ptr<FileOpener> opener = nullptr) override {
+		internal_filesystem->CreateDirectoriesRecursive(path, opener);
+	}
 	void RemoveDirectory(const string &directory, optional_ptr<FileOpener> opener = nullptr) override {
 		internal_filesystem->RemoveDirectory(directory, opener);
 	}
@@ -171,6 +174,7 @@ public:
 		return internal_filesystem->PathSeparator(path);
 	}
 	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override;
+	string GetVersionTag(FileHandle &handle) override;
 	void RegisterSubSystem(unique_ptr<FileSystem> sub_fs) override {
 		internal_filesystem->RegisterSubSystem(std::move(sub_fs));
 	}
