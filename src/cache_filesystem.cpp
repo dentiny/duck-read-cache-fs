@@ -332,7 +332,7 @@ FileMetadata CacheFileSystem::Stats(FileHandle &handle) {
 		// Try Stats() first, fallback to GetMetadataFallback() if not supported.
 		try {
 			return make_shared_ptr<FileMetadata>(internal_filesystem->Stats(*disk_cache_handle.internal_file_handle));
-		} catch (const NotImplementedException &) {
+		} catch (...) {
 			return make_shared_ptr<FileMetadata>(GetMetadataFallback(*disk_cache_handle.internal_file_handle));
 		}
 	});
@@ -557,7 +557,7 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 		// Try Stats() first, fallback to GetMetadataFallback() if not supported.
 		try {
 			return make_shared_ptr<FileMetadata>(internal_filesystem->Stats(*disk_cache_handle.internal_file_handle));
-		} catch (const NotImplementedException &) {
+		} catch (...) {
 			return make_shared_ptr<FileMetadata>(GetMetadataFallback(*disk_cache_handle.internal_file_handle));
 		}
 	});
@@ -582,7 +582,7 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 		// Try Stats() first, fallback to GetMetadataFallback() if not supported.
 		try {
 			return make_shared_ptr<FileMetadata>(internal_filesystem->Stats(*disk_cache_handle.internal_file_handle));
-		} catch (const NotImplementedException &) {
+		} catch (...) {
 			return make_shared_ptr<FileMetadata>(GetMetadataFallback(*disk_cache_handle.internal_file_handle));
 		}
 	});
