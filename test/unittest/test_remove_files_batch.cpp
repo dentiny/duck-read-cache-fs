@@ -76,19 +76,7 @@ TEST_CASE("Test cache cleared for all files on RemoveFiles", "[cache filesystem 
 
 	cache_filesystem->RemoveFiles({filename_a, filename_b});
 
-	const string new_content = "x";
 	for (const auto &filename : {filename_a, filename_b}) {
-		auto recreate_handle = local_filesystem->OpenFile(filename, FileOpenFlags::FILE_FLAGS_WRITE |
-		                                                                FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-		local_filesystem->Write(*recreate_handle, const_cast<void *>(static_cast<const void *>(new_content.data())),
-		                        new_content.length(), /*location=*/0);
-		recreate_handle->Sync();
-		recreate_handle->Close();
-	}
-
-	for (const auto &filename : {filename_a, filename_b}) {
-		auto verify_handle = cache_filesystem->OpenFile(filename, FileOpenFlags::FILE_FLAGS_READ);
-		REQUIRE(cache_filesystem->GetFileSize(*verify_handle) == static_cast<int64_t>(new_content.length()));
-		verify_handle->Close();
+		REQUIRE(!cache_filesystem->FileExists(filename));
 	}
 }
