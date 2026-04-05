@@ -336,8 +336,10 @@ private:
 // it on S3FileSystem (which inherits from HTTPFileSystem) skips S3 glob expansion.
 // See: https://github.com/dentiny/duck-read-cache-fs/pull/477
 TEST_CASE("Test S3-like glob uses GlobFilesExtended", "[mock filesystem test]") {
-	auto close_callback = []() {};
-	auto dtor_callback = []() {};
+	auto close_callback = []() {
+	};
+	auto dtor_callback = []() {
+	};
 
 	auto mock_filesystem = make_uniq<MockS3LikeFileSystem>(std::move(close_callback), std::move(dtor_callback));
 	mock_filesystem->SetFileSize(100);

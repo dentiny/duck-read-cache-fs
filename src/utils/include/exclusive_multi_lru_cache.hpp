@@ -19,6 +19,7 @@
 #include <utility>
 #include <type_traits>
 
+#include "duckdb/common/assert.hpp"
 #include "duckdb/common/deque.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/map.hpp"
@@ -80,7 +81,7 @@ public:
 		if (max_entries > 0 && total_entries_num > max_entries) {
 			const auto &stale_key = lru_list.back();
 			auto iter = entry_map.find(stale_key);
-			D_ASSERT(iter != entry_map.end());
+			ALWAYS_ASSERT(iter != entry_map.end());
 			evicted_val = DeleteFirstEntry(iter);
 		}
 		return evicted_val;
@@ -118,7 +119,7 @@ public:
 		}
 
 		// There're still fresh entry for the given [key].
-		D_ASSERT(!entries.empty());
+		ALWAYS_ASSERT(!entries.empty());
 		result.target_item = std::move(entries.front().value);
 		DeleteFirstEntry(entry_map_iter);
 		return result;
@@ -155,7 +156,7 @@ public:
 		}
 		for (const auto &key : keys_to_delete) {
 			auto entry_map_iter = entry_map.find(key);
-			D_ASSERT(entry_map_iter != entry_map.end());
+			ALWAYS_ASSERT(entry_map_iter != entry_map.end());
 			auto &entries = entry_map_iter->second;
 			for (auto &cur_entry : entries) {
 				values.emplace_back(std::move(cur_entry.value));
@@ -210,7 +211,7 @@ private:
 	// Delete the first entry from the given [iter], return the deleted entry.
 	unique_ptr<Val> DeleteFirstEntry(typename EntryMap::iterator iter) {
 		auto &entries = iter->second;
-		D_ASSERT(!entries.empty());
+		ALWAYS_ASSERT(!entries.empty());
 
 		auto value = std::move(entries.front().value);
 		lru_list.erase(entries.front().lru_iterator);

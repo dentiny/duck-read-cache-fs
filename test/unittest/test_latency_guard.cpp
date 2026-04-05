@@ -53,9 +53,7 @@ LatencyGuard RecordOperationStart(BaseProfileCollector &collector) {
 
 TEST_CASE("LatencyGuard single guard calls RecordOperationEnd once", "[latency guard]") {
 	CounterProfileCollector collector;
-	{
-		auto guard = RecordOperationStart(collector);
-	}
+	{ auto guard = RecordOperationStart(collector); }
 	REQUIRE(collector.GetRecordOperationEndCount() == 1);
 }
 

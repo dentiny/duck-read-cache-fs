@@ -60,7 +60,7 @@ ThreadPool::~ThreadPool() noexcept {
 		new_job_cv_.notify_all();
 	}
 	for (auto &cur_worker : workers_) {
-		D_ASSERT(cur_worker.joinable());
+		ALWAYS_ASSERT(cur_worker.joinable());
 		cur_worker.join();
 	}
 }

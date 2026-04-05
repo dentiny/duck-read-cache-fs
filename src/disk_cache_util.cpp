@@ -2,6 +2,7 @@
 
 #include <future>
 
+#include "duckdb/common/assert.hpp"
 #include "cache_filesystem_config.hpp"
 #include "crypto.hpp"
 #include "cache_httpfs_instance_state.hpp"
@@ -84,7 +85,7 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
                                                                                 const string &remote_file,
                                                                                 idx_t start_offset,
                                                                                 idx_t bytes_to_read) {
-	D_ASSERT(!cache_directories.empty());
+	ALWAYS_ASSERT(!cache_directories.empty());
 
 	const SanitizedCachePath cache_key {remote_file};
 	duckdb::hash_bytes remote_file_sha256_val;
@@ -124,7 +125,7 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 
 	// [local_filename] is formatted as <hash>-<remote-fname>-<start-offset>-<block-size>
 	vector<string> tokens = StringUtil::Split(local_filename, "-");
-	D_ASSERT(tokens.size() >= 4);
+	ALWAYS_ASSERT(tokens.size() >= 4);
 
 	// Get tokens for remote paths.
 	vector<string> remote_path_tokens;
@@ -169,7 +170,7 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	}
 
 	// For LRU-based eviction, get the entry to remove and delete the file to release storage space.
-	D_ASSERT(eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION);
+	ALWAYS_ASSERT(eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION);
 	const auto filepath_to_evict = lru_eviction_decider();
 	// Intentionally ignore return value.
 	local_filesystem.TryRemoveFile(filepath_to_evict);

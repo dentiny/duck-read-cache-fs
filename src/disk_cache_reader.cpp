@@ -38,7 +38,7 @@ string DiskCacheReader::EvictCacheBlockLru() {
 		const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
 		cache_file_creation_timestamp_map = GetOnDiskFilesUnder(cache_directories);
 	}
-	D_ASSERT(!cache_file_creation_timestamp_map.empty());
+	ALWAYS_ASSERT(!cache_file_creation_timestamp_map.empty());
 
 	auto filepath = std::move(cache_file_creation_timestamp_map.begin()->second);
 	cache_file_creation_timestamp_map.erase(cache_file_creation_timestamp_map.begin());

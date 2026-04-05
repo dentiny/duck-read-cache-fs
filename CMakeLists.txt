@@ -22,9 +22,8 @@ endif()
 # Check if compiler is Clang (case-insensitive check)
 string(TOLOWER "${CMAKE_CXX_COMPILER_ID}" CMAKE_CXX_COMPILER_ID_LOWER)
 string(TOLOWER "${CMAKE_CXX_COMPILER}" CMAKE_CXX_COMPILER_LOWER)
-if(CMAKE_CXX_COMPILER_ID_LOWER MATCHES "clang" OR CMAKE_CXX_COMPILER_LOWER
-                                                  MATCHES "clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wthread-safety")
+if(CMAKE_CXX_COMPILER_ID MATCHES "clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=thread-safety")
 endif()
 
 set(EXTENSION_NAME ${TARGET_NAME}_extension)

@@ -58,22 +58,12 @@ if(NOT WIN32
    AND NOT SUN
    AND NOT ZOS)
   target_link_libraries(
-    unittest_cache_httpfs
-    test_helpers
-    duckdb
-    ${EXTENSION_NAME}
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    CURL::libcurl)
+    unittest_cache_httpfs test_helpers duckdb ${EXTENSION_NAME}
+    ${OPENSSL_LIBRARIES} ${CURL_LIBRARIES})
 else()
   target_link_libraries(
-    unittest_cache_httpfs
-    test_helpers
-    duckdb_static
-    ${EXTENSION_NAME}
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    CURL::libcurl)
+    unittest_cache_httpfs test_helpers duckdb_static ${EXTENSION_NAME}
+    ${OPENSSL_LIBRARIES} ${CURL_LIBRARIES})
 endif()
 
 if(MINGW OR WIN32)
