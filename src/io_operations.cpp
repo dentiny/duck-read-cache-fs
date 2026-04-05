@@ -13,7 +13,7 @@ const vector<const char *> CACHE_ENTITY_NAMES = []() {
 	cache_entity_names.emplace_back("data");
 	cache_entity_names.emplace_back("file handle");
 	cache_entity_names.emplace_back("glob");
-	D_ASSERT(cache_entity_names.size() == kCacheEntityCount);
+	ALWAYS_ASSERT(cache_entity_names.size() == kCacheEntityCount);
 	return cache_entity_names;
 }();
 
@@ -29,7 +29,7 @@ const vector<const char *> OPER_NAMES = []() {
 	oper_names.emplace_back("glob");
 	oper_names.emplace_back("disk_cache_read");
 	oper_names.emplace_back("file_path_cache_clear");
-	D_ASSERT(oper_names.size() == kIoOperationCount);
+	ALWAYS_ASSERT(oper_names.size() == kIoOperationCount);
 	return oper_names;
 }();
 

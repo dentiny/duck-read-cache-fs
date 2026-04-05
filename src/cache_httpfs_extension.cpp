@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <csignal>
 
-#include "assert_utils.hpp"
 #include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
@@ -80,7 +79,7 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 }
 
 void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
-	D_ASSERT(args.ColumnCount() == 1);
+	ALWAYS_ASSERT(args.ColumnCount() == 1);
 	const string filepath = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
 	auto &instance = GetDatabaseInstance(state);
@@ -155,7 +154,7 @@ void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &re
 // Wrap the filesystem with extension cache filesystem.
 // Throw exception if the requested filesystem hasn't been registered into duckdb instance.
 void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &result) {
-	D_ASSERT(args.ColumnCount() == 1);
+	ALWAYS_ASSERT(args.ColumnCount() == 1);
 	const string filesystem_name = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
 	// duckdb instance has a opener filesystem, which is a wrapper around virtual filesystem.
@@ -188,7 +187,7 @@ unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
 		return make_uniq<HTTPFileSystem>();
 	}
 	auto httpfs = vfs.ExtractSubSystem(*iter);
-	CACHE_HTTPFS_ALWAYS_ASSERT(httpfs != nullptr);
+	ALWAYS_ASSERT(httpfs != nullptr);
 	return httpfs;
 }
 
@@ -203,7 +202,7 @@ unique_ptr<FileSystem> ExtractOrCreateHuggingfs(FileSystem &vfs) {
 		return make_uniq<HuggingFaceFileSystem>();
 	}
 	auto hf_fs = vfs.ExtractSubSystem(*iter);
-	CACHE_HTTPFS_ALWAYS_ASSERT(hf_fs != nullptr);
+	ALWAYS_ASSERT(hf_fs != nullptr);
 	return hf_fs;
 }
 
@@ -218,7 +217,7 @@ unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &in
 		return make_uniq<S3FileSystem>(BufferManager::GetBufferManager(instance));
 	}
 	auto s3_fs = vfs.ExtractSubSystem(*iter);
-	CACHE_HTTPFS_ALWAYS_ASSERT(s3_fs != nullptr);
+	ALWAYS_ASSERT(s3_fs != nullptr);
 	return s3_fs;
 }
 

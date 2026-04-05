@@ -41,7 +41,7 @@ public:
 	template <typename KeyLike>
 	unsigned Decrement(const KeyLike &key) {
 		auto iter = counter.find(key);
-		D_ASSERT(iter != counter.end());
+		ALWAYS_ASSERT(iter != counter.end());
 		unsigned new_count = --iter->second;
 		if (new_count == 0) {
 			counter.erase(iter);

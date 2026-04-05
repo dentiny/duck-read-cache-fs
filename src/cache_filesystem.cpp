@@ -1,6 +1,5 @@
 #include "cache_filesystem.hpp"
 
-#include "assert_utils.hpp"
 #include "cache_filesystem_logger.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/enums/file_glob_options.hpp"
@@ -297,7 +296,7 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 	}
 
 	const auto flags = internal_file_handle->GetFlags();
-	D_ASSERT(flags.OpenForReading());
+	ALWAYS_ASSERT(flags.OpenForReading());
 
 	CacheFileSystem::FileHandleCacheKey cache_key {internal_file_handle->GetPath(), flags};
 	if (in_use_file_handle_counter != nullptr) {
@@ -309,7 +308,7 @@ unique_ptr<FileHandle> CacheFileSystem::CreateCacheFileHandleForRead(unique_ptr<
 		// Reset file handle state (i.e. file offset) before placing into cache.
 		file_handle.internal_file_handle->Reset();
 		if (file_handle_cache == nullptr) {
-			CACHE_HTTPFS_ALWAYS_ASSERT(in_use_file_handle_counter == nullptr);
+			ALWAYS_ASSERT(in_use_file_handle_counter == nullptr);
 			return;
 		}
 
@@ -470,7 +469,7 @@ void CacheFileSystem::InitializeGlobalConfig(optional_ptr<FileOpener> opener) {
 
 unique_ptr<FileHandle> CacheFileSystem::GetOrCreateFileHandleForRead(const OpenFileInfo &file, FileOpenFlags flags,
                                                                      optional_ptr<FileOpener> opener) {
-	D_ASSERT(flags.OpenForReading());
+	ALWAYS_ASSERT(flags.OpenForReading());
 	auto conn_id = GetConnectionId(opener);
 	auto state = instance_state.lock();
 	auto &collector = GetProfileCollectorOrThrow(state, conn_id);

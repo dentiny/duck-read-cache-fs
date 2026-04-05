@@ -17,6 +17,7 @@
 #include <utility>
 #include <type_traits>
 
+#include "duckdb/common/assert.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/unordered_map.hpp"
@@ -80,7 +81,7 @@ public:
 		if (max_entries > 0 && lru_list.size() > max_entries) {
 			const auto &stale_key = lru_list.back();
 			auto iter = entry_map.find(stale_key);
-			D_ASSERT(iter != entry_map.end());
+			ALWAYS_ASSERT(iter != entry_map.end());
 			evicted_val = std::move(iter->second.value);
 
 			entry_map.erase(iter);

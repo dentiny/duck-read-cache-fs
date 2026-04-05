@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "duckdb/common/assert.hpp"
 #include "duckdb/common/deque.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/open_file_info.hpp"
@@ -24,11 +25,11 @@ public:
 	MockFileHandle(FileSystem &file_system, string path, FileOpenFlags flags, std::function<void()> close_callback_p,
 	               std::function<void()> dtor_callback_p);
 	~MockFileHandle() override {
-		D_ASSERT(dtor_callback);
+		ALWAYS_ASSERT(dtor_callback);
 		dtor_callback();
 	}
 	void Close() override {
-		D_ASSERT(close_callback);
+		ALWAYS_ASSERT(close_callback);
 		close_callback();
 	}
 

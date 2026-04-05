@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "duckdb/common/assert.hpp"
 #include "cache_exclusion_manager.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/string.hpp"
@@ -38,8 +39,8 @@ struct ListCacheExclusionRegexData : public GlobalTableFunctionState {
 unique_ptr<FunctionData> ListCacheExclusionRegexQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                               vector<LogicalType> &return_types,
                                                               vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 
 	return_types.reserve(1);
 	names.reserve(1);
@@ -88,7 +89,7 @@ void ListCacheExclusionRegexQueryTableFunc(ClientContext &context, TableFunction
 } // namespace
 
 void AddCacheExclusionRegex(const DataChunk &args, ExpressionState &state, Vector &result) {
-	D_ASSERT(args.ColumnCount() == 1);
+	ALWAYS_ASSERT(args.ColumnCount() == 1);
 	string regex = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
 	auto &exclusion_manager = GetExclusionManagerOrThrow(state);

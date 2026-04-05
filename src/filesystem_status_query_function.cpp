@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "duckdb/common/assert.hpp"
 #include "duckdb/common/opener_file_system.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/unique_ptr.hpp"
@@ -27,8 +28,8 @@ struct ListFileSystemData : public GlobalTableFunctionState {
 
 unique_ptr<FunctionData> ListFileSystemQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                      vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 
 	return_types.reserve(1);
 	names.reserve(1);

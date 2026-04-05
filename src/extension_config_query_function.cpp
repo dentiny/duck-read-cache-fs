@@ -2,6 +2,7 @@
 
 #include "cache_filesystem_config.hpp"
 #include "cache_httpfs_instance_state.hpp"
+#include "duckdb/common/assert.hpp"
 #include "duckdb/common/extra_type_info.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/vector.hpp"
@@ -152,8 +153,8 @@ InstanceConfig GetConfigFromContext(ClientContext &context) {
 
 unique_ptr<FunctionData> DataCacheConfigQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                       vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 	auto config = GetConfigFromContext(context);
 	DataCacheConfigQueryFuncBindImpl(config, return_types, names);
 	return nullptr;
@@ -186,8 +187,8 @@ void DataCacheConfigQueryTableFunc(ClientContext &context, TableFunctionInput &d
 
 unique_ptr<FunctionData> MetadataCacheConfigQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                           vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 	auto config = GetConfigFromContext(context);
 	MetadataCacheConfigQueryFuncBindImpl(config, return_types, names);
 	return nullptr;
@@ -220,8 +221,8 @@ void MetadataCacheConfigQueryTableFunc(ClientContext &context, TableFunctionInpu
 
 unique_ptr<FunctionData> FileHandleCacheConfigQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                             vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 	auto config = GetConfigFromContext(context);
 	FileHandleCacheConfigQueryFuncBindImpl(config, return_types, names);
 	return nullptr;
@@ -254,8 +255,8 @@ void FileHandleCacheConfigQueryTableFunc(ClientContext &context, TableFunctionIn
 
 unique_ptr<FunctionData> GlobCacheConfigQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                       vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 	auto config = GetConfigFromContext(context);
 	GlobCacheConfigQueryFuncBindImpl(config, return_types, names);
 	return nullptr;
@@ -288,8 +289,8 @@ void GlobCacheConfigQueryTableFunc(ClientContext &context, TableFunctionInput &d
 
 unique_ptr<FunctionData> CacheTypeQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                 vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 
 	return_types.reserve(4);
 	names.reserve(4);
@@ -360,8 +361,8 @@ void CacheTypeQueryTableFunc(ClientContext &context, TableFunctionInput &data_p,
 
 unique_ptr<FunctionData> CacheConfigQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                   vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 
 	auto config = GetConfigFromContext(context);
 

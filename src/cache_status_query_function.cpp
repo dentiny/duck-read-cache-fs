@@ -29,8 +29,8 @@ struct DataCacheStatusData : public GlobalTableFunctionState {
 
 unique_ptr<FunctionData> DataCacheStatusQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                       vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 
 	return_types.reserve(5);
 	names.reserve(5);
@@ -138,8 +138,8 @@ struct CacheAccessInfoData : public GlobalTableFunctionState {
 
 unique_ptr<FunctionData> CacheAccessInfoQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                       vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 
 	return_types.reserve(8);
 	names.reserve(8);
@@ -199,7 +199,7 @@ unique_ptr<GlobalTableFunctionState> CacheAccessInfoQueryFuncInit(ClientContext 
 
 	auto &collector = inst_state.profile_collector_manager.GetProfileCollectorOrThrow(conn_id);
 	auto cache_access_info = collector.GetCacheAccessInfo();
-	D_ASSERT(cache_access_info.size() == kCacheEntityCount);
+	ALWAYS_ASSERT(cache_access_info.size() == kCacheEntityCount);
 	for (idx_t idx = 0; idx < kCacheEntityCount; ++idx) {
 		auto &cur = cache_access_info[idx];
 		aggregated_cache_access_infos[idx].cache_hit_count += cur.cache_hit_count;
@@ -298,8 +298,8 @@ struct WrappedFilesystemsData : public GlobalTableFunctionState {
 
 unique_ptr<FunctionData> WrappedCacheFileSystemsFuncBind(ClientContext &context, TableFunctionBindInput &input,
                                                          vector<LogicalType> &return_types, vector<string> &names) {
-	D_ASSERT(return_types.empty());
-	D_ASSERT(names.empty());
+	ALWAYS_ASSERT(return_types.empty());
+	ALWAYS_ASSERT(names.empty());
 
 	return_types.reserve(1);
 	names.reserve(1);

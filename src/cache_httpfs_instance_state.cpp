@@ -34,7 +34,7 @@ CacheHttpfsInstanceState::~CacheHttpfsInstanceState() {
 	// Reference: https://github.com/dentiny/duck-read-cache-fs/issues/452
 	auto cache_filesystems = registry.GetAllCacheFs();
 	for (auto *fs : cache_filesystems) {
-		D_ASSERT(fs != nullptr);
+		ALWAYS_ASSERT(fs != nullptr);
 		// Only clear in-memory caches.
 		fs->ClearInMemoryCache();
 	}
@@ -270,7 +270,7 @@ GetInstanceConfigOrThrow(const weak_ptr<CacheHttpfsInstanceState> &instance_stat
 
 BaseProfileCollector &GetProfileCollectorOrThrow(const shared_ptr<CacheHttpfsInstanceState> &instance_state,
                                                  connection_t conn_id) {
-	D_ASSERT(instance_state);
+	ALWAYS_ASSERT(instance_state);
 	return instance_state->profile_collector_manager.GetProfileCollectorOrDefault(conn_id);
 }
 
