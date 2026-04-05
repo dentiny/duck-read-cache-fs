@@ -97,6 +97,7 @@ public:
 	                               weak_ptr<CacheHttpfsInstanceState> instance_state_p);
 	void ClearCache();
 	void ClearCache(const string &fname);
+	void RemapInMemoryDataCachesAfterBlockSizeChange(idx_t new_block_size);
 	void Reset();
 
 private:

@@ -31,6 +31,9 @@ public:
 		return {};
 	}
 
+	void RemapInMemoryDataBlocksForNewBlockSize(idx_t /*new_block_size*/) override {
+	}
+
 	string GetName() const override {
 		return *NOOP_CACHE_READER_NAME;
 	}

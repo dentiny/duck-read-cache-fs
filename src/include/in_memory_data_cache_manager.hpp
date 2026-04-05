@@ -5,6 +5,8 @@
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/vector.hpp"
 
+#include <utility>
+
 namespace duckdb {
 
 template <typename Key, typename Val, typename KeyCompare = std::less<Key>>
@@ -14,6 +16,8 @@ public:
 
 	// Insert value with the given key.
 	// This will replace any previous entry with the same key.
+	//
+	// TOOD(hjiang): Add a batch version of Put.
 	virtual void Put(Key key, shared_ptr<Val> value) = 0;
 
 	// Look up the entry with the given key.
@@ -39,6 +43,9 @@ public:
 	// Get all keys currently in the cache.
 	// The order of keys returned is not guaranteed to be deterministic.
 	virtual vector<Key> Keys() const = 0;
+
+	// Transfer all entries out; postcondition: empty cache. Order of pairs is unspecified.
+	virtual vector<pair<Key, shared_ptr<Val>>> Take() = 0;
 
 protected:
 	// Type-erased version of Clear with filter for virtual dispatch.
