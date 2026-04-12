@@ -31,21 +31,21 @@ idx_t AlignUpToBlock(idx_t offset, idx_t block) {
 	return aligned;
 }
 
-void CopyRange(const vector<Segment> &segs, idx_t global_start, idx_t copy_len, char *dest) {
+void CopyRange(const vector<Segment> &segs, idx_t seg_hint, idx_t global_start, idx_t copy_len, char *dest) {
 	idx_t done = 0;
+	idx_t idx = seg_hint;
 	while (done < copy_len) {
 		const idx_t pos = global_start + done;
-		const Segment *chosen = nullptr;
-		for (const auto &seg : segs) {
-			if (pos >= seg.start && pos < seg.start + seg.byte_len) {
-				chosen = &seg;
-				break;
-			}
+		while (idx < segs.size() && pos >= segs[idx].start + segs[idx].byte_len) {
+			++idx;
 		}
-		D_ASSERT(chosen != nullptr);
-		const idx_t inner = pos - chosen->start;
-		const idx_t chunk = MinValue<idx_t>(chosen->byte_len - inner, copy_len - done);
-		memcpy(dest + done, chosen->entry->data.data() + inner, chunk);
+		ALWAYS_ASSERT(idx < segs.size());
+		const auto &seg = segs[idx];
+		ALWAYS_ASSERT(pos >= seg.start);
+		ALWAYS_ASSERT(pos < seg.start + seg.byte_len);
+		const idx_t inner = pos - seg.start;
+		const idx_t chunk = MinValue<idx_t>(seg.byte_len - inner, copy_len - done);
+		memcpy(dest + done, seg.entry->data.data() + inner, chunk);
 		done += chunk;
 	}
 }
@@ -56,14 +56,10 @@ BuildFileIndex(vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>
 	for (auto &kv : taken) {
 		const auto &key = kv.first;
 		const auto &val = kv.second;
-		if (!val || val->data.empty() || val->data.length != key.blk_size) {
-			continue;
-		}
-		const auto inserted =
-		    by_file[key.fname].emplace(key.start_off, CachedSlice {/*byte_len=*/key.blk_size, /*entry=*/val});
-		if (!inserted.second) {
-			continue;
-		}
+		ALWAYS_ASSERT(val);
+		ALWAYS_ASSERT(!val->data.empty());
+		ALWAYS_ASSERT(val->data.length == key.blk_size);
+		by_file[key.fname].emplace(key.start_off, CachedSlice {/*byte_len=*/key.blk_size, /*entry=*/val});
 	}
 	return by_file;
 }
@@ -85,12 +81,11 @@ void EmitRunOnNewGrid(const string &fname, idx_t run_start, idx_t run_end, const
 		return;
 	}
 
-	// Prefix cache: remote file extends past what we have. Only reuse complete new_block_size reads that lie
-	// entirely in [run_start, run_end); drop a partial tail (cannot represent it as one remote read at new size).
+	idx_t seg_hint = 0;
 	if (have_file_size && run_end < file_size) {
 		for (idx_t B = AlignUpToBlock(run_start, new_block_size); B + new_block_size <= run_end; B += new_block_size) {
 			auto chunk = AllocatePageAlignedChunk(new_block_size);
-			CopyRange(run_segments, B, new_block_size, chunk.data());
+			CopyRange(run_segments, seg_hint, B, new_block_size, chunk.data());
 			chunk.length = new_block_size;
 			auto new_entry = make_shared_ptr<InMemCacheDataEntry>();
 			new_entry->data = std::move(chunk);
@@ -103,7 +98,7 @@ void EmitRunOnNewGrid(const string &fname, idx_t run_start, idx_t run_end, const
 	for (idx_t B = AlignUpToBlock(run_start, new_block_size); B < emit_end;) {
 		const idx_t piece_len = MinValue<idx_t>(new_block_size, emit_end - B);
 		auto chunk = AllocatePageAlignedChunk(piece_len);
-		CopyRange(run_segments, B, piece_len, chunk.data());
+		CopyRange(run_segments, seg_hint, B, piece_len, chunk.data());
 		chunk.length = piece_len;
 		auto new_entry = make_shared_ptr<InMemCacheDataEntry>();
 		new_entry->data = std::move(chunk);
@@ -176,7 +171,9 @@ RemapInMemCacheEntries(vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDa
 	}
 	auto by_file = BuildFileIndex(std::move(taken));
 	for (auto &file_and_blocks : by_file) {
-		RemapOneFile(file_and_blocks.first, file_and_blocks.second, new_block_size, file_size_by_path, out);
+		auto &fname = file_and_blocks.first;
+		auto &blk_map = file_and_blocks.second;
+		RemapOneFile(fname, blk_map, new_block_size, file_size_by_path, out);
 	}
 	return out;
 }

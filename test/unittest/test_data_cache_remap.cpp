@@ -196,6 +196,24 @@ TEST_CASE("RemapInMemCacheEntries: two small blocks merge onto larger new block 
 	ExpectContiguousBytes(out, full);
 }
 
+TEST_CASE("RemapInMemCacheEntries: version tag mismatch prevents merge", "[data cache remap]") {
+	const idx_t old_bs = 2;
+	const idx_t new_bs = 4;
+	const idx_t file_len = 8;
+	auto part0 = PatternBytes(old_bs, 'x');
+	auto part1 = PatternBytes(old_bs, 'y');
+
+	unordered_map<string, idx_t> file_sizes;
+	file_sizes[string(TEST_PATH)] = file_len;
+
+	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken;
+	taken.emplace_back(InMemCacheBlock(TEST_PATH, 0, old_bs), MakeEntry(part0, "tag_a"));
+	taken.emplace_back(InMemCacheBlock(TEST_PATH, old_bs, old_bs), MakeEntry(part1, "tag_b"));
+
+	auto out = RemapInMemCacheEntries(std::move(taken), new_bs, file_sizes);
+	REQUIRE(out.empty());
+}
+
 TEST_CASE("RemapInMemCacheEntries: multiple files remapped independently", "[data cache remap]") {
 	const char *PATH_A = "/test/multi_file_a.bin";
 	const char *PATH_B = "/test/multi_file_b.bin";
