@@ -47,6 +47,10 @@ TEST_CASE("Test on incorrect config", "[extension config test]") {
 	// Set existent config parameter to incorrect type.
 	result = con.Query(StringUtil::Format("SET cache_httpfs_cache_block_size='hello'"));
 	REQUIRE(result->HasError());
+
+	// Block size must be a power of two.
+	result = con.Query(StringUtil::Format("SET cache_httpfs_cache_block_size=10"));
+	REQUIRE(result->HasError());
 }
 
 TEST_CASE("Test on correct config", "[extension config test]") {
@@ -57,8 +61,8 @@ TEST_CASE("Test on correct config", "[extension config test]") {
 	auto result = con.Query(StringUtil::Format("SET cache_httpfs_cache_directory='helloworld'"));
 	REQUIRE(!result->HasError());
 
-	// Cache block size.
-	result = con.Query(StringUtil::Format("SET cache_httpfs_cache_block_size=10"));
+	// Cache block size (must be a power of two).
+	result = con.Query(StringUtil::Format("SET cache_httpfs_cache_block_size=1024"));
 	REQUIRE(!result->HasError());
 
 	// In-memory cache block count.

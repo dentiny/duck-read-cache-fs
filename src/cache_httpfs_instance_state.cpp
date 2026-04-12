@@ -227,6 +227,16 @@ void InstanceCacheReaderManager::ClearCache(const string &fname) {
 	}
 }
 
+void InstanceCacheReaderManager::RemapInMemoryDataCachesAfterBlockSizeChange(idx_t new_block_size) {
+	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
+	if (in_mem_cache_reader != nullptr) {
+		in_mem_cache_reader->RemapInMemoryDataBlocksForNewBlockSize(new_block_size);
+	}
+	if (on_disk_cache_reader != nullptr) {
+		on_disk_cache_reader->RemapInMemoryDataBlocksForNewBlockSize(new_block_size);
+	}
+}
+
 void InstanceCacheReaderManager::Reset() {
 	const concurrency::lock_guard<concurrency::mutex> lock(mutex);
 	noop_cache_reader.reset();

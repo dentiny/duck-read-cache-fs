@@ -12,7 +12,7 @@ SET cache_httpfs_type='noop';
 # The test file to read is ~16KiB.
 
 statement ok
-SET cache_httpfs_cache_block_size=1000000;
+SET cache_httpfs_cache_block_size=1048576;
 
 statement ok
 SELECT cache_httpfs_clear_cache();
