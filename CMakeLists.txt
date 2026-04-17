@@ -78,6 +78,7 @@ set(EXTENSION_SOURCES
     duckdb-httpfs/src/hffs.cpp
     duckdb-httpfs/src/http_state.cpp
     duckdb-httpfs/src/httpfs.cpp
+    duckdb-httpfs/src/httpfs_connection_caching.cpp
     duckdb-httpfs/src/httpfs_curl_client.cpp
     duckdb-httpfs/src/httpfs_extension.cpp
     duckdb-httpfs/src/httpfs_httplib_client.cpp

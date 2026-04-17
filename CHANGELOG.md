@@ -1,3 +1,22 @@
+# 0.13.5
+
+## Fixed
+
+- Add missing filesystem API ([#486], [#484])
+
+[#486]: https://github.com/dentiny/duck-read-cache-fs/pull/486
+[#484]: https://github.com/dentiny/duck-read-cache-fs/pull/484
+
+- Catch all types of exceptions ([#487])
+
+[#487]: https://github.com/dentiny/duck-read-cache-fs/pull/487
+
+## Improved
+
+- Adjust in-memory cache when cache block size change ([#481])
+
+[#481]: https://github.com/dentiny/duck-read-cache-fs/pull/481
+
 # 0.13.4
 
 ## Fixed
