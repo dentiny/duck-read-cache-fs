@@ -8,8 +8,8 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "extension_bounded_data_cache_storage.hpp"
 #include "in_mem_cache_remap.hpp"
-#include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
 #include "utils/include/thread_pool.hpp"
@@ -64,11 +64,11 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	// Check local cache first, see if we could do a cached read.
 	const InMemCacheBlock block_key {handle.GetPath(), cache_read_chunk.aligned_start_offset,
 	                                 cache_read_chunk.chunk_size};
-	auto cache_entry = cache_manager->Get(block_key);
+	auto cache_entry = storage->Get(block_key);
 
 	// Check cache entry validity and clear if necessary.
 	if (cache_entry != nullptr && !ValidateCacheEntry(*cache_entry, version_tag)) {
-		cache_manager->Delete(block_key);
+		storage->Delete(block_key);
 		cache_entry = nullptr;
 	}
 
@@ -100,7 +100,7 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	    .data = std::move(content),
 	    .version_tag = version_tag,
 	};
-	cache_manager->Put(std::move(block_key), make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
+	storage->Put(std::move(block_key), make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
 }
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
@@ -112,8 +112,8 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	const auto config = GetConfig(*instance_state.lock());
 
 	std::call_once(cache_init_flag, [this, &config]() {
-		cache_manager = make_uniq<LruDataCacheManager<InMemCacheBlock, InMemCacheDataEntry, InMemCacheBlockLess>>(
-		    config.max_cache_block_count, config.cache_block_timeout_millisec);
+		storage = make_uniq<ExtensionBoundedDataCacheStorage>(config.max_cache_block_count,
+		                                                     config.cache_block_timeout_millisec);
 	});
 
 	const idx_t block_size = config.cache_block_size;
@@ -213,11 +213,11 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 }
 
 vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
-	if (cache_manager == nullptr) {
+	if (storage == nullptr) {
 		return {};
 	}
 
-	auto keys = cache_manager->Keys();
+	auto keys = storage->Keys();
 	vector<DataCacheEntryInfo> cache_entries_info;
 	cache_entries_info.reserve(keys.size());
 	for (auto &cur_key : keys) {
@@ -233,30 +233,30 @@ vector<DataCacheEntryInfo> InMemoryCacheReader::GetCacheEntriesInfo() const {
 }
 
 void InMemoryCacheReader::ClearCache() {
-	if (cache_manager != nullptr) {
-		cache_manager->Clear();
+	if (storage != nullptr) {
+		storage->Clear();
 	}
 }
 
 void InMemoryCacheReader::ClearCache(const string &fname) {
-	if (cache_manager != nullptr) {
+	if (storage != nullptr) {
 		const SanitizedCachePath cache_key {fname};
 		// Start from the first block key for this file (ordered by fname, start_off, blk_size).
 		const InMemCacheBlock start_key {cache_key.Path(), /*start_off_p=*/0, /*blk_size_p=*/0};
-		cache_manager->Clear(start_key,
-		                     [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
+		storage->Clear(start_key,
+		               [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
 	}
 }
 
 void InMemoryCacheReader::RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_size) {
-	if (cache_manager == nullptr) {
+	if (storage == nullptr) {
 		return;
 	}
-	auto taken = cache_manager->Take();
+	auto taken = storage->Take();
 	// TODO: pass known remote file sizes (e.g. from metadata cache) so remap matches EOF behavior of real reads.
 	auto rebuilt = RemapInMemCacheEntries(std::move(taken), new_block_size, /*file_size_by_path=*/ {});
 	for (auto &kv : rebuilt) {
-		cache_manager->Put(std::move(kv.first), std::move(kv.second));
+		storage->Put(std::move(kv.first), std::move(kv.second));
 	}
 }
 

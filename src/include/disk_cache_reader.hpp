@@ -13,7 +13,7 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
 #include "in_mem_cache_data_entry.hpp"
-#include "in_memory_data_cache_manager.hpp"
+#include "in_memory_data_cache_storage.hpp"
 #include "mutex.hpp"
 #include "thread_annotation.hpp"
 
@@ -47,8 +47,6 @@ public:
 	string EvictCacheBlockLru();
 
 private:
-	using InMemCacheManager = InMemoryDataCacheManager<InMemCacheBlock, InMemCacheDataEntry, InMemCacheBlockLess>;
-
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(const InMemCacheDataEntry &cache_entry, const string &version_tag);
 
@@ -68,7 +66,7 @@ private:
 	// In-memory cache to store blocks; late initialized after first access.
 	// Used to avoid local disk IO.
 	// NOTICE: cache key uses remote filepath, instead of local cache filepath.
-	unique_ptr<InMemCacheManager> in_mem_cache_manager;
+	unique_ptr<InMemoryDataCacheStorage> in_mem_storage;
 };
 
 } // namespace duckdb

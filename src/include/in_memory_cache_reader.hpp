@@ -10,7 +10,7 @@
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
 #include "in_mem_cache_data_entry.hpp"
-#include "in_memory_data_cache_manager.hpp"
+#include "in_memory_data_cache_storage.hpp"
 #include "mutex.hpp"
 
 namespace duckdb {
@@ -38,8 +38,6 @@ public:
 	void RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_size) override;
 
 private:
-	using InMemCacheManager = InMemoryDataCacheManager<InMemCacheBlock, InMemCacheDataEntry, InMemCacheBlockLess>;
-
 	// Return whether the given cache entry is still valid and usable.
 	bool ValidateCacheEntry(const InMemCacheDataEntry &cache_entry, const string &version_tag);
 
@@ -49,7 +47,7 @@ private:
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
 	// In-memory cache to store blocks; late initialized after first access.
-	unique_ptr<InMemCacheManager> cache_manager;
+	unique_ptr<InMemoryDataCacheStorage> storage;
 };
 
 } // namespace duckdb
