@@ -12,8 +12,8 @@
 #include "disk_cache_util.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "extension_bounded_data_cache_storage.hpp"
 #include "in_mem_cache_remap.hpp"
-#include "lru_data_cache_manager.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
@@ -61,8 +61,8 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	vector<DataCacheEntryInfo> cache_entries_info;
 
 	// Fill in in-memory cache blocks for on disk cache reader.
-	if (in_mem_cache_manager != nullptr) {
-		auto keys = in_mem_cache_manager->Keys();
+	if (in_mem_storage != nullptr) {
+		auto keys = in_mem_storage->Keys();
 		cache_entries_info.reserve(keys.size());
 		for (auto &cur_key : keys) {
 			cache_entries_info.emplace_back(DataCacheEntryInfo {
@@ -118,10 +118,10 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	                                 cache_read_chunk.chunk_size};
 
 	// Attempt in-memory cache first, so potentially we don't need to access disk storage.
-	if (in_mem_cache_manager != nullptr) {
-		auto cache_entry = in_mem_cache_manager->Get(block_key);
+	if (in_mem_storage != nullptr) {
+		auto cache_entry = in_mem_storage->Get(block_key);
 		if (cache_entry != nullptr && !ValidateCacheEntry(*cache_entry, version_tag)) {
-			in_mem_cache_manager->Delete(block_key);
+			in_mem_storage->Delete(block_key);
 			cache_entry = nullptr;
 			local_filesystem->TryRemoveFile(cache_dest.dest_local_filepath);
 		}
@@ -154,12 +154,12 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 			cache_read_chunk.CopyBufferToRequestedMemory(read_result.content);
 
 			// Update in-memory cache if applicable.
-			if (in_mem_cache_manager != nullptr) {
+			if (in_mem_storage != nullptr) {
 				InMemCacheDataEntry new_cache_entry {
 				    .data = std::move(read_result.content),
 				    .version_tag = version_tag,
 				};
-				in_mem_cache_manager->Put(block_key, make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
+				in_mem_storage->Put(block_key, make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
 			}
 			return;
 		}
@@ -192,12 +192,12 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 		                                   [this]() { return EvictCacheBlockLru(); });
 
 		// Update in-memory cache if applicable.
-		if (in_mem_cache_manager != nullptr) {
+		if (in_mem_storage != nullptr) {
 			InMemCacheDataEntry new_cache_entry {
 			    .data = std::move(content),
 			    .version_tag = version_tag,
 			};
-			in_mem_cache_manager->Put(block_key, make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
+			in_mem_storage->Put(block_key, make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
 		}
 	} catch (...) {
 	}
@@ -213,9 +213,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	const auto &config = instance_state_locked->config;
 	std::call_once(cache_init_flag, [this, &config]() {
 		if (config.enable_disk_reader_mem_cache) {
-			in_mem_cache_manager =
-			    make_uniq<LruDataCacheManager<InMemCacheBlock, InMemCacheDataEntry, InMemCacheBlockLess>>(
-			        config.disk_reader_max_mem_cache_block_count, config.disk_reader_max_mem_cache_timeout_millisec);
+			in_mem_storage = make_uniq<ExtensionBoundedDataCacheStorage>(
+			    config.disk_reader_max_mem_cache_block_count, config.disk_reader_max_mem_cache_timeout_millisec);
 		}
 	});
 
@@ -322,8 +321,8 @@ void DiskCacheReader::ClearCache() {
 		// Create an empty directory, otherwise later read access errors.
 		local_filesystem->CreateDirectory(cur_cache_dir);
 	}
-	if (in_mem_cache_manager != nullptr) {
-		in_mem_cache_manager->Clear();
+	if (in_mem_storage != nullptr) {
+		in_mem_storage->Clear();
 	}
 }
 
@@ -356,24 +355,24 @@ void DiskCacheReader::ClearCache(const string &fname) {
 	}
 
 	// Delete in-memory cache for on-disk cache files.
-	if (in_mem_cache_manager != nullptr) {
+	if (in_mem_storage != nullptr) {
 		const SanitizedCachePath cache_key {fname};
 		// Start from the first block key for this file (ordered by fname, start_off, blk_size).
 		const InMemCacheBlock start_key {cache_key.Path(), /*start_off=*/0, /*blk_size=*/0};
-		in_mem_cache_manager->Clear(
-		    start_key, [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
+		in_mem_storage->Clear(start_key,
+		                      [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
 	}
 }
 
 void DiskCacheReader::RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_size) {
-	if (in_mem_cache_manager == nullptr) {
+	if (in_mem_storage == nullptr) {
 		return;
 	}
-	auto taken = in_mem_cache_manager->Take();
+	auto taken = in_mem_storage->Take();
 	// TODO: pass known remote file sizes (e.g. from metadata cache) so remap matches EOF behavior of real reads.
 	auto rebuilt = RemapInMemCacheEntries(std::move(taken), new_block_size, /*file_size_by_path=*/ {});
 	for (auto &kv : rebuilt) {
-		in_mem_cache_manager->Put(std::move(kv.first), std::move(kv.second));
+		in_mem_storage->Put(std::move(kv.first), std::move(kv.second));
 	}
 }
 
