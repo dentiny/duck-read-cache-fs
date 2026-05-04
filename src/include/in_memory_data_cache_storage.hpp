@@ -1,8 +1,4 @@
 // Pluggable storage backend for the in-memory data block cache.
-// Two impls live behind this interface:
-// - ExtensionBoundedStorage: extension-managed LRU + timeout. The default and the only one shipped today.
-// - ObjectCacheStorage (planned): chunks held in DuckDB's per-instance ObjectCache so memory is accounted under
-//   MemoryTag::OBJECT_CACHE.
 
 #pragma once
 
@@ -38,7 +34,7 @@ public:
 	// Snapshot of currently-live keys; ordering is unspecified.
 	virtual vector<InMemCacheBlock> Keys() const = 0;
 
-	// Drain all entries; postcondition: storage is empty. Used by block-size remap.
+	// Drain all entries.
 	virtual vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> Take() = 0;
 };
 

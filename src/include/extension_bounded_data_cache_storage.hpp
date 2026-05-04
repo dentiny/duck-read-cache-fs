@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "duckdb/common/shared_ptr.hpp"
+#include "duckdb/common/vector.hpp"
 #include "in_memory_data_cache_storage.hpp"
 #include "shared_value_lru_cache.hpp"
 
