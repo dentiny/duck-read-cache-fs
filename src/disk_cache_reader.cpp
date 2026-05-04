@@ -359,8 +359,8 @@ void DiskCacheReader::ClearCache(const string &fname) {
 		const SanitizedCachePath cache_key {fname};
 		// Start from the first block key for this file (ordered by fname, start_off, blk_size).
 		const InMemCacheBlock start_key {cache_key.Path(), /*start_off=*/0, /*blk_size=*/0};
-		in_mem_storage->Clear(
-		    start_key, [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
+		in_mem_storage->Clear(start_key,
+		                      [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
 	}
 }
 

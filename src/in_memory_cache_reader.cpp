@@ -113,7 +113,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 
 	std::call_once(cache_init_flag, [this, &config]() {
 		storage = make_uniq<ExtensionBoundedDataCacheStorage>(config.max_cache_block_count,
-		                                                     config.cache_block_timeout_millisec);
+		                                                      config.cache_block_timeout_millisec);
 	});
 
 	const idx_t block_size = config.cache_block_size;
