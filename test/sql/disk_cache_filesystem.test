@@ -288,9 +288,9 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 250	Africa	Zimbabwe	Victoria Falls Stock Exchange	NULL	2020-11-01
 251	Asia	China	Beijing Stock Exchange	NULL	2021-12-27
 
-# Test cached query.
+# Test cached query (use the same URL as the prior uncached read so the cache key matches).
 query IIIIII
-SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=2') LIMIT 5;
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=1') LIMIT 5;
 ----
 1	Africa	Lesotho	HYBSE	NULL	2019-03-25
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
@@ -320,8 +320,8 @@ SELECT COUNT(*) FROM glob('/tmp/duckdb_cache_httpfs_cache/*');
 query IIIII
 SELECT * FROM cache_httpfs_cache_status_query();
 ----
-(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem-disk-cache
-/tmp/duckdb_cache_httpfs_cache/c1b7e15bc8fe00a09fd6ea693ca6bdf109f622f26f4c6b34ad568a300854b5e2-stock-exchanges.csv-0-16222	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3	0	16222	on-disk
+(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3	0	16222	in-mem-disk-cache
+/tmp/duckdb_cache_httpfs_cache/95b97c6da1e67758ede371208ba96ec54767a19f23ec9575e01c2f4a6a9f7eec-0-16222	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3	0	16222	on-disk
 
 # Query parquet file.
 query I
@@ -344,9 +344,9 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
 3	Africa	South Africa	ZAR X	ZARX	2018-11-18
 
-# Cached read.
+# Cached read (use the same URL as the prior uncached read so the cache key matches).
 query IIIIII
-SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=5') LIMIT 3;
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=4') LIMIT 3;
 ----
 1	Africa	Lesotho	HYBSE	NULL	2019-03-25
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18

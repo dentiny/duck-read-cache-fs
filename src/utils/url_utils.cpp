@@ -4,31 +4,6 @@
 
 namespace duckdb {
 
-string URLUtils::StripQueryAndFragment(const string &url) {
-	// Find the first occurrence of '?' or '#'
-	// Query parameters start with '?', fragments start with '#'
-	auto question_pos = url.find('?');
-	auto hash_pos = url.find('#');
-
-	// Find the earliest position of either '?' or '#'
-	auto strip_pos = string::npos;
-	if (question_pos != string::npos && hash_pos != string::npos) {
-		strip_pos = (question_pos < hash_pos) ? question_pos : hash_pos;
-	} else if (question_pos != string::npos) {
-		strip_pos = question_pos;
-	} else if (hash_pos != string::npos) {
-		strip_pos = hash_pos;
-	}
-
-	if (strip_pos != string::npos) {
-		return url.substr(0, strip_pos);
-	}
-	return url;
-}
-
-SanitizedCachePath::SanitizedCachePath(const string &url) : path(URLUtils::StripQueryAndFragment(url)) {
-}
-
 ParsedURL URLUtils::ParseURL(const string &url) {
 	ParsedURL result;
 

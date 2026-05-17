@@ -279,9 +279,9 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 250	Africa	Zimbabwe	Victoria Falls Stock Exchange	NULL	2020-11-01
 251	Asia	China	Beijing Stock Exchange	NULL	2021-12-27
 
-# Test cached query.
+# Test cached query (use the same URL as the prior uncached read so the cache key matches).
 query IIIIII
-SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=2') LIMIT 5;
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=1') LIMIT 5;
 ----
 1	Africa	Lesotho	HYBSE	NULL	2019-03-25
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
@@ -292,7 +292,7 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 query IIIII
 SELECT * FROM cache_httpfs_cache_status_query();
 ----
-(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem
+(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=1	0	16222	in-mem
 
 statement ok
 SELECT cache_httpfs_clear_cache();
@@ -313,10 +313,11 @@ SELECT COUNT(*) FROM cache_httpfs_cache_status_query() WHERE original_remote_pat
 ----
 1
 
+# Cache keys preserve query parameters, so look up by the full URL including ?cache_test=3.
 query IIIII
-SELECT * FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv';
+SELECT * FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3';
 ----
-(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem
+(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3	0	16222	in-mem
 
 # Test cases when cache block size and IO request size is smaller than file size.
 statement ok
@@ -333,9 +334,9 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
 3	Africa	South Africa	ZAR X	ZARX	2018-11-18
 
-# Cached read.
+# Cached read (use the same URL as the prior uncached read so the cache key matches).
 query IIIIII
-SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=5') LIMIT 3;
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=4') LIMIT 3;
 ----
 1	Africa	Lesotho	HYBSE	NULL	2019-03-25
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18

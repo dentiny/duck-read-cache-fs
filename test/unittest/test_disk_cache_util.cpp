@@ -53,22 +53,35 @@ TEST_CASE("Deterministic cache destination for same input", "[disk_cache_util]")
 }
 
 TEST_CASE("Get remote file information from local cache filename", "[disk_cache_util]") {
-	// fname format: <64 hex>-<remote-fname>-<start>-<block-size>
+	// fname format: <64 hex>-<start>-<block-size>
 	string hash64 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-	string fname = hash64 + "-file.parquet-0-4096";
+	string fname = hash64 + "-0-4096";
 
 	auto info = DiskCacheUtil::GetRemoteFileInfo(fname);
-	REQUIRE(info.remote_filename == "file.parquet");
 	REQUIRE(info.start_offset == 0);
 	REQUIRE(info.end_offset == 4096);
 }
 
-TEST_CASE("DiskCacheUtil::GetLocalCacheFilePrefix - query and fragment stripped", "[disk_cache_util]") {
+TEST_CASE("DiskCacheUtil::GetLocalCacheFilePrefix - query distinguishes cache key", "[disk_cache_util]") {
 	const string url_plain = "https://example.com/file.parquet";
 	const string url_with_query = "https://example.com/file.parquet?version=1";
+	const string url_with_other_query = "https://example.com/file.parquet?version=2";
 
-	REQUIRE(DiskCacheUtil::GetLocalCacheFilePrefix(url_plain) ==
+	// Different query parameters must produce different prefixes (different content possible).
+	REQUIRE(DiskCacheUtil::GetLocalCacheFilePrefix(url_plain) !=
 	        DiskCacheUtil::GetLocalCacheFilePrefix(url_with_query));
+	REQUIRE(DiskCacheUtil::GetLocalCacheFilePrefix(url_with_query) !=
+	        DiskCacheUtil::GetLocalCacheFilePrefix(url_with_other_query));
+
+	// Fragments do not affect server responses, so they must NOT change the prefix.
+	const string url_with_fragment = "https://example.com/file.parquet?version=1#frag";
+	REQUIRE(DiskCacheUtil::GetLocalCacheFilePrefix(url_with_query) ==
+	        DiskCacheUtil::GetLocalCacheFilePrefix(url_with_fragment));
+
+	// The cache prefix is a pure SHA256 hash, so it never contains URL-special characters.
+	const auto prefix = DiskCacheUtil::GetLocalCacheFilePrefix(url_with_query);
+	REQUIRE(prefix.find('?') == string::npos);
+	REQUIRE(prefix.find('/') == string::npos);
 }
 
 TEST_CASE("ResolveLocalCacheDestination - normal filepath, no fallback for oversized filepath and filename",

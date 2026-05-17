@@ -30,17 +30,14 @@ public:
 
 	// Get local cache filename for the given [remote_file].
 	//
-	// Cache filename is formatted as `<cache-directory>/<filename-sha256>-<filename>-<start-offset>-<size>`. So we
-	// could get all cache files under one directory, and get all cache files with commands like `ls`.
-	//
-	// Considering the naming format, it's worth noting it might _NOT_ work for local files, including mounted
-	// filesystems.
+	// Cache filename is formatted as `<cache-directory>/<url-sha256>-<start-offset>-<size>`. The remote URL is
+	// hashed as opaque bytes (no parsing) so distinct query strings produce distinct cache entries; the original
+	// remote path is preserved separately as an extended attribute (see `ResolveLocalCacheDestination`).
 	static CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, const string &remote_file,
 	                                              idx_t start_offset, idx_t bytes_to_read);
 
 	// Remote file information for a local cache filename.
 	struct RemoteFileInfo {
-		string remote_filename;
 		uint64_t start_offset = 0;
 		uint64_t end_offset = 0;
 	};

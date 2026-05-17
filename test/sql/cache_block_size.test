@@ -26,9 +26,10 @@ SET cache_httpfs_cache_block_size=8192;
 statement ok
 SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_block_size_remap=1');
 
-# Cache keys use StripQueryAndFragment; status rows use the URL without ?foo=.
+# Cache keys preserve query parameters because different query strings can yield different content.
+# Fragments (#...) are still stripped since they are purely client-side.
 query II
-SELECT start_offset, end_offset FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv' ORDER BY start_offset;
+SELECT start_offset, end_offset FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_block_size_remap=1' ORDER BY start_offset;
 ----
 0	8192
 8192	16222
@@ -38,7 +39,7 @@ statement ok
 SET cache_httpfs_cache_block_size=4096;
 
 query II
-SELECT start_offset, end_offset FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv' ORDER BY start_offset;
+SELECT start_offset, end_offset FROM cache_httpfs_cache_status_query() WHERE original_remote_path = 'https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_block_size_remap=1' ORDER BY start_offset;
 ----
 0	4096
 4096	8192
