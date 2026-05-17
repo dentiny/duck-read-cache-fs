@@ -5,11 +5,13 @@
 #include "cache_httpfs_instance_state.hpp"
 #include "cache_read_chunk.hpp"
 #include "crypto.hpp"
+#include "duckdb/common/assert.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/thread.hpp"
 #include "duckdb/common/types/uuid.hpp"
-#include "extension_bounded_data_cache_storage.hpp"
+#include "duckdb/main/database.hpp"
 #include "in_mem_cache_remap.hpp"
+#include "in_memory_data_cache_storage.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
 #include "utils/include/thread_pool.hpp"
@@ -28,6 +30,7 @@ struct InMemoryCacheReaderConfig {
 	idx_t cache_block_size = DEFAULT_CACHE_BLOCK_SIZE;
 	uint64_t max_subrequest_count = DEFAULT_MAX_SUBREQUEST_COUNT;
 	bool enable_cache_validation = DEFAULT_ENABLE_CACHE_VALIDATION;
+	string in_mem_cache_storage = *DEFAULT_IN_MEM_CACHE_STORAGE;
 };
 
 namespace {
@@ -40,6 +43,7 @@ InMemoryCacheReaderConfig GetConfig(const CacheHttpfsInstanceState &instance_sta
 	    .cache_block_size = instance_state.config.cache_block_size,
 	    .max_subrequest_count = instance_state.config.max_subrequest_count,
 	    .enable_cache_validation = instance_state.config.enable_cache_validation,
+	    .in_mem_cache_storage = instance_state.config.in_mem_cache_storage,
 	};
 }
 
@@ -91,11 +95,13 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		return;
 	}
 
-	const auto config = GetConfig(*instance_state.lock());
+	auto state = instance_state.lock();
+	const auto config = GetConfig(*state);
 
-	std::call_once(cache_init_flag, [this, &config]() {
-		storage = make_shared_ptr<ExtensionBoundedDataCacheStorage>(config.max_cache_block_count,
-		                                                            config.cache_block_timeout_millisec);
+	std::call_once(cache_init_flag, [this, &config, &state]() {
+		ALWAYS_ASSERT(state->db_instance);
+		storage = BuildInMemoryDataCacheStorage(config.in_mem_cache_storage, *state->db_instance,
+		                                        config.max_cache_block_count, config.cache_block_timeout_millisec);
 	});
 
 	const idx_t block_size = config.cache_block_size;

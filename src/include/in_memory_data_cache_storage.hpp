@@ -15,6 +15,9 @@
 
 namespace duckdb {
 
+// Forward declarations.
+class DatabaseInstance;
+
 class PinnedBlock {
 public:
 	PinnedBlock(shared_ptr<void> keep_alive_p, const PageAlignedDataChunk *chunk_p)
@@ -60,5 +63,9 @@ public:
 	// Drain all entries.
 	virtual vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> Take() = 0;
 };
+
+// Construct the storage backend selected by [mode].
+shared_ptr<InMemoryDataCacheStorage> BuildInMemoryDataCacheStorage(const string &mode, DatabaseInstance &db_instance,
+                                                                   size_t max_entries, uint64_t timeout_millisec);
 
 } // namespace duckdb

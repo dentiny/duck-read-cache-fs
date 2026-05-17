@@ -132,6 +132,8 @@ struct InstanceConfig {
 	// In-memory cache config
 	idx_t max_in_mem_cache_block_count = DEFAULT_MAX_IN_MEM_CACHE_BLOCK_COUNT;
 	idx_t in_mem_cache_block_timeout_millisec = DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC;
+	// Storage backend used by both `InMemoryCacheReader` and `DiskCacheReader`'s in-mem layer.
+	string in_mem_cache_storage = *DEFAULT_IN_MEM_CACHE_STORAGE;
 
 	// Metadata cache config
 	bool enable_metadata_cache = DEFAULT_ENABLE_METADATA_CACHE;

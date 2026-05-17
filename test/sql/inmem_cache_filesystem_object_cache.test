@@ -1,0 +1,69 @@
+# name: test/sql/inmem_cache_filesystem_object_cache.test
+# description: Test for the in-memory cache filesystem under `object_cache` storage mode.
+# group: [sql]
+
+require cache_httpfs
+
+require parquet
+
+statement ok
+SET cache_httpfs_in_mem_cache_storage='object_cache';
+
+statement ok
+SET cache_httpfs_type='in_mem';
+
+statement ok
+SET cache_httpfs_cache_block_size=1048576;
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+# Test uncached query.
+query IIIIII
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=1') LIMIT 3;
+----
+1	Africa	Lesotho	HYBSE	NULL	2019-03-25
+2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
+3	Africa	South Africa	ZAR X	ZARX	2018-11-18
+
+# Test cached query.
+query IIIIII
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=2') LIMIT 3;
+----
+1	Africa	Lesotho	HYBSE	NULL	2019-03-25
+2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
+3	Africa	South Africa	ZAR X	ZARX	2018-11-18
+
+query IIIII
+SELECT * FROM cache_httpfs_cache_status_query();
+----
+(no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem
+
+# Clearing the cache drops both the metadata map and the ObjectCache reservations.
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+query I
+SELECT COUNT(*) FROM cache_httpfs_cache_status_query();
+----
+0
+
+# Test cases when cache block size and IO request size is smaller than file size.
+statement ok
+SET cache_httpfs_cache_block_size=256;
+
+# Uncached read.
+query IIIIII
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3') LIMIT 3;
+----
+1	Africa	Lesotho	HYBSE	NULL	2019-03-25
+2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
+3	Africa	South Africa	ZAR X	ZARX	2018-11-18
+
+# Cached read.
+query IIIIII
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=4') LIMIT 3;
+----
+1	Africa	Lesotho	HYBSE	NULL	2019-03-25
+2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
+3	Africa	South Africa	ZAR X	ZARX	2018-11-18
