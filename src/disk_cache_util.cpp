@@ -11,6 +11,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "scope_guard.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/hash_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
@@ -190,6 +191,11 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 		return;
 	}
 
+	// Temporary file is removed after write completion whatever.
+	SCOPE_EXIT {
+		local_filesystem.TryRemoveFile(cache_dest.temp_local_filepath);
+	};
+
 	// Dump to a unique temporary location at local filesystem, since there could be multiple processes writing cache
 	// file for the same remote file.
 	{
@@ -209,11 +215,9 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	// Store validation metadata before publishing the cache file. Otherwise a concurrent reader can observe the moved
 	// file before xattrs are attached and invalidate it as a mismatched cache entry.
 	if (!version_tag.empty() && !SetCacheVersion(cache_dest.temp_local_filepath, version_tag)) {
-		local_filesystem.TryRemoveFile(cache_dest.temp_local_filepath);
 		return;
 	}
 	if (!cache_dest.file_attrs.empty() && !SetFileAttributes(cache_dest.temp_local_filepath, cache_dest.file_attrs)) {
-		local_filesystem.TryRemoveFile(cache_dest.temp_local_filepath);
 		return;
 	}
 
