@@ -89,9 +89,8 @@ void ObjectCacheStorage::Put(InMemCacheBlock key, PageAlignedDataChunk chunk, st
 	}
 }
 
-optional<PinnedBlock> ObjectCacheStorage::Get(const InMemCacheBlock &key) {
+optional<PinnedBlock> ObjectCacheStorage::Get(const InMemCacheBlock &key, const string &expected_version_tag) {
 	string obj_cache_key;
-	string version_tag;
 	bool stale = false;
 	{
 		const concurrency::lock_guard<concurrency::mutex> lock(mu);
@@ -100,8 +99,9 @@ optional<PinnedBlock> ObjectCacheStorage::Get(const InMemCacheBlock &key) {
 			return nullopt;
 		}
 		obj_cache_key = it->second.obj_cache_key;
-		version_tag = it->second.version_tag;
-		if (timeout_millisec > 0) {
+		if (!PinnedBlock::ValidateVersionTag(it->second.version_tag, expected_version_tag)) {
+			stale = true;
+		} else if (timeout_millisec > 0) {
 			const uint64_t now = static_cast<uint64_t>(GetSteadyNowMilliSecSinceEpoch());
 			if (now - it->second.insertion_time_ms > timeout_millisec) {
 				stale = true;
@@ -123,7 +123,7 @@ optional<PinnedBlock> ObjectCacheStorage::Get(const InMemCacheBlock &key) {
 
 	const PageAlignedDataChunk *chunk_ptr = &block->data;
 	shared_ptr<void> keep_alive = std::move(block);
-	return PinnedBlock {std::move(keep_alive), chunk_ptr, std::move(version_tag)};
+	return PinnedBlock {std::move(keep_alive), chunk_ptr};
 }
 
 bool ObjectCacheStorage::Delete(const InMemCacheBlock &key) {

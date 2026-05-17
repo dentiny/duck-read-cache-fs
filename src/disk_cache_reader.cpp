@@ -46,15 +46,6 @@ string DiskCacheReader::EvictCacheBlockLru() {
 	return filepath;
 }
 
-namespace {
-
-// Empty version_tag means cache validation is disabled => always valid.
-bool ValidateVersionTag(const string &cached, const string &expected) {
-	return expected.empty() || cached == expected;
-}
-
-} // namespace
-
 // TODO(hjiang): For oversized filepath, both in-memory cache and on-disk cache stores resolved path, which uses SHA-256
 // instead of original filename, likely we should do a translation here. On-disk cache stores original filepath in file
 // attributes, in-memory cache should do the same thing.
@@ -120,12 +111,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 	// Attempt in-memory cache first, so potentially we don't need to access disk storage.
 	if (in_mem_storage != nullptr) {
-		auto pinned = in_mem_storage->Get(block_key);
-		if (pinned && !ValidateVersionTag(pinned->VersionTag(), version_tag)) {
-			pinned.reset();
-			in_mem_storage->Delete(block_key);
-			local_filesystem->TryRemoveFile(cache_dest.dest_local_filepath);
-		}
+		auto pinned = in_mem_storage->Get(block_key, version_tag);
 		if (pinned) {
 			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));

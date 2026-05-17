@@ -49,23 +49,36 @@ TEST_CASE("ObjectCacheStorage Put/Get roundtrip", "[object cache storage]") {
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 
 	const InMemCacheBlock key {"/foo", 0, 1024};
-	storage->Put(key, MakeFilledChunk(1024, 'a'), "v1");
+	storage->Put(key, MakeFilledChunk(1024, 'a'), /*version_tag=*/"v1");
 
-	auto pinned = storage->Get(key);
+	auto pinned = storage->Get(key, /*expected_version_tag=*/"v1");
 	REQUIRE(pinned);
 	REQUIRE(pinned->Data().length == 1024);
 	REQUIRE(pinned->Data().data()[0] == 'a');
 	REQUIRE(pinned->Data().data()[1023] == 'a');
-	REQUIRE(pinned->VersionTag() == "v1");
 
 	REQUIRE(storage->Keys().size() == 1);
+
+	REQUIRE(storage->Get(key, /*expected_version_tag=*/""));
 }
 
 TEST_CASE("ObjectCacheStorage Get miss on unknown key", "[object cache storage]") {
 	DuckDB db;
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 	const InMemCacheBlock key {"/foo", 0, 1024};
-	REQUIRE_FALSE(storage->Get(key));
+	REQUIRE_FALSE(storage->Get(key, /*expected_version_tag=*/""));
+	REQUIRE(storage->Keys().empty());
+}
+
+TEST_CASE("ObjectCacheStorage Get with version mismatch evicts and returns nullopt", "[object cache storage]") {
+	DuckDB db;
+	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
+
+	const InMemCacheBlock key {"/foo", 0, 1024};
+	storage->Put(key, MakeFilledChunk(1024, 'a'), /*version_tag=*/"v1");
+	REQUIRE(storage->Keys().size() == 1);
+
+	REQUIRE_FALSE(storage->Get(key, /*expected_version_tag=*/"v2"));
 	REQUIRE(storage->Keys().empty());
 }
 
@@ -73,8 +86,8 @@ TEST_CASE("ObjectCacheStorage destructor-driven map sync on ObjectCache eviction
 	DuckDB db;
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 
-	PutBlock(*storage, "/foo", 0, 1024, "v1");
-	PutBlock(*storage, "/foo", 1024, 1024, "v1");
+	PutBlock(*storage, "/foo", 0, 1024, /*version_tag=*/"v1");
+	PutBlock(*storage, "/foo", 1024, 1024, /*version_tag=*/"v1");
 	REQUIRE(storage->Keys().size() == 2);
 
 	// Force eviction by asking ObjectCache to free more bytes than we hold; this drops every entry
@@ -89,13 +102,13 @@ TEST_CASE("ObjectCacheStorage timeout invalidates on Get", "[object cache storag
 	DuckDB db;
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/5);
 
-	PutBlock(*storage, "/foo", 0, 1024, "v1");
+	PutBlock(*storage, "/foo", 0, 1024, /*version_tag=*/"v1");
 	REQUIRE(storage->Keys().size() == 1);
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 	// Stale entry => Get returns nullopt and triggers an ObjectCache::Delete; destructor finalises map.
-	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/foo", 0, 1024}));
+	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/foo", 0, 1024}, /*expected_version_tag=*/""));
 	REQUIRE(storage->Keys().empty());
 }
 
@@ -105,7 +118,7 @@ TEST_CASE("ObjectCacheStorage Clear drains map and ObjectCache", "[object cache 
 
 	constexpr idx_t N = 16;
 	for (idx_t i = 0; i < N; ++i) {
-		PutBlock(*storage, "/foo", i * 1024, 1024, "v1");
+		PutBlock(*storage, "/foo", i * 1024, 1024, /*version_tag=*/"v1");
 	}
 	REQUIRE(storage->Keys().size() == N);
 	const idx_t bytes_before = db.instance->GetObjectCache().GetCurrentMemory();
@@ -124,9 +137,9 @@ TEST_CASE("ObjectCacheStorage prefix-scoped Clear for one file", "[object cache 
 	DuckDB db;
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 
-	PutBlock(*storage, "/a", 0, 512, "v1");
-	PutBlock(*storage, "/a", 512, 512, "v1");
-	PutBlock(*storage, "/b", 0, 512, "v1");
+	PutBlock(*storage, "/a", 0, 512, /*version_tag=*/"v1");
+	PutBlock(*storage, "/a", 512, 512, /*version_tag=*/"v1");
+	PutBlock(*storage, "/b", 0, 512, /*version_tag=*/"v1");
 	REQUIRE(storage->Keys().size() == 3);
 
 	const InMemCacheBlock start {"/a", 0, 0};
@@ -135,9 +148,9 @@ TEST_CASE("ObjectCacheStorage prefix-scoped Clear for one file", "[object cache 
 	auto remaining = storage->Keys();
 	REQUIRE(remaining.size() == 1);
 	REQUIRE(remaining[0].fname == "/b");
-	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/a", 0, 512}));
-	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/a", 512, 512}));
-	REQUIRE(storage->Get(InMemCacheBlock {"/b", 0, 512}));
+	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/a", 0, 512}, /*expected_version_tag=*/""));
+	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/a", 512, 512}, /*expected_version_tag=*/""));
+	REQUIRE(storage->Get(InMemCacheBlock {"/b", 0, 512}, /*expected_version_tag=*/""));
 }
 
 TEST_CASE("ObjectCacheStorage replace-on-duplicate-Put keeps single map entry with latest meta",
@@ -146,14 +159,15 @@ TEST_CASE("ObjectCacheStorage replace-on-duplicate-Put keeps single map entry wi
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 
 	const InMemCacheBlock key {"/x", 0, 512};
-	storage->Put(key, MakeFilledChunk(512, '1'), "v1");
-	storage->Put(key, MakeFilledChunk(512, '2'), "v2");
+	storage->Put(key, MakeFilledChunk(512, '1'), /*version_tag=*/"v1");
+	storage->Put(key, MakeFilledChunk(512, '2'), /*version_tag=*/"v2");
 
 	REQUIRE(storage->Keys().size() == 1);
-	auto pinned = storage->Get(key);
+	auto pinned = storage->Get(key, /*expected_version_tag=*/"v2");
 	REQUIRE(pinned);
-	REQUIRE(pinned->VersionTag() == "v2");
 	REQUIRE(pinned->Data().data()[0] == '2');
+	REQUIRE_FALSE(storage->Get(key, /*expected_version_tag=*/"v1"));
+	REQUIRE(storage->Keys().empty());
 }
 
 TEST_CASE("ObjectCacheStorage Delete removes both map and ObjectCache entry", "[object cache storage]") {
@@ -161,7 +175,7 @@ TEST_CASE("ObjectCacheStorage Delete removes both map and ObjectCache entry", "[
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 
 	const InMemCacheBlock key {"/foo", 0, 1024};
-	PutBlock(*storage, "/foo", 0, 1024, "v1");
+	PutBlock(*storage, "/foo", 0, 1024, /*version_tag=*/"v1");
 	REQUIRE(storage->Delete(key));
 	REQUIRE_FALSE(storage->Delete(key));
 	REQUIRE(storage->Keys().empty());
@@ -171,8 +185,8 @@ TEST_CASE("ObjectCacheStorage Take drains storage and yields owning chunks", "[o
 	DuckDB db;
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 
-	PutBlock(*storage, "/foo", 0, 1024, "v1", /*fill=*/'a');
-	PutBlock(*storage, "/foo", 1024, 1024, "v1", /*fill=*/'b');
+	PutBlock(*storage, "/foo", 0, 1024, /*version_tag=*/"v1", /*fill=*/'a');
+	PutBlock(*storage, "/foo", 1024, 1024, /*version_tag=*/"v1", /*fill=*/'b');
 
 	auto taken = storage->Take();
 	REQUIRE(taken.size() == 2);
@@ -201,8 +215,8 @@ TEST_CASE("ObjectCacheStorage concurrent Put and Get", "[object cache storage]")
 			for (idx_t i = 0; i < PER_THREAD; ++i) {
 				const idx_t off = (t * PER_THREAD + i) * BLK;
 				InMemCacheBlock key {"/concurrent", off, BLK};
-				storage->Put(key, MakeFilledChunk(BLK, static_cast<char>('A' + (t % 26))), "v");
-				auto pinned = storage->Get(key);
+				storage->Put(key, MakeFilledChunk(BLK, static_cast<char>('A' + (t % 26))), /*version_tag=*/"v");
+				auto pinned = storage->Get(key, /*expected_version_tag=*/"v");
 				if (pinned) {
 					REQUIRE(pinned->Data().length == BLK);
 					hits.fetch_add(1, std::memory_order_relaxed);

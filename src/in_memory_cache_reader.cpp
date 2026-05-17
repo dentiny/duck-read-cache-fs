@@ -45,15 +45,6 @@ InMemoryCacheReaderConfig GetConfig(const CacheHttpfsInstanceState &instance_sta
 
 } // namespace
 
-namespace {
-
-// Empty version_tag means cache validation is disabled => always valid.
-bool ValidateVersionTag(const string &cached, const string &expected) {
-	return expected.empty() || cached == expected;
-}
-
-} // namespace
-
 void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string &version_tag,
                                                 CacheReadChunk cache_read_chunk) {
 	SetThreadName("RdCachRdThd");
@@ -65,13 +56,7 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	// Check local cache first, see if we could do a cached read.
 	const InMemCacheBlock block_key {handle.GetPath(), cache_read_chunk.aligned_start_offset,
 	                                 cache_read_chunk.chunk_size};
-	auto pinned = storage->Get(block_key);
-
-	// Check cache entry validity and clear if necessary.
-	if (pinned && !ValidateVersionTag(pinned->VersionTag(), version_tag)) {
-		pinned.reset();
-		storage->Delete(block_key);
-	}
+	auto pinned = storage->Get(block_key, version_tag);
 
 	if (pinned) {
 		collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);

@@ -17,22 +17,22 @@ namespace duckdb {
 
 class PinnedBlock {
 public:
-	PinnedBlock(shared_ptr<void> keep_alive_p, const PageAlignedDataChunk *chunk_p, string version_tag_p)
-	    : keep_alive(std::move(keep_alive_p)), chunk(chunk_p), version_tag(std::move(version_tag_p)) {
+	PinnedBlock(shared_ptr<void> keep_alive_p, const PageAlignedDataChunk *chunk_p)
+	    : keep_alive(std::move(keep_alive_p)), chunk(chunk_p) {
 	}
 
 	const PageAlignedDataChunk &Data() const {
 		return *chunk;
 	}
-	const string &VersionTag() const {
-		return version_tag;
+
+	static bool ValidateVersionTag(const string &cached, const string &expected_version_tag) {
+		return expected_version_tag.empty() || cached == expected_version_tag;
 	}
 
 private:
 	shared_ptr<void> keep_alive;
 	// Owned by `keep_alive`.
 	const PageAlignedDataChunk *chunk;
-	string version_tag;
 };
 
 class InMemoryDataCacheStorage {
@@ -42,8 +42,8 @@ public:
 	// Insert or replace the entry for [key]. Storage takes ownership of [chunk].
 	virtual void Put(InMemCacheBlock key, PageAlignedDataChunk chunk, string version_tag) = 0;
 
-	// Returns nullopt on miss or if the entry is no longer valid (e.g. timed out).
-	virtual optional<PinnedBlock> Get(const InMemCacheBlock &key) = 0;
+	// Returns nullopt on miss or if the entry is no longer valid (e.g. timed out, version mismatch).
+	virtual optional<PinnedBlock> Get(const InMemCacheBlock &key, const string &expected_version_tag) = 0;
 
 	// Returns true if [key] was present and removed.
 	virtual bool Delete(const InMemCacheBlock &key) = 0;

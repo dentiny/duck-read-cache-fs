@@ -15,16 +15,20 @@ void ExtensionBoundedDataCacheStorage::Put(InMemCacheBlock key, PageAlignedDataC
 	lru_cache.Put(std::move(key), std::move(entry));
 }
 
-optional<PinnedBlock> ExtensionBoundedDataCacheStorage::Get(const InMemCacheBlock &key) {
+optional<PinnedBlock> ExtensionBoundedDataCacheStorage::Get(const InMemCacheBlock &key,
+                                                            const string &expected_version_tag) {
 	auto entry = lru_cache.Get(key);
 	if (entry == nullptr) {
 		return nullopt;
 	}
-	// The shared_ptr<InMemCacheDataEntry> kept inside PinnedBlock pins the chunk for the read's duration.
+	if (!PinnedBlock::ValidateVersionTag(entry->version_tag, expected_version_tag)) {
+		lru_cache.Delete(key);
+		return nullopt;
+	}
+
 	const PageAlignedDataChunk *chunk_ptr = &entry->data;
-	string version_tag = entry->version_tag;
 	shared_ptr<void> keep_alive = std::move(entry);
-	return PinnedBlock {std::move(keep_alive), chunk_ptr, std::move(version_tag)};
+	return PinnedBlock {std::move(keep_alive), chunk_ptr};
 }
 
 bool ExtensionBoundedDataCacheStorage::Delete(const InMemCacheBlock &key) {
