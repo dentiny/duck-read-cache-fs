@@ -45,13 +45,14 @@ InMemoryCacheReaderConfig GetConfig(const CacheHttpfsInstanceState &instance_sta
 
 } // namespace
 
-bool InMemoryCacheReader::ValidateCacheEntry(const InMemCacheDataEntry &cache_entry, const string &version_tag) {
-	// Empty version tags means cache validation is disabled.
-	if (version_tag.empty()) {
-		return true;
-	}
-	return cache_entry.version_tag == version_tag;
+namespace {
+
+// Empty version_tag means cache validation is disabled => always valid.
+bool ValidateVersionTag(const string &cached, const string &expected) {
+	return expected.empty() || cached == expected;
 }
+
+} // namespace
 
 void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string &version_tag,
                                                 CacheReadChunk cache_read_chunk) {
@@ -64,18 +65,18 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	// Check local cache first, see if we could do a cached read.
 	const InMemCacheBlock block_key {handle.GetPath(), cache_read_chunk.aligned_start_offset,
 	                                 cache_read_chunk.chunk_size};
-	auto cache_entry = storage->Get(block_key);
+	auto pinned = storage->Get(block_key);
 
 	// Check cache entry validity and clear if necessary.
-	if (cache_entry != nullptr && !ValidateCacheEntry(*cache_entry, version_tag)) {
+	if (pinned && !ValidateVersionTag(pinned->VersionTag(), version_tag)) {
+		pinned.reset();
 		storage->Delete(block_key);
-		cache_entry = nullptr;
 	}
 
-	if (cache_entry != nullptr) {
+	if (pinned) {
 		collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 		DUCKDB_LOG_OPEN_CACHE_HIT((handle));
-		cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
+		cache_read_chunk.CopyBufferToRequestedMemory(pinned->Data());
 		return;
 	}
 
@@ -96,11 +97,7 @@ void InMemoryCacheReader::ProcessCacheReadChunk(FileHandle &handle, const string
 	// Copy to destination buffer.
 	cache_read_chunk.CopyBufferToRequestedMemory(content);
 
-	InMemCacheDataEntry new_cache_entry {
-	    .data = std::move(content),
-	    .version_tag = version_tag,
-	};
-	storage->Put(std::move(block_key), make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
+	storage->Put(std::move(block_key), std::move(content), version_tag);
 }
 
 void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t requested_start_offset,
@@ -112,8 +109,8 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	const auto config = GetConfig(*instance_state.lock());
 
 	std::call_once(cache_init_flag, [this, &config]() {
-		storage = make_uniq<ExtensionBoundedDataCacheStorage>(config.max_cache_block_count,
-		                                                      config.cache_block_timeout_millisec);
+		storage = make_shared_ptr<ExtensionBoundedDataCacheStorage>(config.max_cache_block_count,
+		                                                            config.cache_block_timeout_millisec);
 	});
 
 	const idx_t block_size = config.cache_block_size;
@@ -256,7 +253,8 @@ void InMemoryCacheReader::RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block
 	// TODO: pass known remote file sizes (e.g. from metadata cache) so remap matches EOF behavior of real reads.
 	auto rebuilt = RemapInMemCacheEntries(std::move(taken), new_block_size, /*file_size_by_path=*/ {});
 	for (auto &kv : rebuilt) {
-		storage->Put(std::move(kv.first), std::move(kv.second));
+		auto &entry = kv.second;
+		storage->Put(std::move(kv.first), std::move(entry->data), std::move(entry->version_tag));
 	}
 }
 

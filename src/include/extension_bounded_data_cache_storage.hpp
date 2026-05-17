@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "duckdb/common/shared_ptr.hpp"
+#include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
 #include "in_memory_data_cache_storage.hpp"
 #include "shared_value_lru_cache.hpp"
@@ -23,8 +24,8 @@ public:
 
 	~ExtensionBoundedDataCacheStorage() override = default;
 
-	void Put(InMemCacheBlock key, shared_ptr<InMemCacheDataEntry> value) override;
-	shared_ptr<InMemCacheDataEntry> Get(const InMemCacheBlock &key) override;
+	void Put(InMemCacheBlock key, PageAlignedDataChunk chunk, string version_tag) override;
+	unique_ptr<PinnedBlock> Get(const InMemCacheBlock &key) override;
 	bool Delete(const InMemCacheBlock &key) override;
 	void Clear() override;
 	void Clear(const InMemCacheBlock &start_key, std::function<bool(const InMemCacheBlock &)> filter) override;

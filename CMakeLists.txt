@@ -56,6 +56,7 @@ set(EXTENSION_SOURCES
     src/in_mem_cache_block.cpp
     src/in_mem_cache_remap.cpp
     src/in_memory_cache_reader.cpp
+    src/object_cache_data_cache_storage.cpp
     src/histogram.cpp
     src/filesystem_status_query_function.cpp
     src/io_operations.cpp

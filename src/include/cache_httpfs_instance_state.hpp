@@ -167,6 +167,8 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	InstanceConfig config;
 	// Database config.
 	optional_ptr<DBConfig> db_config;
+	// Database instance. Set in LoadInternal so storage backends can reach `GetObjectCache()`.
+	optional_ptr<DatabaseInstance> db_instance;
 	// Cache filesystem registry.
 	InstanceCacheFsRegistry registry;
 	InstanceCacheReaderManager cache_reader_manager;

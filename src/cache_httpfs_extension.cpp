@@ -520,6 +520,7 @@ void LoadInternal(ExtensionLoader &loader) {
 	// Register instance state with duckdb database instance.
 	SetInstanceState(instance, state);
 	state->db_config = &instance.config;
+	state->db_instance = &instance;
 
 	// Ensure cache directory exists
 	auto local_fs = LocalFileSystem::CreateLocal();

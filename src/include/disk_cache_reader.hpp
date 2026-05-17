@@ -47,9 +47,6 @@ public:
 	string EvictCacheBlockLru();
 
 private:
-	// Return whether the given cache entry is still valid and usable.
-	bool ValidateCacheEntry(const InMemCacheDataEntry &cache_entry, const string &version_tag);
-
 	// Process a single cache read chunk in a worker thread.
 	void ProcessCacheReadChunk(FileHandle &handle, const InstanceConfig &config, const string &version_tag,
 	                           CacheReadChunk cache_read_chunk);
@@ -66,7 +63,8 @@ private:
 	// In-memory cache to store blocks; late initialized after first access.
 	// Used to avoid local disk IO.
 	// NOTICE: cache key uses remote filepath, instead of local cache filepath.
-	unique_ptr<InMemoryDataCacheStorage> in_mem_storage;
+	// shared_ptr so the `ObjectCacheStorage` backend (M2) can hand out weak_ptr back-refs to its blocks.
+	shared_ptr<InMemoryDataCacheStorage> in_mem_storage;
 };
 
 } // namespace duckdb

@@ -38,16 +38,14 @@ public:
 	void RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_size) override;
 
 private:
-	// Return whether the given cache entry is still valid and usable.
-	bool ValidateCacheEntry(const InMemCacheDataEntry &cache_entry, const string &version_tag);
-
 	// Process a single cache read chunk in a worker thread.
 	void ProcessCacheReadChunk(FileHandle &handle, const string &version_tag, CacheReadChunk cache_read_chunk);
 
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
 	// In-memory cache to store blocks; late initialized after first access.
-	unique_ptr<InMemoryDataCacheStorage> storage;
+	// shared_ptr so the `ObjectCacheStorage` backend (M2) can hand out weak_ptr back-refs to its blocks.
+	shared_ptr<InMemoryDataCacheStorage> storage;
 };
 
 } // namespace duckdb
