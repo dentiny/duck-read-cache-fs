@@ -8,7 +8,6 @@
 #include "duckdb/storage/object_cache.hpp"
 #include "page_aligned_data_chunk.hpp"
 #include "time_utils.hpp"
-#include "url_utils.hpp"
 
 #include <cstdint>
 #include <utility>
@@ -49,8 +48,7 @@ struct CacheHttpfsDataBlock : public ObjectCacheEntry {
 namespace {
 
 string MakeObjCacheKey(const InMemCacheBlock &key) {
-	const SanitizedCachePath sanitized {key.fname};
-	return StringUtil::Format("cache_httpfs/data/%s:%llu:%llu", sanitized.Path(), key.start_off, key.blk_size);
+	return StringUtil::Format("cache_httpfs/data/%s:%llu:%llu", key.fname, key.start_off, key.blk_size);
 }
 
 } // namespace

@@ -7,7 +7,6 @@
 #include "duckdb/common/multi_file/multi_file_list.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "in_memory_cache_reader.hpp"
-#include "utils/include/url_utils.hpp"
 
 namespace duckdb {
 
@@ -42,7 +41,7 @@ connection_t GetConnectionIdFromContext(const QueryContext &context) {
 } // namespace
 
 CacheFileSystem::FileHandleCacheKey::FileHandleCacheKey(const string &path_arg, FileOpenFlags flags_arg)
-    : path(SanitizedCachePath(path_arg).Path()), flags(flags_arg | FileFlags::FILE_FLAGS_PARALLEL_ACCESS) {
+    : path(path_arg), flags(flags_arg | FileFlags::FILE_FLAGS_PARALLEL_ACCESS) {
 }
 
 CacheFileSystemHandle::CacheFileSystemHandle(unique_ptr<FileHandle> internal_file_handle_p, CacheFileSystem &fs,
@@ -173,11 +172,10 @@ void CacheFileSystem::ClearFileHandleCache(const string &filepath) {
 	if (file_handle_cache == nullptr) {
 		return;
 	}
-	const SanitizedCachePath cache_key {filepath};
 	// Start from the first key for this path (ordered by path, flags).
-	const FileHandleCacheKey start_key {cache_key.Path(), FileOpenFlags()};
+	const FileHandleCacheKey start_key {filepath, FileOpenFlags()};
 	auto file_handles = file_handle_cache->ClearAndGetValues(
-	    start_key, [&cache_key](const FileHandleCacheKey &handle_key) { return handle_key.path == cache_key.Path(); });
+	    start_key, [&filepath](const FileHandleCacheKey &handle_key) { return handle_key.path == filepath; });
 	for (auto &cur_file_handle : file_handles) {
 		cur_file_handle->Close();
 	}
@@ -225,16 +223,15 @@ void CacheFileSystem::ClearCache(const string &filepath, connection_t conn_id) {
 	auto state = instance_state.lock();
 	auto &collector = GetProfileCollectorOrThrow(state, conn_id);
 	const auto latency_guard = collector.RecordOperationStart(IoOperation::kFilePathCacheClear);
-	const SanitizedCachePath cache_key {filepath};
 	if (metadata_cache != nullptr) {
-		metadata_cache->Clear(cache_key.Path(), [&cache_key](const string &key) { return key == cache_key.Path(); });
+		metadata_cache->Clear(filepath, [&filepath](const string &key) { return key == filepath; });
 	}
 	if (glob_cache != nullptr) {
-		glob_cache->Clear(cache_key.Path(), [&cache_key](const string &key) { return key == cache_key.Path(); });
+		glob_cache->Clear(filepath, [&filepath](const string &key) { return key == filepath; });
 	}
-	ClearFileHandleCache(cache_key);
+	ClearFileHandleCache(filepath);
 	// TODO(hjiang): This seems a duplicate function call, extension statement funtion has already cleared the cache.
-	state->cache_reader_manager.ClearCache(cache_key);
+	state->cache_reader_manager.ClearCache(filepath);
 }
 
 bool CacheFileSystem::CanHandleFile(const string &fpath) {
@@ -332,7 +329,7 @@ FileMetadata CacheFileSystem::Stats(FileHandle &handle) {
 
 	// Stat with cache.
 	bool metadata_cache_hit = true;
-	const SanitizedCachePath cache_key {disk_cache_handle.internal_file_handle->GetPath()};
+	const string cache_key = disk_cache_handle.internal_file_handle->GetPath();
 	auto metadata = metadata_cache->GetOrCreate(cache_key, [this, &disk_cache_handle,
 	                                                        &metadata_cache_hit](const string & /*unused*/) {
 		metadata_cache_hit = false;
@@ -562,7 +559,7 @@ timestamp_t CacheFileSystem::GetLastModifiedTime(FileHandle &handle) {
 
 	// Stat with cache.
 	bool metadata_cache_hit = true;
-	const SanitizedCachePath cache_key {disk_cache_handle.internal_file_handle->GetPath()};
+	const string cache_key = disk_cache_handle.internal_file_handle->GetPath();
 	auto metadata = metadata_cache->GetOrCreate(cache_key, [this, &disk_cache_handle,
 	                                                        &metadata_cache_hit](const string & /*unused*/) {
 		metadata_cache_hit = false;
@@ -587,7 +584,7 @@ int64_t CacheFileSystem::GetFileSize(FileHandle &handle) {
 
 	// Stat with cache.
 	bool metadata_cache_hit = true;
-	const SanitizedCachePath cache_key {disk_cache_handle.internal_file_handle->GetPath()};
+	const string cache_key = disk_cache_handle.internal_file_handle->GetPath();
 	auto metadata = metadata_cache->GetOrCreate(cache_key, [this, &disk_cache_handle,
 	                                                        &metadata_cache_hit](const string & /*unused*/) {
 		metadata_cache_hit = false;

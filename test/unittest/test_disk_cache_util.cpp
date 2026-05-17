@@ -63,12 +63,19 @@ TEST_CASE("Get remote file information from local cache filename", "[disk_cache_
 	REQUIRE(info.end_offset == 4096);
 }
 
-TEST_CASE("DiskCacheUtil::GetLocalCacheFilePrefix - query and fragment stripped", "[disk_cache_util]") {
+TEST_CASE("DiskCacheUtil::GetLocalCacheFilePrefix - query string differentiates cache key", "[disk_cache_util]") {
 	const string url_plain = "https://example.com/file.parquet";
 	const string url_with_query = "https://example.com/file.parquet?version=1";
+	const string url_with_other_query = "https://example.com/file.parquet?version=2";
 
-	REQUIRE(DiskCacheUtil::GetLocalCacheFilePrefix(url_plain) ==
+	// URLs differing by query string must produce different prefixes (different on-disk cache files).
+	REQUIRE(DiskCacheUtil::GetLocalCacheFilePrefix(url_plain) !=
 	        DiskCacheUtil::GetLocalCacheFilePrefix(url_with_query));
+	REQUIRE(DiskCacheUtil::GetLocalCacheFilePrefix(url_with_query) !=
+	        DiskCacheUtil::GetLocalCacheFilePrefix(url_with_other_query));
+
+	// The human-readable filename portion (after the SHA prefix) is still the sanitized basename.
+	REQUIRE(StringUtil::EndsWith(DiskCacheUtil::GetLocalCacheFilePrefix(url_with_query), "-file.parquet"));
 }
 
 TEST_CASE("ResolveLocalCacheDestination - normal filepath, no fallback for oversized filepath and filename",

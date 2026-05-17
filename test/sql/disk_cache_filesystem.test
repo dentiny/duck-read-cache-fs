@@ -34,7 +34,7 @@ SELECT * FROM cache_httpfs_cache_status_query();
 
 # Test uncached query.
 query IIIIII
-SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=1');
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
 ----
 1	Africa	Lesotho	HYBSE	NULL	2019-03-25
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
@@ -290,7 +290,7 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 
 # Test cached query.
 query IIIIII
-SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=2') LIMIT 5;
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv') LIMIT 5;
 ----
 1	Africa	Lesotho	HYBSE	NULL	2019-03-25
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
@@ -306,7 +306,7 @@ SELECT * FROM cache_httpfs_cache_status_query();
 ----
 
 query I
-SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3');
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
 ----
 251
 
@@ -321,7 +321,7 @@ query IIIII
 SELECT * FROM cache_httpfs_cache_status_query();
 ----
 (no disk cache)	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	in-mem-disk-cache
-/tmp/duckdb_cache_httpfs_cache/c1b7e15bc8fe00a09fd6ea693ca6bdf109f622f26f4c6b34ad568a300854b5e2-stock-exchanges.csv-0-16222	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=3	0	16222	on-disk
+/tmp/duckdb_cache_httpfs_cache/c1b7e15bc8fe00a09fd6ea693ca6bdf109f622f26f4c6b34ad568a300854b5e2-stock-exchanges.csv-0-16222	https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv	0	16222	on-disk
 
 # Query parquet file.
 query I
@@ -338,7 +338,7 @@ SELECT cache_httpfs_clear_cache();
 
 # Uncached read.
 query IIIIII
-SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=4') LIMIT 3;
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv') LIMIT 3;
 ----
 1	Africa	Lesotho	HYBSE	NULL	2019-03-25
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18
@@ -346,7 +346,7 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 
 # Cached read.
 query IIIIII
-SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv?cache_test=5') LIMIT 3;
+SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv') LIMIT 3;
 ----
 1	Africa	Lesotho	HYBSE	NULL	2019-03-25
 2	Asia	Kazakhstan	Astana International Financial Centre	AIXK	2018-11-18

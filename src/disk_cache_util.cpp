@@ -11,6 +11,7 @@
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "scope_guard.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/hash_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
@@ -87,12 +88,11 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
                                                                                 idx_t bytes_to_read) {
 	ALWAYS_ASSERT(!cache_directories.empty());
 
-	const SanitizedCachePath cache_key {remote_file};
 	duckdb::hash_bytes remote_file_sha256_val;
 	static_assert(sizeof(remote_file_sha256_val) == 32);
-	duckdb::sha256(cache_key.Path().data(), cache_key.Path().length(), remote_file_sha256_val);
-	const string remote_file_sha256_str = GetSha256(cache_key.Path());
-	const string fname = StringUtil::GetFileName(cache_key.Path());
+	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
+	const string remote_file_sha256_str = GetSha256(remote_file);
+	const string fname = StringUtil::GetFileName(SanitizedCachePath(remote_file).Path());
 
 	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
 	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
@@ -148,12 +148,11 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 }
 
 /*static*/ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
-	const SanitizedCachePath cache_key {remote_file};
 	duckdb::hash_bytes remote_file_sha256_val;
-	duckdb::sha256(cache_key.Path().data(), cache_key.Path().length(), remote_file_sha256_val);
+	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
 
-	const string fname = StringUtil::GetFileName(cache_key.Path());
+	const string fname = StringUtil::GetFileName(SanitizedCachePath(remote_file).Path());
 	return StringUtil::Format("%s-%s", remote_file_sha256_str, fname);
 }
 
@@ -192,6 +191,11 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 		return;
 	}
 
+	// Temporary file is removed after write completion whatever.
+	SCOPE_EXIT {
+		local_filesystem.TryRemoveFile(cache_dest.temp_local_filepath);
+	};
+
 	// Dump to a unique temporary location at local filesystem, since there could be multiple processes writing cache
 	// file for the same remote file.
 	{
@@ -208,22 +212,21 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 		file_handle->Sync();
 	}
 
+	// Store validation metadata before publishing the cache file. Otherwise a concurrent reader can observe the moved
+	// file before xattrs are attached and invalidate it as a mismatched cache entry.
+	if (!version_tag.empty() && !SetCacheVersion(cache_dest.temp_local_filepath, version_tag)) {
+		return;
+	}
+	if (!cache_dest.file_attrs.empty() && !SetFileAttributes(cache_dest.temp_local_filepath, cache_dest.file_attrs)) {
+		return;
+	}
+
 	// Then atomically move to the target postion to prevent data corruption due to concurrent write.
 	//
 	// TODO(hjiang): Provide a way to cleanup temporary files.
 	// Issue reference: https://github.com/dentiny/duck-read-cache-fs/issues/422
 	local_filesystem.MoveFile(/*source=*/cache_dest.temp_local_filepath,
 	                          /*target=*/cache_dest.dest_local_filepath);
-
-	// Store version tag in extended attributes for validation.
-	if (!version_tag.empty()) {
-		SetCacheVersion(cache_dest.dest_local_filepath, version_tag);
-	}
-
-	// Store chunked filepath attributes for original local cache access.
-	if (!cache_dest.file_attrs.empty()) {
-		SetFileAttributes(cache_dest.dest_local_filepath, cache_dest.file_attrs);
-	}
 }
 
 /*static*/ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath,

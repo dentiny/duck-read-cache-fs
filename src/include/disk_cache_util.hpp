@@ -91,7 +91,7 @@ public:
 	};
 
 	// Attempt to open, validate, and read a local cache file at the already-resolved [cache_filepath].
-	// If the local cache file doesn't match requested [version_tag], it will be deleted.
+	// If the local cache file doesn't match the requested [version_tag], it will be deleted.
 	// Uses direct I/O when [options.attempt_direct_io] is true and conditions allow (avoids double buffering).
 	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size,
 	                                               const string &version_tag, const ReadOption &options);
