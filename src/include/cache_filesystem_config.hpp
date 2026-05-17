@@ -1,12 +1,11 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 
+#include "duckdb/common/array.hpp"
 #include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
-#include "duckdb/common/unordered_set.hpp"
 #include "duckdb/common/vector.hpp"
 #include "no_destructor.hpp"
 #include "size_literals.hpp"
@@ -19,7 +18,7 @@ namespace duckdb {
 extern const NoDestructor<string> NOOP_CACHE_TYPE;
 extern const NoDestructor<string> ON_DISK_CACHE_TYPE;
 extern const NoDestructor<string> IN_MEM_CACHE_TYPE;
-extern const NoDestructor<unordered_set<string>> ALL_CACHE_TYPES;
+extern const array<string, 3> ALL_CACHE_TYPES;
 
 // Cache reader names.
 extern const NoDestructor<string> NOOP_CACHE_READER_NAME;
@@ -37,13 +36,12 @@ extern const NoDestructor<string> NOOP_PROFILE_TYPE;
 extern const NoDestructor<string> TEMP_PROFILE_TYPE;
 // Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
 extern const NoDestructor<string> PERSISTENT_PROFILE_TYPE;
-extern const NoDestructor<unordered_set<string>> ALL_PROFILE_TYPES;
+extern const array<string, 3> ALL_PROFILE_TYPES;
 
 // In-memory data block cache storage backend.
 extern const NoDestructor<string> EXT_BOUNDED_STORAGE;
 extern const NoDestructor<string> OBJECT_CACHE_STORAGE;
-// TODO(hjiang): should use array instead of set.
-extern const NoDestructor<unordered_set<string>> ALL_IN_MEM_CACHE_STORAGES;
+extern const array<string, 2> ALL_IN_MEM_CACHE_STORAGES;
 
 //===--------------------------------------------------------------------===//
 // Default configuration
