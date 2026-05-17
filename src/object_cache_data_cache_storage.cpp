@@ -15,8 +15,6 @@
 
 namespace duckdb {
 
-namespace {
-
 // Inner ObjectCache entry that owns the page-aligned chunk.
 struct CacheHttpfsDataBlock : public ObjectCacheEntry {
 	static constexpr const char *OBJECT_TYPE = "CacheHttpfsDataBlock";
@@ -45,6 +43,8 @@ struct CacheHttpfsDataBlock : public ObjectCacheEntry {
 		return optional_idx(data.length);
 	}
 };
+
+namespace {
 
 string MakeObjCacheKey(const InMemCacheBlock &key) {
 	const SanitizedCachePath sanitized {key.fname};
