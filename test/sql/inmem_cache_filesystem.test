@@ -6,6 +6,12 @@ require cache_httpfs
 
 require parquet
 
+# Run the entire suite under both in-memory storage backends.
+foreach storage extension object_cache
+
+statement ok
+SET cache_httpfs_in_mem_cache_storage='${storage}';
+
 statement ok
 SET cache_httpfs_type='in_mem';
 
@@ -338,3 +344,5 @@ SELECT * FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read
 # Clear cache after test.
 statement ok
 SELECT cache_httpfs_clear_cache();
+
+endloop
