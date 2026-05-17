@@ -3,7 +3,7 @@
 // Covers the design's required scenarios:
 //   - destructor-driven map sync on global LRU eviction
 //   - timeout-based lazy expiry on Get
-//   - clear-on-switch (Clear() drains both our map and OC)
+//   - clear-on-switch (Clear() drains both our map and ObjectCache)
 //   - prefix-scoped Clear(start_key, filter) for file-level invalidation
 //   - replace-on-duplicate-Put preserves a single map entry with the latest version_tag
 //   - concurrent Put/Get does not race (TSan-clean)
@@ -69,7 +69,7 @@ TEST_CASE("ObjectCacheStorage Get miss on unknown key", "[object cache storage]"
 	REQUIRE(storage->Keys().empty());
 }
 
-TEST_CASE("ObjectCacheStorage destructor-driven map sync on OC eviction", "[object cache storage]") {
+TEST_CASE("ObjectCacheStorage destructor-driven map sync on ObjectCache eviction", "[object cache storage]") {
 	DuckDB db;
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 
@@ -77,10 +77,10 @@ TEST_CASE("ObjectCacheStorage destructor-driven map sync on OC eviction", "[obje
 	PutBlock(*storage, "/foo", 1024, 1024, "v1");
 	REQUIRE(storage->Keys().size() == 2);
 
-	// Force eviction by asking OC to free more bytes than we hold; this drops every entry whose
-	// shared_ptr we don't pin. Destructors fire on this thread => our map drains in lock-step.
-	auto &oc = db.instance->GetObjectCache();
-	const idx_t evicted = oc.EvictToReduceMemory(oc.GetCurrentMemory());
+	// Force eviction by asking ObjectCache to free more bytes than we hold; this drops every entry
+	// whose shared_ptr we don't pin. Destructors fire on this thread => our map drains in lock-step.
+	auto &obj_cache = db.instance->GetObjectCache();
+	const idx_t evicted = obj_cache.EvictToReduceMemory(obj_cache.GetCurrentMemory());
 	REQUIRE(evicted > 0);
 	REQUIRE(storage->Keys().empty());
 }
@@ -94,12 +94,12 @@ TEST_CASE("ObjectCacheStorage timeout invalidates on Get", "[object cache storag
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-	// Stale entry => Get returns nullopt and triggers an OC::Delete; destructor finalises map.
+	// Stale entry => Get returns nullopt and triggers an ObjectCache::Delete; destructor finalises map.
 	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/foo", 0, 1024}));
 	REQUIRE(storage->Keys().empty());
 }
 
-TEST_CASE("ObjectCacheStorage Clear drains map and OC", "[object cache storage]") {
+TEST_CASE("ObjectCacheStorage Clear drains map and ObjectCache", "[object cache storage]") {
 	DuckDB db;
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 
@@ -114,9 +114,9 @@ TEST_CASE("ObjectCacheStorage Clear drains map and OC", "[object cache storage]"
 	storage->Clear();
 
 	REQUIRE(storage->Keys().empty());
-	// Every block we owned has been dropped from OC; OC's accounting is back to whatever was
-	// there before (which may not be zero because the CacheHttpfsInstanceState entry itself is
-	// stored in OC, but it is non-evictable and unaccounted).
+	// Every block we owned has been dropped from ObjectCache; its accounting is back to whatever
+	// was there before (which may not be zero because the CacheHttpfsInstanceState entry itself
+	// is stored in ObjectCache, but it is non-evictable and unaccounted).
 	REQUIRE(db.instance->GetObjectCache().GetCurrentMemory() == 0);
 }
 
@@ -156,7 +156,7 @@ TEST_CASE("ObjectCacheStorage replace-on-duplicate-Put keeps single map entry wi
 	REQUIRE(pinned->Data().data()[0] == '2');
 }
 
-TEST_CASE("ObjectCacheStorage Delete removes both map and OC entry", "[object cache storage]") {
+TEST_CASE("ObjectCacheStorage Delete removes both map and ObjectCache entry", "[object cache storage]") {
 	DuckDB db;
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 
@@ -214,8 +214,9 @@ TEST_CASE("ObjectCacheStorage concurrent Put and Get", "[object cache storage]")
 		th.join();
 	}
 
-	// Each key is unique to its thread; every Get should hit unless OC LRU evicted some entries.
-	// With 8 * 32 * 256 = 64KiB total, there's no chance of OC eviction (default 8 GiB cap).
+	// Each key is unique to its thread; every Get should hit unless ObjectCache LRU evicted some
+	// entries. With 8 * 32 * 256 = 64KiB total, there's no chance of ObjectCache eviction
+	// (default 8 GiB cap).
 	REQUIRE(hits.load() == THREAD_COUNT * PER_THREAD);
 	REQUIRE(storage->Keys().size() == THREAD_COUNT * PER_THREAD);
 }

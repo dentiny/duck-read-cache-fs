@@ -48,13 +48,10 @@ public:
 
 private:
 	struct EntryMeta {
-		string oc_key;
+		string obj_cache_key;
 		idx_t length = 0;
 		string version_tag;
 		uint64_t insertion_time_ms = 0;
-		// Identity of the block currently installed under `oc_key`. The destructor compares against
-		// this so a lingering ~CacheHttpfsDataBlock from a previously-displaced block cannot evict
-		// the metadata of the block that replaced it.
 		const CacheHttpfsDataBlock *block_ptr = nullptr;
 	};
 
@@ -62,6 +59,9 @@ private:
 	const uint64_t timeout_millisec;
 
 	mutable concurrency::mutex mu;
+	// Record to clear all cache entries, use ordered map for range query.
+	// When a cache entry is evicted from object cache, it's also removed from `entries` to keep consistency and avoid
+	// memory leak.
 	map<InMemCacheBlock, EntryMeta, InMemCacheBlockLess> entries DUCKDB_GUARDED_BY(mu);
 };
 

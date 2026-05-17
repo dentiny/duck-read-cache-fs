@@ -30,6 +30,7 @@ public:
 
 private:
 	shared_ptr<void> keep_alive;
+	// Owned by `keep_alive`.
 	const PageAlignedDataChunk *chunk;
 	string version_tag;
 };
@@ -42,7 +43,6 @@ public:
 	virtual void Put(InMemCacheBlock key, PageAlignedDataChunk chunk, string version_tag) = 0;
 
 	// Returns nullopt on miss or if the entry is no longer valid (e.g. timed out).
-	// The returned PinnedBlock pins the underlying bytes for the duration of its lifetime.
 	virtual optional<PinnedBlock> Get(const InMemCacheBlock &key) = 0;
 
 	// Returns true if [key] was present and removed.
@@ -57,8 +57,7 @@ public:
 	// Snapshot of currently-live keys; ordering is unspecified.
 	virtual vector<InMemCacheBlock> Keys() const = 0;
 
-	// Drain all entries. Each returned entry owns its chunk (in `object_cache` mode the corresponding
-	// ObjectCache entry has been removed before the chunk was moved out).
+	// Drain all entries.
 	virtual vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> Take() = 0;
 };
 
