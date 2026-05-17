@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <utility>
@@ -44,7 +45,7 @@ public:
 	vector<InMemCacheBlock> Keys() const override;
 	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> Take() override;
 
-	void OnEntryDestroyed(const InMemCacheBlock &key, const CacheHttpfsDataBlock *block) noexcept;
+	void OnEntryDestroyed(const InMemCacheBlock &key, uint64_t block_id) noexcept;
 
 private:
 	struct EntryMeta {
@@ -52,12 +53,14 @@ private:
 		idx_t length = 0;
 		string version_tag;
 		uint64_t insertion_time_ms = 0;
-		const CacheHttpfsDataBlock *block_ptr = nullptr;
+		uint64_t block_id = 0;
 	};
 
 	DatabaseInstance &db_instance;
 	// TODO(hjiang): the extension provides configurable timeout.
 	const uint64_t timeout_millisec;
+	// Monotonically increasing per-storage-instance counter used to identify a block.
+	std::atomic<uint64_t> next_block_id {0};
 
 	mutable concurrency::mutex mu;
 	// Record to clear all cache entries, use ordered map for range query.

@@ -22,14 +22,16 @@ struct CacheHttpfsDataBlock : public ObjectCacheEntry {
 	InMemCacheBlock key;
 	weak_ptr<ObjectCacheStorage> storage;
 	PageAlignedDataChunk data;
+	uint64_t block_id;
 
-	CacheHttpfsDataBlock(InMemCacheBlock key_p, weak_ptr<ObjectCacheStorage> storage_p, PageAlignedDataChunk data_p)
-	    : key(std::move(key_p)), storage(std::move(storage_p)), data(std::move(data_p)) {
+	CacheHttpfsDataBlock(InMemCacheBlock key_p, weak_ptr<ObjectCacheStorage> storage_p, PageAlignedDataChunk data_p,
+	                     uint64_t block_id_p)
+	    : key(std::move(key_p)), storage(std::move(storage_p)), data(std::move(data_p)), block_id(block_id_p) {
 	}
 
 	~CacheHttpfsDataBlock() override {
 		if (auto s = storage.lock()) {
-			s->OnEntryDestroyed(key, this);
+			s->OnEntryDestroyed(key, block_id);
 		}
 	}
 
@@ -70,19 +72,19 @@ void ObjectCacheStorage::Put(InMemCacheBlock key, PageAlignedDataChunk chunk, st
 	string obj_cache_key = MakeObjCacheKey(key);
 	const idx_t length = chunk.length;
 	const uint64_t now = NumericCast<uint64_t>(GetSteadyNowMilliSecSinceEpoch());
+	const uint64_t block_id = next_block_id.fetch_add(1);
 
-	auto block =
-	    make_shared_ptr<CacheHttpfsDataBlock>(key, weak_ptr<ObjectCacheStorage>(shared_from_this()), std::move(chunk));
-	const CacheHttpfsDataBlock *block_ptr = block.get();
+	auto block = make_shared_ptr<CacheHttpfsDataBlock>(key, weak_ptr<ObjectCacheStorage>(shared_from_this()),
+	                                                   std::move(chunk), block_id);
 
 	EntryMeta meta;
-	meta.obj_cache_key = std::move(obj_cache_key);
+	meta.obj_cache_key = obj_cache_key;
 	meta.length = length;
 	meta.version_tag = std::move(version_tag);
 	meta.insertion_time_ms = now;
-	meta.block_ptr = block_ptr;
+	meta.block_id = block_id;
 
-	db_instance.GetObjectCache().Put(obj_cache_key, std::move(block));
+	db_instance.GetObjectCache().Put(std::move(obj_cache_key), std::move(block));
 	{
 		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		entries[std::move(key)] = std::move(meta);
@@ -219,13 +221,13 @@ vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> ObjectCacheS
 	return result;
 }
 
-void ObjectCacheStorage::OnEntryDestroyed(const InMemCacheBlock &key, const CacheHttpfsDataBlock *block) noexcept {
+void ObjectCacheStorage::OnEntryDestroyed(const InMemCacheBlock &key, uint64_t block_id) noexcept {
 	const concurrency::lock_guard<concurrency::mutex> lock(mu);
 	auto it = entries.find(key);
 	if (it == entries.end()) {
 		return;
 	}
-	if (it->second.block_ptr != block) {
+	if (it->second.block_id != block_id) {
 		// A newer block has replaced this one; preserve the new metadata.
 		return;
 	}
