@@ -59,12 +59,9 @@ ObjectCacheStorage::ObjectCacheStorage(DatabaseInstance &db_instance_p, uint64_t
     : db_instance(db_instance_p), timeout_millisec(timeout_millisec_p) {
 }
 
-ObjectCacheStorage::~ObjectCacheStorage() {
-	auto &obj_cache = db_instance.GetObjectCache();
-	for (const auto &kv : entries) {
-		obj_cache.Delete(kv.second.obj_cache_key);
-	}
-}
+// ObjectCacheStorage is owned  by ObjectCache, and the destructor is only called when object cache destructs.
+// So we cannot (and there's no reason to)delete cache entries here, otherwise invalid memory access.
+ObjectCacheStorage::~ObjectCacheStorage() noexcept = default;
 
 void ObjectCacheStorage::Put(InMemCacheBlock key, PageAlignedDataChunk chunk, string version_tag) {
 	ALWAYS_ASSERT(chunk.length > 0);
