@@ -16,7 +16,7 @@ namespace duckdb {
 const NoDestructor<string> NOOP_CACHE_TYPE {"noop"};
 const NoDestructor<string> ON_DISK_CACHE_TYPE {"on_disk"};
 const NoDestructor<string> IN_MEM_CACHE_TYPE {"in_mem"};
-const NoDestructor<unordered_set<string>> ALL_CACHE_TYPES {{*NOOP_CACHE_TYPE, *ON_DISK_CACHE_TYPE, *IN_MEM_CACHE_TYPE}};
+const std::array<const string *, 3> ALL_CACHE_TYPES {{&*NOOP_CACHE_TYPE, &*ON_DISK_CACHE_TYPE, &*IN_MEM_CACHE_TYPE}};
 
 // Cache reader names.
 const NoDestructor<string> NOOP_CACHE_READER_NAME {"noop_cache_reader"};
@@ -34,13 +34,13 @@ const NoDestructor<string> NOOP_PROFILE_TYPE {"noop"};
 const NoDestructor<string> TEMP_PROFILE_TYPE {"temp"};
 // Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
 const NoDestructor<string> PERSISTENT_PROFILE_TYPE {"duckdb"};
-const NoDestructor<unordered_set<string>> ALL_PROFILE_TYPES {
-    {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE, *PERSISTENT_PROFILE_TYPE}};
+const std::array<const string *, 3> ALL_PROFILE_TYPES {
+    {&*NOOP_PROFILE_TYPE, &*TEMP_PROFILE_TYPE, &*PERSISTENT_PROFILE_TYPE}};
 
 // In-memory data block cache storage backend.
 const NoDestructor<string> EXT_BOUNDED_STORAGE {"extension"};
 const NoDestructor<string> OBJECT_CACHE_STORAGE {"object_cache"};
-const NoDestructor<unordered_set<string>> ALL_IN_MEM_CACHE_STORAGES {{*EXT_BOUNDED_STORAGE, *OBJECT_CACHE_STORAGE}};
+const std::array<const string *, 2> ALL_IN_MEM_CACHE_STORAGES {{&*EXT_BOUNDED_STORAGE, &*OBJECT_CACHE_STORAGE}};
 
 //===--------------------------------------------------------------------===//
 // Default configuration definitions

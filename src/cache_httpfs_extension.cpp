@@ -252,10 +252,13 @@ void EnsureHttpfsExtensionLoaded(ExtensionLoader &loader, DatabaseInstance &inst
 //===--------------------------------------------------------------------===//
 
 void SetCacheType(DatabaseInstance &duckdb_instance, string cache_type_str) {
-	if (ALL_CACHE_TYPES->find(cache_type_str) == ALL_CACHE_TYPES->end()) {
-		vector<string> valid_types(ALL_CACHE_TYPES->begin(), ALL_CACHE_TYPES->end());
+	const auto it = std::find_if(ALL_CACHE_TYPES.begin(), ALL_CACHE_TYPES.end(),
+	                             [&cache_type_str](const string *s) { return *s == cache_type_str; });
+	if (it == ALL_CACHE_TYPES.end()) {
+		auto valid_types =
+		    StringUtil::Join(ALL_CACHE_TYPES, ALL_CACHE_TYPES.size(), ", ", [](const string *s) { return *s; });
 		throw InvalidInputException("Invalid cache_httpfs_type '%s'. Valid options are: %s", cache_type_str,
-		                            StringUtil::Join(valid_types, ", "));
+		                            valid_types);
 	}
 	auto &instance_state = GetInstanceStateOrThrow(duckdb_instance);
 	instance_state.config.cache_type = std::move(cache_type_str);
@@ -438,10 +441,13 @@ void UpdateInMemCacheBlockTimeout(ClientContext &context, SetScope scope, Value 
 
 void UpdateInMemCacheStorage(ClientContext &context, SetScope scope, Value &parameter) {
 	auto storage_str = parameter.ToString();
-	if (ALL_IN_MEM_CACHE_STORAGES->find(storage_str) == ALL_IN_MEM_CACHE_STORAGES->end()) {
-		vector<string> valid_values(ALL_IN_MEM_CACHE_STORAGES->begin(), ALL_IN_MEM_CACHE_STORAGES->end());
+	const auto it = std::find_if(ALL_IN_MEM_CACHE_STORAGES.begin(), ALL_IN_MEM_CACHE_STORAGES.end(),
+	                             [&storage_str](const string *s) { return *s == storage_str; });
+	if (it == ALL_IN_MEM_CACHE_STORAGES.end()) {
+		auto valid_values = StringUtil::Join(ALL_IN_MEM_CACHE_STORAGES, ALL_IN_MEM_CACHE_STORAGES.size(), ", ",
+		                                     [](const string *s) { return *s; });
 		throw InvalidInputException("Invalid cache_httpfs_in_mem_cache_storage '%s'. Valid options are: %s",
-		                            storage_str, StringUtil::Join(valid_values, ", "));
+		                            storage_str, valid_values);
 	}
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	inst_state.config.in_mem_cache_storage = std::move(storage_str);
