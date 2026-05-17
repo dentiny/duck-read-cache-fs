@@ -91,19 +91,22 @@ public:
 	};
 
 	// Attempt to open, validate, and read a local cache file at the already-resolved [cache_filepath].
-	// If the local cache file doesn't match requested [version_tag], it will be deleted.
+	// If the local cache file doesn't match requested [version_tag] or [original_remote_path], it will be deleted.
 	// Uses direct I/O when [options.attempt_direct_io] is true and conditions allow (avoids double buffering).
 	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size,
-	                                               const string &version_tag, const ReadOption &options);
+	                                               const string &version_tag, const string &original_remote_path,
+	                                               const ReadOption &options);
 
 	// Remove dead temporary cache files (write-to-temp-then-swap leftovers) under [cache_directories].
 	// Returns the number of files deleted.
 	static idx_t CleanupDeadTempFiles(const vector<string> &cache_directories);
 
 private:
-	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
+	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag] and
+	// [original_remote_path].
 	// Empty version tag means cache validation is disabled.
-	static bool ValidateCacheFile(const string &cache_filepath, const string &version_tag);
+	static bool ValidateCacheFile(const string &cache_filepath, const string &version_tag,
+	                              const string &original_remote_path);
 
 	// Attempt to evict cache files, if file size threshold reached.
 	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.

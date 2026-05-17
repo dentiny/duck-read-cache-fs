@@ -20,7 +20,6 @@
 #include "utils/include/page_aligned_data_chunk.hpp"
 #include "utils/include/thread_pool.hpp"
 #include "utils/include/thread_utils.hpp"
-#include "utils/include/url_utils.hpp"
 
 #include <cstdint>
 #include <utility>
@@ -135,7 +134,8 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 		    .attempt_direct_io = config.enable_disk_reader_mem_cache,
 		};
 		auto read_result = DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath,
-		                                                     cache_read_chunk.chunk_size, version_tag, read_options);
+		                                                     cache_read_chunk.chunk_size, version_tag, handle.GetPath(),
+		                                                     read_options);
 		if (read_result.cache_hit) {
 			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
@@ -337,11 +337,9 @@ void DiskCacheReader::ClearCache(const string &fname) {
 
 	// Delete in-memory cache for on-disk cache files.
 	if (in_mem_storage != nullptr) {
-		const SanitizedCachePath cache_key {fname};
 		// Start from the first block key for this file (ordered by fname, start_off, blk_size).
-		const InMemCacheBlock start_key {cache_key.Path(), /*start_off=*/0, /*blk_size=*/0};
-		in_mem_storage->Clear(start_key,
-		                      [&cache_key](const InMemCacheBlock &block) { return block.fname == cache_key.Path(); });
+		const InMemCacheBlock start_key {fname, /*start_off=*/0, /*blk_size=*/0};
+		in_mem_storage->Clear(start_key, [&fname](const InMemCacheBlock &block) { return block.fname == fname; });
 	}
 }
 

@@ -208,27 +208,29 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 		file_handle->Sync();
 	}
 
+	// Store validation metadata before publishing the cache file. Otherwise a concurrent reader can observe the moved
+	// file before xattrs are attached and invalidate it as a mismatched cache entry.
+	if (!version_tag.empty() && !SetCacheVersion(cache_dest.temp_local_filepath, version_tag)) {
+		local_filesystem.TryRemoveFile(cache_dest.temp_local_filepath);
+		return;
+	}
+	if (!cache_dest.file_attrs.empty() && !SetFileAttributes(cache_dest.temp_local_filepath, cache_dest.file_attrs)) {
+		local_filesystem.TryRemoveFile(cache_dest.temp_local_filepath);
+		return;
+	}
+
 	// Then atomically move to the target postion to prevent data corruption due to concurrent write.
 	//
 	// TODO(hjiang): Provide a way to cleanup temporary files.
 	// Issue reference: https://github.com/dentiny/duck-read-cache-fs/issues/422
 	local_filesystem.MoveFile(/*source=*/cache_dest.temp_local_filepath,
 	                          /*target=*/cache_dest.dest_local_filepath);
-
-	// Store version tag in extended attributes for validation.
-	if (!version_tag.empty()) {
-		SetCacheVersion(cache_dest.dest_local_filepath, version_tag);
-	}
-
-	// Store chunked filepath attributes for original local cache access.
-	if (!cache_dest.file_attrs.empty()) {
-		SetFileAttributes(cache_dest.dest_local_filepath, cache_dest.file_attrs);
-	}
 }
 
 /*static*/ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath,
                                                                                  idx_t chunk_size,
                                                                                  const string &version_tag,
+                                                                                 const string &original_remote_path,
                                                                                  const ReadOption &options) {
 	auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
 
@@ -246,7 +248,7 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	auto file_handle = local_filesystem.OpenFile(cache_filepath, file_open_flags);
 
 	// Check cache validity and clear if necessary.
-	if (file_handle != nullptr && !ValidateCacheFile(cache_filepath, version_tag)) {
+	if (file_handle != nullptr && !ValidateCacheFile(cache_filepath, version_tag, original_remote_path)) {
 		local_filesystem.TryRemoveFile(cache_filepath);
 		file_handle = nullptr;
 	}
@@ -270,7 +272,15 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	};
 }
 
-/*static*/ bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string &version_tag) {
+/*static*/ bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string &version_tag,
+                                                 const string &original_remote_path) {
+	if (!original_remote_path.empty()) {
+		const string cached_remote_path = TryGetOriginalRemotePath(cache_filepath);
+		if (cached_remote_path != original_remote_path) {
+			return false;
+		}
+	}
+
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;
