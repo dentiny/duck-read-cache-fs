@@ -56,6 +56,7 @@ private:
 	};
 
 	DatabaseInstance &db_instance;
+	// TODO(hjiang): the extension provides configurable timeout.
 	const uint64_t timeout_millisec;
 
 	mutable concurrency::mutex mu;

@@ -111,15 +111,13 @@ optional<PinnedBlock> ObjectCacheStorage::Get(const InMemCacheBlock &key) {
 
 	auto &obj_cache = db_instance.GetObjectCache();
 	if (stale) {
-		// Outside the lock: destructor finalises the map removal.
+		// `entries` is deleted by object cache entry deletion callback.
 		obj_cache.Delete(obj_cache_key);
 		return nullopt;
 	}
 
 	auto block = obj_cache.Get<CacheHttpfsDataBlock>(obj_cache_key);
 	if (block == nullptr) {
-		// ObjectCache LRU just evicted; destructor either fired already (map cleaned) or will fire
-		// when the lingering shared_ref drops. Treat as a miss.
 		return nullopt;
 	}
 
@@ -136,34 +134,29 @@ bool ObjectCacheStorage::Delete(const InMemCacheBlock &key) {
 		if (it == entries.end()) {
 			return false;
 		}
-		// The map entry is about to be erased by `OnEntryDestroyed`; safe to steal the string.
-		// A racing `Get` on the same key would see an empty `obj_cache_key` and just miss, which
-		// is fine since the block is being deleted anyway.
-		obj_cache_key = std::move(it->second.obj_cache_key);
+		// Don't move the object cache key out, since we could have concurrent access.
+		obj_cache_key = it->second.obj_cache_key;
 	}
+	// `entries` is deleted by object cache entry deletion callback.
 	db_instance.GetObjectCache().Delete(obj_cache_key);
 	return true;
 }
 
 void ObjectCacheStorage::Clear() {
-	// Snapshot ObjectCache keys under the lock, then call ObjectCache outside it (destructors
-	// re-enter `mu`). We move the strings out of the map: callbacks erase the entries shortly
-	// after anyway, so the moved-from values are inert; a racing `Get` would observe an empty
-	// `obj_cache_key` => miss, which is the desired behaviour during Clear.
+	auto &obj_cache = db_instance.GetObjectCache();
 	vector<string> obj_cache_keys;
 	{
 		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		obj_cache_keys.reserve(entries.size());
 		for (auto &kv : entries) {
-			obj_cache_keys.push_back(std::move(kv.second.obj_cache_key));
+			// Don't move the object cache key out, since we could have concurrent access.
+			obj_cache_keys.emplace_back(kv.second.obj_cache_key);
 		}
 	}
-	auto &obj_cache = db_instance.GetObjectCache();
+	// `entries` is deleted by object cache entry deletion callback.
 	for (const auto &obj_cache_key : obj_cache_keys) {
 		obj_cache.Delete(obj_cache_key);
 	}
-	// Map cleanup happens via destructor callbacks. Entries pinned by in-flight `Get`s linger
-	// until those readers release; the map drains as those refs drop.
 }
 
 void ObjectCacheStorage::Clear(const InMemCacheBlock &start_key, std::function<bool(const InMemCacheBlock &)> filter) {
@@ -174,7 +167,8 @@ void ObjectCacheStorage::Clear(const InMemCacheBlock &start_key, std::function<b
 			if (!filter(it->first)) {
 				break;
 			}
-			obj_cache_keys.push_back(std::move(it->second.obj_cache_key));
+			// Don't move the object cache key out, since we could have concurrent access.
+			obj_cache_keys.emplace_back(it->second.obj_cache_key);
 		}
 	}
 	auto &obj_cache = db_instance.GetObjectCache();
@@ -188,7 +182,7 @@ vector<InMemCacheBlock> ObjectCacheStorage::Keys() const {
 	vector<InMemCacheBlock> keys;
 	keys.reserve(entries.size());
 	for (const auto &kv : entries) {
-		keys.push_back(kv.first);
+		keys.emplace_back(kv.first);
 	}
 	return keys;
 }
@@ -203,11 +197,8 @@ vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> ObjectCacheS
 	{
 		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		snapshot.reserve(entries.size());
-		for (auto &kv : entries) {
-			// The map entries will be erased by `OnEntryDestroyed` after we call ObjectCache::Delete;
-			// safe to move obj_cache_key / version_tag out now.
-			snapshot.push_back(
-			    Snapshot {kv.first, std::move(kv.second.obj_cache_key), std::move(kv.second.version_tag)});
+		for (const auto &kv : entries) {
+			snapshot.emplace_back(Snapshot {kv.first, kv.second.obj_cache_key, kv.second.version_tag});
 		}
 	}
 
@@ -220,15 +211,10 @@ vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> ObjectCacheS
 			continue;
 		}
 		auto entry = make_shared_ptr<InMemCacheDataEntry>();
-		// Move the chunk out before ObjectCache drops its ref; ObjectCache's accounting will still
-		// see the original reserved bytes when the buffer pool reservation is released by
-		// `~BufferPoolPayload`.
 		entry->data = std::move(block->data);
 		entry->version_tag = std::move(snap.version_tag);
 		result.emplace_back(std::move(snap.key), std::move(entry));
 		obj_cache.Delete(snap.obj_cache_key);
-		// Drop our local ref; ~CacheHttpfsDataBlock fires and `OnEntryDestroyed` erases the map entry.
-		block.reset();
 	}
 	return result;
 }
