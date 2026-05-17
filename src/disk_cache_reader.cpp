@@ -12,8 +12,9 @@
 #include "disk_cache_util.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
-#include "extension_bounded_data_cache_storage.hpp"
+#include "duckdb/main/database.hpp"
 #include "in_mem_cache_remap.hpp"
+#include "in_memory_data_cache_storage.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
@@ -190,9 +191,10 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 
 	auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
 	const auto &config = instance_state_locked->config;
-	std::call_once(cache_init_flag, [this, &config]() {
+	std::call_once(cache_init_flag, [this, &config, &instance_state_locked]() {
 		if (config.enable_disk_reader_mem_cache) {
-			in_mem_storage = make_shared_ptr<ExtensionBoundedDataCacheStorage>(
+			in_mem_storage = BuildInMemoryDataCacheStorage(
+			    config.in_mem_cache_storage, instance_state_locked->db_instance,
 			    config.disk_reader_max_mem_cache_block_count, config.disk_reader_max_mem_cache_timeout_millisec);
 		}
 	});

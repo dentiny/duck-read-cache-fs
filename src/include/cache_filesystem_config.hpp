@@ -39,6 +39,12 @@ extern const NoDestructor<string> TEMP_PROFILE_TYPE;
 extern const NoDestructor<string> PERSISTENT_PROFILE_TYPE;
 extern const NoDestructor<unordered_set<string>> ALL_PROFILE_TYPES;
 
+// In-memory data block cache storage backend.
+extern const NoDestructor<string> EXT_BOUNDED_STORAGE;
+extern const NoDestructor<string> OBJECT_CACHE_STORAGE;
+// TODO(hjiang): should use array instead of set.
+extern const NoDestructor<unordered_set<string>> ALL_IN_MEM_CACHE_STORAGES;
+
 //===--------------------------------------------------------------------===//
 // Default configuration
 //===--------------------------------------------------------------------===//
@@ -46,6 +52,9 @@ extern const idx_t DEFAULT_CACHE_BLOCK_SIZE;
 
 // Default to use on-disk cache filesystem.
 extern const NoDestructor<string> DEFAULT_CACHE_TYPE;
+
+// Default to extension-managed in-memory data block cache storage.
+extern const NoDestructor<string> DEFAULT_IN_MEM_CACHE_STORAGE;
 
 // Default to timestamp-based on-disk cache eviction policy.
 extern const NoDestructor<string> DEFAULT_ON_DISK_EVICTION_POLICY;

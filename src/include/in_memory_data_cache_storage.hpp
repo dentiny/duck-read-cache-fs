@@ -13,7 +13,12 @@
 #include "optional.hpp"
 #include "page_aligned_data_chunk.hpp"
 
+#include "duckdb/common/optional_ptr.hpp"
+
 namespace duckdb {
+
+// Forward declarations.
+class DatabaseInstance;
 
 class PinnedBlock {
 public:
@@ -60,5 +65,10 @@ public:
 	// Drain all entries.
 	virtual vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> Take() = 0;
 };
+
+// Construct the storage backend selected by [mode].
+shared_ptr<InMemoryDataCacheStorage> BuildInMemoryDataCacheStorage(const string &mode,
+                                                                   optional_ptr<DatabaseInstance> db_instance,
+                                                                   size_t max_entries, uint64_t timeout_millisec);
 
 } // namespace duckdb

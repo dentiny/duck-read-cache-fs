@@ -37,6 +37,11 @@ const NoDestructor<string> PERSISTENT_PROFILE_TYPE {"duckdb"};
 const NoDestructor<unordered_set<string>> ALL_PROFILE_TYPES {
     {*NOOP_PROFILE_TYPE, *TEMP_PROFILE_TYPE, *PERSISTENT_PROFILE_TYPE}};
 
+// In-memory data block cache storage backend.
+const NoDestructor<string> EXT_BOUNDED_STORAGE {"extension"};
+const NoDestructor<string> OBJECT_CACHE_STORAGE {"object_cache"};
+const NoDestructor<unordered_set<string>> ALL_IN_MEM_CACHE_STORAGES {{*EXT_BOUNDED_STORAGE, *OBJECT_CACHE_STORAGE}};
+
 //===--------------------------------------------------------------------===//
 // Default configuration definitions
 //===--------------------------------------------------------------------===//
@@ -44,6 +49,9 @@ const idx_t DEFAULT_CACHE_BLOCK_SIZE = 512_KiB;
 
 // Default to use on-disk cache filesystem.
 const NoDestructor<string> DEFAULT_CACHE_TYPE {*ON_DISK_CACHE_TYPE};
+
+// Default to extension-managed in-memory data block cache storage.
+const NoDestructor<string> DEFAULT_IN_MEM_CACHE_STORAGE {*EXT_BOUNDED_STORAGE};
 
 // Default to timestamp-based on-disk cache eviction policy.
 const NoDestructor<string> DEFAULT_ON_DISK_EVICTION_POLICY {*ON_DISK_CREATION_TIMESTAMP_EVICTION};

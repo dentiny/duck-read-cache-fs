@@ -436,6 +436,17 @@ void UpdateInMemCacheBlockTimeout(ClientContext &context, SetScope scope, Value 
 	inst_state.config.in_mem_cache_block_timeout_millisec = timeout;
 }
 
+void UpdateInMemCacheStorage(ClientContext &context, SetScope scope, Value &parameter) {
+	auto storage_str = parameter.ToString();
+	if (ALL_IN_MEM_CACHE_STORAGES->find(storage_str) == ALL_IN_MEM_CACHE_STORAGES->end()) {
+		vector<string> valid_values(ALL_IN_MEM_CACHE_STORAGES->begin(), ALL_IN_MEM_CACHE_STORAGES->end());
+		throw InvalidInputException("Invalid cache_httpfs_in_mem_cache_storage '%s'. Valid options are: %s",
+		                            storage_str, StringUtil::Join(valid_values, ", "));
+	}
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.in_mem_cache_storage = std::move(storage_str);
+}
+
 void UpdateEnableMetadataCache(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	inst_state.config.enable_metadata_cache = parameter.GetValue<bool>();
@@ -693,6 +704,13 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          "Data block cache entry timeout in milliseconds.", LogicalTypeId::UBIGINT,
 	                          Value::UBIGINT(DEFAULT_IN_MEM_BLOCK_CACHE_TIMEOUT_MILLISEC),
 	                          UpdateInMemCacheBlockTimeout);
+	config.AddExtensionOption(
+	    "cache_httpfs_in_mem_cache_storage",
+	    "Storage backend for in-memory data block cache. 'extension' (default) uses an "
+	    "extension-managed LRU bounded by `cache_httpfs_max_in_mem_cache_block_count` and "
+	    "`cache_httpfs_in_mem_cache_block_timeout_millisec`. 'object_cache' parks blocks in DuckDB's "
+	    "per-instance ObjectCache. Must be set before any cache access for the change to take effect.",
+	    LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_IN_MEM_CACHE_STORAGE, UpdateInMemCacheStorage);
 
 	// Metadata cache config.
 	config.AddExtensionOption("cache_httpfs_enable_metadata_cache",

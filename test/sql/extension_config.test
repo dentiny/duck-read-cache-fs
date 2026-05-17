@@ -48,6 +48,25 @@ SELECT * FROM cache_httpfs_get_glob_cache_config();
 ----
 enabled		64
 
+# In-memory cache storage option. Default is 'extension'.
+query I
+SELECT current_setting('cache_httpfs_in_mem_cache_storage');
+----
+extension
+
+statement ok
+SET cache_httpfs_in_mem_cache_storage='object_cache';
+
+query I
+SELECT current_setting('cache_httpfs_in_mem_cache_storage');
+----
+object_cache
+
+statement error
+SET cache_httpfs_in_mem_cache_storage='nonsense';
+----
+Invalid cache_httpfs_in_mem_cache_storage
+
 # Test cache_httpfs_cache_directory, empty string falls back to default
 statement ok
 SET cache_httpfs_cache_directory='';
