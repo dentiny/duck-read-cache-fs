@@ -23,8 +23,8 @@ public:
 
 	~ExtensionBoundedDataCacheStorage() override = default;
 
-	void Put(InMemCacheBlock key, shared_ptr<InMemCacheDataEntry> value) override;
-	shared_ptr<InMemCacheDataEntry> Get(const InMemCacheBlock &key) override;
+	void Put(InMemCacheBlock key, PageAlignedDataChunk chunk, string version_tag) override;
+	optional<PinnedBlock> Get(const InMemCacheBlock &key, const string &expected_version_tag) override;
 	bool Delete(const InMemCacheBlock &key) override;
 	void Clear() override;
 	void Clear(const InMemCacheBlock &start_key, std::function<bool(const InMemCacheBlock &)> filter) override;

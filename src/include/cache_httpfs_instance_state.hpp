@@ -165,8 +165,9 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 
 	// Extension config for the current duckdb instance.
 	InstanceConfig config;
-	// Database config.
-	optional_ptr<DBConfig> db_config;
+	// Database instance; instance state is the stored in object cache (which is part of db instance), so data member is
+	// guanranteed valid.
+	optional_ptr<DatabaseInstance> db_instance;
 	// Cache filesystem registry.
 	InstanceCacheFsRegistry registry;
 	InstanceCacheReaderManager cache_reader_manager;

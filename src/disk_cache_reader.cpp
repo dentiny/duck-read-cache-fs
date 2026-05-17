@@ -46,14 +46,6 @@ string DiskCacheReader::EvictCacheBlockLru() {
 	return filepath;
 }
 
-bool DiskCacheReader::ValidateCacheEntry(const InMemCacheDataEntry &cache_entry, const string &version_tag) {
-	// Empty version tags means cache validation is disabled.
-	if (version_tag.empty()) {
-		return true;
-	}
-	return cache_entry.version_tag == version_tag;
-}
-
 // TODO(hjiang): For oversized filepath, both in-memory cache and on-disk cache stores resolved path, which uses SHA-256
 // instead of original filename, likely we should do a translation here. On-disk cache stores original filepath in file
 // attributes, in-memory cache should do the same thing.
@@ -119,16 +111,11 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 	// Attempt in-memory cache first, so potentially we don't need to access disk storage.
 	if (in_mem_storage != nullptr) {
-		auto cache_entry = in_mem_storage->Get(block_key);
-		if (cache_entry != nullptr && !ValidateCacheEntry(*cache_entry, version_tag)) {
-			in_mem_storage->Delete(block_key);
-			cache_entry = nullptr;
-			local_filesystem->TryRemoveFile(cache_dest.dest_local_filepath);
-		}
-		if (cache_entry != nullptr) {
+		auto pinned = in_mem_storage->Get(block_key, version_tag);
+		if (pinned) {
 			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
-			cache_read_chunk.CopyBufferToRequestedMemory(cache_entry->data);
+			cache_read_chunk.CopyBufferToRequestedMemory(pinned->Data());
 			return;
 		}
 	}
@@ -155,11 +142,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 			// Update in-memory cache if applicable.
 			if (in_mem_storage != nullptr) {
-				InMemCacheDataEntry new_cache_entry {
-				    .data = std::move(read_result.content),
-				    .version_tag = version_tag,
-				};
-				in_mem_storage->Put(block_key, make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
+				in_mem_storage->Put(block_key, std::move(read_result.content), version_tag);
 			}
 			return;
 		}
@@ -193,11 +176,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 
 		// Update in-memory cache if applicable.
 		if (in_mem_storage != nullptr) {
-			InMemCacheDataEntry new_cache_entry {
-			    .data = std::move(content),
-			    .version_tag = version_tag,
-			};
-			in_mem_storage->Put(block_key, make_shared_ptr<InMemCacheDataEntry>(std::move(new_cache_entry)));
+			in_mem_storage->Put(block_key, std::move(content), version_tag);
 		}
 	} catch (...) {
 	}
@@ -213,7 +192,7 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	const auto &config = instance_state_locked->config;
 	std::call_once(cache_init_flag, [this, &config]() {
 		if (config.enable_disk_reader_mem_cache) {
-			in_mem_storage = make_uniq<ExtensionBoundedDataCacheStorage>(
+			in_mem_storage = make_shared_ptr<ExtensionBoundedDataCacheStorage>(
 			    config.disk_reader_max_mem_cache_block_count, config.disk_reader_max_mem_cache_timeout_millisec);
 		}
 	});
@@ -372,7 +351,8 @@ void DiskCacheReader::RemapInMemoryDataBlocksForNewBlockSize(idx_t new_block_siz
 	// TODO: pass known remote file sizes (e.g. from metadata cache) so remap matches EOF behavior of real reads.
 	auto rebuilt = RemapInMemCacheEntries(std::move(taken), new_block_size, /*file_size_by_path=*/ {});
 	for (auto &kv : rebuilt) {
-		in_mem_storage->Put(std::move(kv.first), std::move(kv.second));
+		auto &entry = kv.second;
+		in_mem_storage->Put(std::move(kv.first), std::move(entry->data), std::move(entry->version_tag));
 	}
 }
 

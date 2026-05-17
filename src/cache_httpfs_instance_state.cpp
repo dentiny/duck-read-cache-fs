@@ -22,10 +22,10 @@ namespace duckdb {
 //===--------------------------------------------------------------------===//
 
 bool CacheHttpfsInstanceState::CanAccessFile(const string &path) {
-	if (!db_config) {
-		throw InternalException("DB config is not set!");
+	if (!db_instance) {
+		throw InternalException("DB instance is not set!");
 	}
-	return db_config->CanAccessFile(path, FileType::FILE_TYPE_REGULAR);
+	return db_instance->config.CanAccessFile(path, FileType::FILE_TYPE_REGULAR);
 	// TODO(hjiang): add logging if requested file not accessible.
 }
 

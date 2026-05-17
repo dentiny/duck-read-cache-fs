@@ -1,17 +1,34 @@
 #include "extension_bounded_data_cache_storage.hpp"
 
+#include "duckdb/common/helper.hpp"
+
 namespace duckdb {
 
 ExtensionBoundedDataCacheStorage::ExtensionBoundedDataCacheStorage(size_t max_entries, uint64_t timeout_millisec)
     : lru_cache(max_entries, timeout_millisec) {
 }
 
-void ExtensionBoundedDataCacheStorage::Put(InMemCacheBlock key, shared_ptr<InMemCacheDataEntry> value) {
-	lru_cache.Put(std::move(key), std::move(value));
+void ExtensionBoundedDataCacheStorage::Put(InMemCacheBlock key, PageAlignedDataChunk chunk, string version_tag) {
+	auto entry = make_shared_ptr<InMemCacheDataEntry>();
+	entry->data = std::move(chunk);
+	entry->version_tag = std::move(version_tag);
+	lru_cache.Put(std::move(key), std::move(entry));
 }
 
-shared_ptr<InMemCacheDataEntry> ExtensionBoundedDataCacheStorage::Get(const InMemCacheBlock &key) {
-	return lru_cache.Get(key);
+optional<PinnedBlock> ExtensionBoundedDataCacheStorage::Get(const InMemCacheBlock &key,
+                                                            const string &expected_version_tag) {
+	auto entry = lru_cache.Get(key);
+	if (entry == nullptr) {
+		return nullopt;
+	}
+	if (!PinnedBlock::ValidateVersionTag(entry->version_tag, expected_version_tag)) {
+		lru_cache.Delete(key);
+		return nullopt;
+	}
+
+	const PageAlignedDataChunk *chunk_ptr = &entry->data;
+	shared_ptr<void> keep_alive = std::move(entry);
+	return PinnedBlock {std::move(keep_alive), chunk_ptr};
 }
 
 bool ExtensionBoundedDataCacheStorage::Delete(const InMemCacheBlock &key) {
