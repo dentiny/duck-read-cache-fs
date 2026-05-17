@@ -252,11 +252,9 @@ void EnsureHttpfsExtensionLoaded(ExtensionLoader &loader, DatabaseInstance &inst
 //===--------------------------------------------------------------------===//
 
 void SetCacheType(DatabaseInstance &duckdb_instance, string cache_type_str) {
-	const auto it = std::find_if(ALL_CACHE_TYPES.begin(), ALL_CACHE_TYPES.end(),
-	                             [&cache_type_str](const string *s) { return *s == cache_type_str; });
-	if (it == ALL_CACHE_TYPES.end()) {
+	if (std::find(ALL_CACHE_TYPES.begin(), ALL_CACHE_TYPES.end(), cache_type_str) == ALL_CACHE_TYPES.end()) {
 		auto valid_types =
-		    StringUtil::Join(ALL_CACHE_TYPES, ALL_CACHE_TYPES.size(), ", ", [](const string *s) { return *s; });
+		    StringUtil::Join(ALL_CACHE_TYPES, ALL_CACHE_TYPES.size(), ", ", [](const string &s) { return s; });
 		throw InvalidInputException("Invalid cache_httpfs_type '%s'. Valid options are: %s", cache_type_str,
 		                            valid_types);
 	}
@@ -441,11 +439,10 @@ void UpdateInMemCacheBlockTimeout(ClientContext &context, SetScope scope, Value 
 
 void UpdateInMemCacheStorage(ClientContext &context, SetScope scope, Value &parameter) {
 	auto storage_str = parameter.ToString();
-	const auto it = std::find_if(ALL_IN_MEM_CACHE_STORAGES.begin(), ALL_IN_MEM_CACHE_STORAGES.end(),
-	                             [&storage_str](const string *s) { return *s == storage_str; });
-	if (it == ALL_IN_MEM_CACHE_STORAGES.end()) {
+	if (std::find(ALL_IN_MEM_CACHE_STORAGES.begin(), ALL_IN_MEM_CACHE_STORAGES.end(), storage_str) ==
+	    ALL_IN_MEM_CACHE_STORAGES.end()) {
 		auto valid_values = StringUtil::Join(ALL_IN_MEM_CACHE_STORAGES, ALL_IN_MEM_CACHE_STORAGES.size(), ", ",
-		                                     [](const string *s) { return *s; });
+		                                     [](const string &s) { return s; });
 		throw InvalidInputException("Invalid cache_httpfs_in_mem_cache_storage '%s'. Valid options are: %s",
 		                            storage_str, valid_values);
 	}
