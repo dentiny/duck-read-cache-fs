@@ -87,12 +87,11 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
                                                                                 idx_t bytes_to_read) {
 	ALWAYS_ASSERT(!cache_directories.empty());
 
-	const SanitizedCachePath cache_key {remote_file};
 	duckdb::hash_bytes remote_file_sha256_val;
 	static_assert(sizeof(remote_file_sha256_val) == 32);
-	duckdb::sha256(cache_key.Path().data(), cache_key.Path().length(), remote_file_sha256_val);
-	const string remote_file_sha256_str = GetSha256(cache_key.Path());
-	const string fname = StringUtil::GetFileName(cache_key.Path());
+	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
+	const string remote_file_sha256_str = GetSha256(remote_file);
+	const string fname = StringUtil::GetFileName(SanitizedCachePath(remote_file).Path());
 
 	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
 	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
@@ -148,12 +147,11 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 }
 
 /*static*/ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
-	const SanitizedCachePath cache_key {remote_file};
 	duckdb::hash_bytes remote_file_sha256_val;
-	duckdb::sha256(cache_key.Path().data(), cache_key.Path().length(), remote_file_sha256_val);
+	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
 	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
 
-	const string fname = StringUtil::GetFileName(cache_key.Path());
+	const string fname = StringUtil::GetFileName(SanitizedCachePath(remote_file).Path());
 	return StringUtil::Format("%s-%s", remote_file_sha256_str, fname);
 }
 
@@ -230,7 +228,6 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 /*static*/ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath,
                                                                                  idx_t chunk_size,
                                                                                  const string &version_tag,
-                                                                                 const string &original_remote_path,
                                                                                  const ReadOption &options) {
 	auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
 
@@ -248,7 +245,7 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	auto file_handle = local_filesystem.OpenFile(cache_filepath, file_open_flags);
 
 	// Check cache validity and clear if necessary.
-	if (file_handle != nullptr && !ValidateCacheFile(cache_filepath, version_tag, original_remote_path)) {
+	if (file_handle != nullptr && !ValidateCacheFile(cache_filepath, version_tag)) {
 		local_filesystem.TryRemoveFile(cache_filepath);
 		file_handle = nullptr;
 	}
@@ -272,15 +269,7 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	};
 }
 
-/*static*/ bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string &version_tag,
-                                                 const string &original_remote_path) {
-	if (!original_remote_path.empty()) {
-		const string cached_remote_path = TryGetOriginalRemotePath(cache_filepath);
-		if (cached_remote_path != original_remote_path) {
-			return false;
-		}
-	}
-
+/*static*/ bool DiskCacheUtil::ValidateCacheFile(const string &cache_filepath, const string &version_tag) {
 	// Empty version tags means cache validation is disabled.
 	if (version_tag.empty()) {
 		return true;

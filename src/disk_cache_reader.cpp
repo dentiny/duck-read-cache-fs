@@ -134,8 +134,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 		    .attempt_direct_io = config.enable_disk_reader_mem_cache,
 		};
 		auto read_result = DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath,
-		                                                     cache_read_chunk.chunk_size, version_tag, handle.GetPath(),
-		                                                     read_options);
+		                                                     cache_read_chunk.chunk_size, version_tag, read_options);
 		if (read_result.cache_hit) {
 			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
