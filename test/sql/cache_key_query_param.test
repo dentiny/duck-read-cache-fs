@@ -33,7 +33,6 @@ SELECT cache_httpfs_clear_cache();
 
 # ============================================================
 # On-disk cache.
-# Each URL hashes to a distinct on-disk filename (full URL is part of the SHA-256).
 # ============================================================
 
 statement ok
