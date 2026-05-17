@@ -23,21 +23,21 @@ namespace duckdb {
 // which pins the block against concurrent eviction for the duration of the read.
 class PinnedBlock {
 public:
-	PinnedBlock(shared_ptr<void> keep_alive, const PageAlignedDataChunk *chunk, string version_tag)
-	    : keep_alive_(std::move(keep_alive)), chunk_(chunk), version_tag_(std::move(version_tag)) {
+	PinnedBlock(shared_ptr<void> keep_alive_p, const PageAlignedDataChunk *chunk_p, string version_tag_p)
+	    : keep_alive(std::move(keep_alive_p)), chunk(chunk_p), version_tag(std::move(version_tag_p)) {
 	}
 
 	const PageAlignedDataChunk &Data() const {
-		return *chunk_;
+		return *chunk;
 	}
 	const string &VersionTag() const {
-		return version_tag_;
+		return version_tag;
 	}
 
 private:
-	shared_ptr<void> keep_alive_;
-	const PageAlignedDataChunk *chunk_;
-	string version_tag_;
+	shared_ptr<void> keep_alive;
+	const PageAlignedDataChunk *chunk;
+	string version_tag;
 };
 
 class InMemoryDataCacheStorage {

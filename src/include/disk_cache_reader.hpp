@@ -63,7 +63,6 @@ private:
 	// In-memory cache to store blocks; late initialized after first access.
 	// Used to avoid local disk IO.
 	// NOTICE: cache key uses remote filepath, instead of local cache filepath.
-	// shared_ptr so the `ObjectCacheStorage` backend (M2) can hand out weak_ptr back-refs to its blocks.
 	shared_ptr<InMemoryDataCacheStorage> in_mem_storage;
 };
 

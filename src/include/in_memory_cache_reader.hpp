@@ -44,7 +44,6 @@ private:
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
 	// In-memory cache to store blocks; late initialized after first access.
-	// shared_ptr so the `ObjectCacheStorage` backend (M2) can hand out weak_ptr back-refs to its blocks.
 	shared_ptr<InMemoryDataCacheStorage> storage;
 };
 
