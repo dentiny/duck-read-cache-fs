@@ -52,7 +52,7 @@ TEST_CASE("ObjectCacheStorage Put/Get roundtrip", "[object cache storage]") {
 	storage->Put(key, MakeFilledChunk(1024, 'a'), "v1");
 
 	auto pinned = storage->Get(key);
-	REQUIRE(pinned != nullptr);
+	REQUIRE(pinned);
 	REQUIRE(pinned->Data().length == 1024);
 	REQUIRE(pinned->Data().data()[0] == 'a');
 	REQUIRE(pinned->Data().data()[1023] == 'a');
@@ -65,7 +65,7 @@ TEST_CASE("ObjectCacheStorage Get miss on unknown key", "[object cache storage]"
 	DuckDB db;
 	auto storage = make_shared_ptr<ObjectCacheStorage>(*db.instance, /*timeout_millisec=*/0);
 	const InMemCacheBlock key {"/foo", 0, 1024};
-	REQUIRE(storage->Get(key) == nullptr);
+	REQUIRE_FALSE(storage->Get(key));
 	REQUIRE(storage->Keys().empty());
 }
 
@@ -94,8 +94,8 @@ TEST_CASE("ObjectCacheStorage timeout invalidates on Get", "[object cache storag
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-	// Stale entry => Get returns nullptr and triggers an OC::Delete; destructor finalises map.
-	REQUIRE(storage->Get(InMemCacheBlock {"/foo", 0, 1024}) == nullptr);
+	// Stale entry => Get returns nullopt and triggers an OC::Delete; destructor finalises map.
+	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/foo", 0, 1024}));
 	REQUIRE(storage->Keys().empty());
 }
 
@@ -135,9 +135,9 @@ TEST_CASE("ObjectCacheStorage prefix-scoped Clear for one file", "[object cache 
 	auto remaining = storage->Keys();
 	REQUIRE(remaining.size() == 1);
 	REQUIRE(remaining[0].fname == "/b");
-	REQUIRE(storage->Get(InMemCacheBlock {"/a", 0, 512}) == nullptr);
-	REQUIRE(storage->Get(InMemCacheBlock {"/a", 512, 512}) == nullptr);
-	REQUIRE(storage->Get(InMemCacheBlock {"/b", 0, 512}) != nullptr);
+	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/a", 0, 512}));
+	REQUIRE_FALSE(storage->Get(InMemCacheBlock {"/a", 512, 512}));
+	REQUIRE(storage->Get(InMemCacheBlock {"/b", 0, 512}));
 }
 
 TEST_CASE("ObjectCacheStorage replace-on-duplicate-Put keeps single map entry with latest meta",
@@ -151,7 +151,7 @@ TEST_CASE("ObjectCacheStorage replace-on-duplicate-Put keeps single map entry wi
 
 	REQUIRE(storage->Keys().size() == 1);
 	auto pinned = storage->Get(key);
-	REQUIRE(pinned != nullptr);
+	REQUIRE(pinned);
 	REQUIRE(pinned->VersionTag() == "v2");
 	REQUIRE(pinned->Data().data()[0] == '2');
 }
@@ -203,7 +203,7 @@ TEST_CASE("ObjectCacheStorage concurrent Put and Get", "[object cache storage]")
 				InMemCacheBlock key {"/concurrent", off, BLK};
 				storage->Put(key, MakeFilledChunk(BLK, static_cast<char>('A' + (t % 26))), "v");
 				auto pinned = storage->Get(key);
-				if (pinned != nullptr) {
+				if (pinned) {
 					REQUIRE(pinned->Data().length == BLK);
 					hits.fetch_add(1, std::memory_order_relaxed);
 				}

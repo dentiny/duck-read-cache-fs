@@ -7,20 +7,14 @@
 
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string.hpp"
-#include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
 #include "in_mem_cache_block.hpp"
 #include "in_mem_cache_data_entry.hpp"
+#include "optional.hpp"
 #include "page_aligned_data_chunk.hpp"
 
 namespace duckdb {
 
-// RAII view over a cached block returned by `InMemoryDataCacheStorage::Get`.
-// The block stays alive (and the underlying bytes valid) for the lifetime of the PinnedBlock.
-//
-// In `extension` mode `keep_alive` owns a `shared_ptr<InMemCacheDataEntry>` (the LRU map's value).
-// In `object_cache` mode it owns a `shared_ptr<CacheHttpfsDataBlock>` fetched from ObjectCache,
-// which pins the block against concurrent eviction for the duration of the read.
 class PinnedBlock {
 public:
 	PinnedBlock(shared_ptr<void> keep_alive_p, const PageAlignedDataChunk *chunk_p, string version_tag_p)
@@ -47,9 +41,9 @@ public:
 	// Insert or replace the entry for [key]. Storage takes ownership of [chunk].
 	virtual void Put(InMemCacheBlock key, PageAlignedDataChunk chunk, string version_tag) = 0;
 
-	// Returns nullptr on miss or if the entry is no longer valid (e.g. timed out).
+	// Returns nullopt on miss or if the entry is no longer valid (e.g. timed out).
 	// The returned PinnedBlock pins the underlying bytes for the duration of its lifetime.
-	virtual unique_ptr<PinnedBlock> Get(const InMemCacheBlock &key) = 0;
+	virtual optional<PinnedBlock> Get(const InMemCacheBlock &key) = 0;
 
 	// Returns true if [key] was present and removed.
 	virtual bool Delete(const InMemCacheBlock &key) = 0;

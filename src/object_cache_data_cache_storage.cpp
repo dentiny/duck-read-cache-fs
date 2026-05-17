@@ -93,7 +93,7 @@ void ObjectCacheStorage::Put(InMemCacheBlock key, PageAlignedDataChunk chunk, st
 	}
 }
 
-unique_ptr<PinnedBlock> ObjectCacheStorage::Get(const InMemCacheBlock &key) {
+optional<PinnedBlock> ObjectCacheStorage::Get(const InMemCacheBlock &key) {
 	string oc_key;
 	string version_tag;
 	bool stale = false;
@@ -101,7 +101,7 @@ unique_ptr<PinnedBlock> ObjectCacheStorage::Get(const InMemCacheBlock &key) {
 		const concurrency::lock_guard<concurrency::mutex> lock(mu);
 		auto it = entries.find(key);
 		if (it == entries.end()) {
-			return nullptr;
+			return nullopt;
 		}
 		oc_key = it->second.oc_key;
 		version_tag = it->second.version_tag;
@@ -117,19 +117,19 @@ unique_ptr<PinnedBlock> ObjectCacheStorage::Get(const InMemCacheBlock &key) {
 	if (stale) {
 		// Outside the lock: destructor finalises the map removal.
 		oc.Delete(oc_key);
-		return nullptr;
+		return nullopt;
 	}
 
 	auto block = oc.Get<CacheHttpfsDataBlock>(oc_key);
 	if (block == nullptr) {
 		// OC LRU just evicted; destructor either fired already (map cleaned) or will fire when
 		// the lingering shared_ref drops. Treat as a miss.
-		return nullptr;
+		return nullopt;
 	}
 
 	const PageAlignedDataChunk *chunk_ptr = &block->data;
 	shared_ptr<void> keep_alive = std::move(block);
-	return make_uniq<PinnedBlock>(std::move(keep_alive), chunk_ptr, std::move(version_tag));
+	return PinnedBlock {std::move(keep_alive), chunk_ptr, std::move(version_tag)};
 }
 
 bool ObjectCacheStorage::Delete(const InMemCacheBlock &key) {

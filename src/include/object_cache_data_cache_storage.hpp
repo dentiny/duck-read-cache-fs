@@ -10,7 +10,6 @@
 #include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string.hpp"
-#include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
 #include "in_mem_cache_block.hpp"
 #include "in_memory_data_cache_storage.hpp"
@@ -38,7 +37,7 @@ public:
 	~ObjectCacheStorage() override;
 
 	void Put(InMemCacheBlock key, PageAlignedDataChunk chunk, string version_tag) override;
-	unique_ptr<PinnedBlock> Get(const InMemCacheBlock &key) override;
+	optional<PinnedBlock> Get(const InMemCacheBlock &key) override;
 	bool Delete(const InMemCacheBlock &key) override;
 	void Clear() override;
 	void Clear(const InMemCacheBlock &start_key, std::function<bool(const InMemCacheBlock &)> filter) override;
