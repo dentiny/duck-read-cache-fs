@@ -35,7 +35,7 @@ public:
 	ObjectCacheStorage(const ObjectCacheStorage &) = delete;
 	ObjectCacheStorage &operator=(const ObjectCacheStorage &) = delete;
 
-	~ObjectCacheStorage() override;
+	~ObjectCacheStorage() noexcept override;
 
 	void Put(InMemCacheBlock key, PageAlignedDataChunk chunk, string version_tag) override;
 	optional<PinnedBlock> Get(const InMemCacheBlock &key, const string &expected_version_tag) override;

@@ -51,7 +51,7 @@ struct CustomFsHelper {
 		inst_config.enable_cache_validation = config.enable_cache_validation;
 		inst_config.enable_disk_reader_mem_cache = config.enable_disk_reader_mem_cache;
 
-		// Register state with instance
+		instance_state->db_instance = db.instance.get();
 		SetInstanceState(*db.instance.get(), instance_state);
 		InitializeCacheReaderForTest(instance_state, inst_config);
 
@@ -81,7 +81,9 @@ struct MockFsHelper {
 		inst_config.enable_cache_validation = config.enable_cache_validation;
 		inst_config.enable_disk_reader_mem_cache = config.enable_disk_reader_mem_cache;
 
-		// Register state with instance
+		// Register state with instance. `db_instance` must be wired up before any reader is initialized so that
+		// `InMemoryCacheReader::ReadAndCache` can hand a real `DatabaseInstance&` to `BuildInMemoryDataCacheStorage`.
+		instance_state->db_instance = db.instance.get();
 		SetInstanceState(*db.instance.get(), instance_state);
 		InitializeCacheReaderForTest(instance_state, inst_config);
 

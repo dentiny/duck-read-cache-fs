@@ -99,8 +99,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 	const auto config = GetConfig(*state);
 
 	std::call_once(cache_init_flag, [this, &config, &state]() {
-		ALWAYS_ASSERT(state->db_instance);
-		storage = BuildInMemoryDataCacheStorage(config.in_mem_cache_storage, *state->db_instance,
+		storage = BuildInMemoryDataCacheStorage(config.in_mem_cache_storage, state->db_instance,
 		                                        config.max_cache_block_count, config.cache_block_timeout_millisec);
 	});
 

@@ -193,9 +193,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	const auto &config = instance_state_locked->config;
 	std::call_once(cache_init_flag, [this, &config, &instance_state_locked]() {
 		if (config.enable_disk_reader_mem_cache) {
-			ALWAYS_ASSERT(instance_state_locked->db_instance);
 			in_mem_storage = BuildInMemoryDataCacheStorage(
-			    config.in_mem_cache_storage, *instance_state_locked->db_instance,
+			    config.in_mem_cache_storage, instance_state_locked->db_instance,
 			    config.disk_reader_max_mem_cache_block_count, config.disk_reader_max_mem_cache_timeout_millisec);
 		}
 	});
