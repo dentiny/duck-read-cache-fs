@@ -1,3 +1,19 @@
+# 0.13.6
+
+## Added
+
+- Provide a new mode to manage in-memory data cache backed by DuckDB buffer pool ([#490], [#492], [#494])
+
+[#490]: https://github.com/dentiny/duck-read-cache-fs/pull/490
+[#492]: https://github.com/dentiny/duck-read-cache-fs/pull/492
+[#494]: https://github.com/dentiny/duck-read-cache-fs/pull/494
+
+## Fixed
+
+- Fix cache entry key with query param ([#498])
+
+[#498]: https://github.com/dentiny/duck-read-cache-fs/pull/498
+
 # 0.13.5
 
 ## Fixed

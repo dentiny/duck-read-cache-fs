@@ -20,6 +20,13 @@ SET cache_httpfs_disk_cache_reader_enable_memory_cache=false;
 statement ok
 SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_cache_1';
 
+# Disable the persistent (on-disk) secret storage. The sqllogic test runner auto-sets `secret_directory` to a path under `duckdb_unittest_tempdir/...`
+# that we cannot easily add to `allowed_directories` below. Since DuckDB v1.5.3 the secret manager reads `secret_directory` through the permissioned
+# `LocalDatabaseFileSystem`, so any read with httpfs loaded would trigger a secret lookup that hits the `enable_external_access` gate and fail before
+# the actual HTTP fetch. We are not testing secrets here, so disable the persistent backend up front.
+statement ok
+SET allow_persistent_secrets=false;
+
 # Cache directory isn't inclued in the allowed directory lists.
 statement ok
 SET allowed_directories=['https://raw.githubusercontent.com/', '/tmp/duckdb_cache_httpfs_cache'];
@@ -59,6 +66,10 @@ SET cache_httpfs_disk_cache_reader_enable_memory_cache=false;
 # Switch cache directory to make it allowed.
 statement ok
 SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_cache';
+
+# See comment above; `restart` resets this so we must re-apply it here too.
+statement ok
+SET allow_persistent_secrets=false;
 
 statement ok
 SET enable_external_access = false;
