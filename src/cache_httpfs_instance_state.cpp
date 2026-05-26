@@ -87,15 +87,8 @@ void InstanceProfileCollectorManager::SetProfileCollector(connection_t connectio
 		return;
 	}
 
-	if (profile_type == *PERSISTENT_PROFILE_TYPE) {
-		// PERSISTENT_PROFILE_TYPE ("duckdb") is declared but not yet implemented;
-		// fall back to noop so the setting is accepted without error.
-		profile_collectors[connection_id] = make_uniq<NoopProfileCollector>();
-		return;
-	}
-
 	// Invalid profile type
-	throw InvalidInputException("Invalid cache_httpfs_profile_type: '%s'. Valid types are: 'noop', 'temp', 'duckdb'",
+	throw InvalidInputException("Invalid cache_httpfs_profile_type '%s'. Valid options are: 'noop', 'temp'",
 	                            profile_type);
 }
 
