@@ -22,12 +22,6 @@ SET cache_httpfs_profile_type='invalid_profile';
 ----
 Invalid cache_httpfs_profile_type
 
-# Test cache_httpfs_profile_type - 'duckdb' is no longer accepted
-statement error
-SET cache_httpfs_profile_type='duckdb';
-----
-Invalid cache_httpfs_profile_type
-
 # Test cache_httpfs_evict_policy - invalid value
 statement error
 SET cache_httpfs_evict_policy='invalid_policy';

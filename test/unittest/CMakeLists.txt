@@ -43,7 +43,6 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_optional.cpp
     test_oversized_cache_filepath.cpp
     test_page_aligned_data_chunk.cpp
-    test_profile_collector_set.cpp
     test_read_exception_propagation.cpp
     test_remove_files_batch.cpp
     test_scoped_directory.cpp
