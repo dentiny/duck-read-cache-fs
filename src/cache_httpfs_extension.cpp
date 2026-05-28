@@ -604,9 +604,8 @@ void LoadInternal(ExtensionLoader &loader) {
 	    LogicalType {LogicalTypeId::UBIGINT}, Value::UBIGINT(DEFAULT_CACHE_BLOCK_SIZE), UpdateCacheBlockSize);
 	config.AddExtensionOption(
 	    "cache_httpfs_profile_type",
-	    "Profiling type for cached filesystem. There're three options available: `noop`, `temp`, and `duckdb`. `temp` "
-	    "option stores the latest IO operation profiling result, which potentially suffers concurrent updates; "
-	    "`duckdb` stores the IO operation profiling results into duckdb table, which unblocks advanced analysis.",
+	    "Profiling type for cached filesystem. There are two options available: `noop` and `temp`. `temp` "
+	    "option stores the latest IO operation profiling result, which potentially suffers concurrent updates.",
 	    LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_PROFILE_TYPE, UpdateProfileType);
 	config.AddExtensionOption(
 	    "cache_httpfs_max_fanout_subrequest",

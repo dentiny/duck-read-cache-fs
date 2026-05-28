@@ -34,9 +34,7 @@ extern const NoDestructor<string> ON_DISK_LRU_SINGLE_PROC_EVICTION;
 extern const NoDestructor<string> NOOP_PROFILE_TYPE;
 // Store the latest IO operation profiling result, which potentially suffers concurrent updates.
 extern const NoDestructor<string> TEMP_PROFILE_TYPE;
-// Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
-extern const NoDestructor<string> PERSISTENT_PROFILE_TYPE;
-extern const array<string, 3> ALL_PROFILE_TYPES;
+extern const array<string, 2> ALL_PROFILE_TYPES;
 
 // In-memory data block cache storage backend.
 extern const NoDestructor<string> EXT_BOUNDED_STORAGE;

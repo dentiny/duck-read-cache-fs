@@ -32,9 +32,7 @@ const NoDestructor<string> ON_DISK_LRU_SINGLE_PROC_EVICTION {"lru_sp"};
 const NoDestructor<string> NOOP_PROFILE_TYPE {"noop"};
 // Store the latest IO operation profiling result, which potentially suffers concurrent updates.
 const NoDestructor<string> TEMP_PROFILE_TYPE {"temp"};
-// Store the IO operation profiling results into duckdb table, which unblocks advanced analysis.
-const NoDestructor<string> PERSISTENT_PROFILE_TYPE {"duckdb"};
-const array<string, 3> ALL_PROFILE_TYPES {{"noop", "temp", "duckdb"}};
+const array<string, 2> ALL_PROFILE_TYPES {{"noop", "temp"}};
 
 // In-memory data block cache storage backend.
 const NoDestructor<string> EXT_BOUNDED_STORAGE {"extension"};
