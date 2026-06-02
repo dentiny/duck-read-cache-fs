@@ -10,7 +10,13 @@
 #include "filesystem_utils.hpp"
 #include "scoped_directory.hpp"
 
+#if !defined(_WIN32)
 #include <utime.h>
+#else
+#include <sys/utime.h>
+#define utimbuf _utimbuf
+#define utime _utime
+#endif
 
 using namespace duckdb; // NOLINT
 

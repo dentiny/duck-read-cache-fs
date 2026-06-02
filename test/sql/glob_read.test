@@ -2,8 +2,6 @@
 # description: test cached_fs read multiple files
 # group: [sql]
 
-require notwindows
-
 require cache_httpfs
 
 statement ok

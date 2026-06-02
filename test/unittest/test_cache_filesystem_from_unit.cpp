@@ -12,7 +12,13 @@
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
+#if !defined(_WIN32)
 #include <utime.h>
+#else
+#include <sys/utime.h>
+#define utimbuf _utimbuf
+#define utime _utime
+#endif
 
 using namespace duckdb; // NOLINT
 
@@ -64,7 +70,7 @@ TEST_CASE_METHOD(CacheFilesystemFixture, "Test glob operation", "[cache filesyst
 	{
 		auto open_file_info = cache_filesystem->Glob(StringUtil::Format("%s/*", scoped_dir.GetPath()));
 		REQUIRE(open_file_info.size() == 1);
-		REQUIRE(open_file_info[0].path == test_filename);
+		REQUIRE(StringUtil::Replace(open_file_info[0].path, "\\", "/") == test_filename);
 	}
 }
 

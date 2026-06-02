@@ -20,6 +20,9 @@
 #endif
 #else
 #include <windows.h>
+#ifdef SetFileAttributes
+#undef SetFileAttributes
+#endif
 #endif
 
 #include "cache_filesystem_config.hpp"
@@ -84,8 +87,8 @@ vector<string> EvictStaleCacheFiles(FileSystem &local_filesystem, const string &
 		}
 
 		const timestamp_t last_mod_time = local_filesystem.GetLastModifiedTime(*file_handle);
-		const idx_t diff_in_microsec = static_cast<idx_t>(now.value - last_mod_time.value);
-		if (diff_in_microsec >= CACHE_FILE_STALENESS_MICROSEC) {
+		const int64_t diff_in_microsec = now.value - last_mod_time.value;
+		if (diff_in_microsec >= static_cast<int64_t>(CACHE_FILE_STALENESS_MICROSEC)) {
 			if (std::remove(full_name.data()) < -1 && errno != EEXIST) {
 				throw IOException("Fails to delete stale cache file %s", full_name);
 			}

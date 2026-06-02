@@ -13,7 +13,13 @@
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
+#if !defined(_WIN32)
 #include <utime.h>
+#else
+#include <sys/utime.h>
+#define utimbuf _utimbuf
+#define utime _utime
+#endif
 
 using namespace duckdb; // NOLINT
 

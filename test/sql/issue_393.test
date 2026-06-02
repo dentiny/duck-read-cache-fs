@@ -2,8 +2,6 @@
 # description: regression test for issue 393
 # group: [sql]
 
-require notwindows
-
 require cache_httpfs
 
 # The test file to read is ~16KiB.

@@ -2,8 +2,6 @@
 # description: test IO operations when memory cache disabled for disk cache reader
 # group: [sql]
 
-require notwindows
-
 require cache_httpfs
 
 require parquet
