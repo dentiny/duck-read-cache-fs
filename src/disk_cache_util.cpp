@@ -8,7 +8,6 @@
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
-#include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/types/uuid.hpp"
@@ -372,8 +371,7 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 }
 
 /*static*/ void DiskCacheUtil::RemapOnDiskCacheEntriesAfterBlockSizeChange(idx_t old_block_size, idx_t new_block_size,
-                                                                           const InstanceConfig &config,
-                                                                           optional_ptr<DatabaseInstance> /*db*/) {
+                                                                           const InstanceConfig &config) {
 	if (old_block_size == new_block_size || config.on_disk_cache_directories.empty()) {
 		return;
 	}
