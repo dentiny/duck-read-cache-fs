@@ -72,6 +72,7 @@ set(EXTENSION_SOURCES
     src/utils/mock_filesystem.cpp
     src/utils/scoped_directory.cpp
     src/utils/thread_pool.cpp
+    src/utils/thread_pool_parallel_executor.cpp
     src/utils/thread_utils.cpp
     src/utils/time_utils.cpp
     src/utils/url_utils.cpp

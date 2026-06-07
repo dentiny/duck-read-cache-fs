@@ -1,6 +1,6 @@
 #include "disk_cache_util.hpp"
 
-#include <future>
+#include <atomic>
 
 #include "duckdb/common/assert.hpp"
 #include "cache_filesystem_config.hpp"
@@ -15,7 +15,7 @@
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/hash_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
-#include "utils/include/thread_pool.hpp"
+#include "utils/include/parallel_executor.hpp"
 #include "utils/include/url_utils.hpp"
 
 namespace duckdb {
@@ -345,30 +345,24 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 
 	const timestamp_t now = Timestamp::GetCurrentTimestamp();
 	const size_t thread_num = temp_file_paths.size();
-	ThreadPool tp(thread_num);
-	vector<std::future<idx_t>> futures;
-	futures.reserve(temp_file_paths.size());
+	std::atomic<idx_t> deleted_count {0};
+	auto executor = CreateParallelExecutor(thread_num);
 	for (auto &path : temp_file_paths) {
-		futures.emplace_back(tp.Push([path = std::move(path), now]() -> idx_t {
+		executor->Schedule([path = std::move(path), now, &deleted_count]() {
 			LocalFileSystem fs;
 			auto file_handle =
 			    fs.OpenFile(path, FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
 			if (file_handle == nullptr) {
-				return 0;
+				return;
 			}
 			const timestamp_t last_mod_time = fs.GetLastModifiedTime(*file_handle);
 			const idx_t diff_microsec = static_cast<idx_t>(now.value - last_mod_time.value);
 			if (diff_microsec >= DEAD_TEMP_STALENESS_MICROSEC && fs.TryRemoveFile(path)) {
-				return 1;
+				deleted_count.fetch_add(1);
 			}
-			return 0;
-		}));
+		});
 	}
-	tp.Wait();
-	idx_t deleted_count = 0;
-	for (auto &f : futures) {
-		deleted_count += f.get();
-	}
+	executor->WaitAll();
 	return deleted_count;
 }
 
