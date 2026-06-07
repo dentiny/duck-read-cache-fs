@@ -30,10 +30,6 @@ protected:
 	BaseParallelExecutor() = default;
 };
 
-// Creates the executor selected by [mode]:
-//   ParallelExecutorMode::INTERNAL_THREAD_POOL  -> ThreadPoolParallelExecutor  (default)
-//   ParallelExecutorMode::DUCKDB_TASK_SCHEDULER -> DuckDBTaskParallelExecutor
-// Falls back to ThreadPoolParallelExecutor when [db] is nullptr.
 unique_ptr<BaseParallelExecutor> CreateParallelExecutor(optional_ptr<DatabaseInstance> db, ParallelExecutorMode mode,
                                                         size_t thread_count);
 

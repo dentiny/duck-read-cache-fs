@@ -15,12 +15,10 @@
 #include <functional>
 
 namespace duckdb {
-
-class DatabaseInstance;
-
 // Forward declarations.
 class FileSystem;
 struct InstanceConfig;
+class DatabaseInstance;
 
 class DiskCacheUtil {
 public:
