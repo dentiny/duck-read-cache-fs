@@ -48,7 +48,7 @@ string ReadChunkedXattr(const string &filepath, const char *key_prefix) {
 	string result;
 	for (idx_t idx = 0;; ++idx) {
 		const string key = StringUtil::Format("%s.%03llu", key_prefix, idx);
-		string chunk = GetFileAttribute(filepath, key);
+		string chunk = GetFileXattr(filepath, key);
 		if (chunk.empty()) {
 			break;
 		}
@@ -217,7 +217,7 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	if (!version_tag.empty() && !SetCacheVersion(cache_dest.temp_local_filepath, version_tag)) {
 		return;
 	}
-	if (!cache_dest.file_attrs.empty() && !SetFileAttributes(cache_dest.temp_local_filepath, cache_dest.file_attrs)) {
+	if (!cache_dest.file_attrs.empty() && !SetFileXattrs(cache_dest.temp_local_filepath, cache_dest.file_attrs)) {
 		return;
 	}
 
