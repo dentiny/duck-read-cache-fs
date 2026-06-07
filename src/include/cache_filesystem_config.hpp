@@ -41,6 +41,21 @@ extern const NoDestructor<string> EXT_BOUNDED_STORAGE;
 extern const NoDestructor<string> OBJECT_CACHE_STORAGE;
 extern const array<string, 2> ALL_IN_MEM_CACHE_STORAGES;
 
+// Parallel read executor mode.
+extern const NoDestructor<string> INTERNAL_THREAD_POOL_EXECUTOR;
+extern const NoDestructor<string> DUCKDB_TASK_SCHEDULER_EXECUTOR;
+extern const array<string, 2> ALL_PARALLEL_EXECUTOR_MODES;
+extern const NoDestructor<string> DEFAULT_PARALLEL_READ_MODE;
+
+enum class ParallelExecutorMode : uint8_t {
+	INTERNAL_THREAD_POOL,
+	DUCKDB_TASK_SCHEDULER,
+};
+
+// Parse a user-supplied string to ParallelExecutorMode.
+// Throws InvalidInputException on unknown values.
+ParallelExecutorMode ParseParallelExecutorMode(const string &mode);
+
 //===--------------------------------------------------------------------===//
 // Default configuration
 //===--------------------------------------------------------------------===//

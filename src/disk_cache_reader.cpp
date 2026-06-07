@@ -213,7 +213,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	// Threads to parallelly perform IO.
 
 	const auto task_count = GetThreadCountForSubrequests(alignment_info.subrequest_count, config.max_subrequest_count);
-	auto parallel_executor = CreateParallelExecutor(task_count);
+	auto parallel_executor =
+	    CreateParallelExecutor(instance_state_locked->db_instance, config.parallel_read_mode, task_count);
 	// Get file-level metadata once before processing chunks.
 	string version_tag = config.enable_cache_validation ? handle.Cast<CacheFileSystemHandle>().GetVersionTag() : "";
 
@@ -316,7 +317,7 @@ void DiskCacheReader::ClearCache(const string &fname) {
 	}
 
 	const auto thread_num = std::min<size_t>(GetCpuCoreCount(), cache_files_to_remove.size());
-	auto executor = CreateParallelExecutor(thread_num);
+	auto executor = CreateParallelExecutor(instance_state_locked->db_instance, config.parallel_read_mode, thread_num);
 	for (auto cur_cache_file : cache_files_to_remove) {
 		executor->Schedule([this, cur = std::move(cur_cache_file)]() { local_filesystem->TryRemoveFile(cur); });
 	}

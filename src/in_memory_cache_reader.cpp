@@ -117,7 +117,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 
 	// Threads to parallelly perform IO.
 	const auto task_count = GetThreadCountForSubrequests(alignment_info.subrequest_count, config.max_subrequest_count);
-	auto parallel_executor = CreateParallelExecutor(task_count);
+	auto parallel_executor = CreateParallelExecutor(state->db_instance, state->config.parallel_read_mode, task_count);
 	// Get file-level metadata once before processing chunks.
 	string version_tag = config.enable_cache_validation ? handle.Cast<CacheFileSystemHandle>().GetVersionTag() : "";
 

@@ -103,7 +103,8 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 void CleanupDeadTemp(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
-	const idx_t deleted = DiskCacheUtil::CleanupDeadTempFiles(inst_state.config.on_disk_cache_directories);
+	const idx_t deleted = DiskCacheUtil::CleanupDeadTempFiles(inst_state.config.on_disk_cache_directories, &instance,
+	                                                          inst_state.config.parallel_read_mode);
 	result.Reference(Value::BIGINT(NumericCast<int64_t>(deleted)));
 }
 
@@ -450,6 +451,11 @@ void UpdateInMemCacheStorage(ClientContext &context, SetScope scope, Value &para
 	inst_state.config.in_mem_cache_storage = std::move(storage_str);
 }
 
+void UpdateParallelReadMode(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.parallel_read_mode = ParseParallelExecutorMode(parameter.ToString());
+}
+
 void UpdateEnableMetadataCache(ClientContext &context, SetScope scope, Value &parameter) {
 	auto &inst_state = GetInstanceStateOrThrow(context);
 	inst_state.config.enable_metadata_cache = parameter.GetValue<bool>();
@@ -542,7 +548,8 @@ void LoadInternal(ExtensionLoader &loader) {
 	}
 
 	// Clean up dead temporary files (leftover from write-to-temp-then-swap) from previous runs.
-	DiskCacheUtil::CleanupDeadTempFiles(state->config.on_disk_cache_directories);
+	DiskCacheUtil::CleanupDeadTempFiles(state->config.on_disk_cache_directories, &instance,
+	                                    state->config.parallel_read_mode);
 
 	// When cache httpfs enabled, by default disable external file cache, otherwise double buffering.
 	// Users could re-enable by setting the config afterwards.
@@ -613,6 +620,13 @@ void LoadInternal(ExtensionLoader &loader) {
 	    "config [cache_httpfs_cache_block_size]. The setting limits the maximum request to issue for a single "
 	    "filesystem read request. 0 means no limit, by default we set no limit.",
 	    LogicalType {LogicalTypeId::BIGINT}, 0, UpdateMaxFanoutSubrequest);
+	config.AddExtensionOption(
+	    "cache_httpfs_parallel_read_mode",
+	    "Thread model used for parallel cache read subrequests. 'internal_thread_pool' (default) spawns a private "
+	    "thread pool per read, keeping behaviour identical to the original implementation. "
+	    "'duckdb_task_scheduler' submits tasks to DuckDB's global TaskScheduler so that 'SET threads = N' "
+	    "caps total parallelism (including cache reads) in one place.",
+	    LogicalType {LogicalTypeId::VARCHAR}, *DEFAULT_PARALLEL_READ_MODE, UpdateParallelReadMode);
 
 	// Add configurations to ignore SIGPIPE.
 	// Notice, it only works on unix platform.
