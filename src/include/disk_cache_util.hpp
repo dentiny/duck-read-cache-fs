@@ -105,6 +105,15 @@ public:
 	                                  optional_ptr<DatabaseInstance> db = nullptr,
 	                                  ParallelExecutorMode mode = ParallelExecutorMode::INTERNAL_THREAD_POOL);
 
+	// Remap on-disk cache files after a block size change.
+	// Loads each existing cache file into the in-memory representation, calls RemapInMemCacheEntries to re-chunk
+	// the data onto the new block grid, writes the remapped files, and deletes the old ones.
+	// Non-contiguous blocks and short prefix runs that don't fill a new-block-size chunk are discarded; short
+	// trailing blocks that reach EOF are preserved — same semantics as the in-memory remap.
+	static void RemapOnDiskCacheEntriesAfterBlockSizeChange(idx_t old_block_size, idx_t new_block_size,
+	                                                        const InstanceConfig &config,
+	                                                        optional_ptr<DatabaseInstance> db = nullptr);
+
 private:
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
 	// Empty version tag means cache validation is disabled.

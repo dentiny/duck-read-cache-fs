@@ -282,6 +282,10 @@ void UpdateCacheBlockSize(ClientContext &context, SetScope scope, Value &paramet
 	const idx_t new_bs = NumericCast<idx_t>(cache_block_size);
 	if (inst_state.config.cache_block_size != new_bs) {
 		inst_state.cache_reader_manager.RemapInMemoryDataCachesAfterBlockSizeChange(new_bs);
+		if (!inst_state.config.on_disk_cache_directories.empty()) {
+			DiskCacheUtil::RemapOnDiskCacheEntriesAfterBlockSizeChange(inst_state.config.cache_block_size, new_bs,
+			                                                           inst_state.config, inst_state.db_instance);
+		}
 	}
 	inst_state.config.cache_block_size = new_bs;
 }

@@ -8,9 +8,13 @@
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
+#include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/types/uuid.hpp"
+#include "in_mem_cache_block.hpp"
+#include "in_mem_cache_data_entry.hpp"
+#include "in_mem_cache_remap.hpp"
 #include "scope_guard.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/hash_utils.hpp"
@@ -365,6 +369,86 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	}
 	executor->WaitAll();
 	return deleted_count;
+}
+
+/*static*/ void DiskCacheUtil::RemapOnDiskCacheEntriesAfterBlockSizeChange(idx_t old_block_size, idx_t new_block_size,
+                                                                           const InstanceConfig &config,
+                                                                           optional_ptr<DatabaseInstance> /*db*/) {
+	if (old_block_size == new_block_size || config.on_disk_cache_directories.empty()) {
+		return;
+	}
+
+	LocalFileSystem local_filesystem {};
+
+	// Phase 1: Load all existing cache files into the in-memory representation.
+	// We collect both the in-memory entries (for remapping) and the original filepaths (for deletion after write).
+	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> loaded;
+	vector<string> old_filepaths;
+
+	for (const auto &cache_directory : config.on_disk_cache_directories) {
+		local_filesystem.ListFiles(cache_directory, [&](const string &fname, bool /*unused*/) {
+			if (StringUtil::EndsWith(fname, TEMP_CACHE_FILE_SUFFIX)) {
+				return;
+			}
+			const string filepath = StringUtil::Format("%s/%s", cache_directory, fname);
+
+			RemoteFileInfo remote_info;
+			try {
+				remote_info = GetRemoteFileInfo(filepath);
+			} catch (...) {
+				return;
+			}
+
+			const idx_t blk_size = remote_info.end_offset - remote_info.start_offset;
+			if (blk_size == 0) {
+				return;
+			}
+
+			// Read content without version-tag validation — we remap whatever is present on disk.
+			auto read_result = ReadLocalCacheFile(filepath, blk_size, /*version_tag=*/"", ReadOption {});
+			if (!read_result.cache_hit) {
+				return;
+			}
+
+			// Prefer the original remote path stored in xattr, which is always the full URL/path.
+			// GetRemoteFileInfo parses it from the filename by splitting on '-', which is unreliable when
+			// the remote filename itself contains dashes.
+			string remote_path = TryGetOriginalRemotePath(filepath);
+			if (remote_path.empty()) {
+				remote_path = remote_info.remote_filename;
+			}
+
+			auto entry = make_shared_ptr<InMemCacheDataEntry>();
+			entry->data = std::move(read_result.content);
+			entry->version_tag = GetCacheVersion(filepath);
+
+			loaded.emplace_back(InMemCacheBlock(remote_path, remote_info.start_offset, blk_size), std::move(entry));
+			old_filepaths.emplace_back(filepath);
+		});
+	}
+
+	if (loaded.empty()) {
+		return;
+	}
+
+	// Phase 2: Remap onto the new block grid using the existing in-memory remap algorithm.
+	auto remapped = RemapInMemCacheEntries(std::move(loaded), new_block_size);
+
+	// Phase 3: Write remapped entries back to disk, then delete the old files.
+	for (const auto &kv : remapped) {
+		const auto &block = kv.first;
+		const auto &entry = kv.second;
+
+		auto dest = GetLocalCacheFile(config.on_disk_cache_directories, block.fname, block.start_off, block.blk_size);
+		const auto &cache_dir = config.on_disk_cache_directories[dest.cache_directory_idx];
+		auto local_dest = ResolveLocalCacheDestination(cache_dir, dest.cache_filepath, block.fname);
+		StoreLocalCacheFile(cache_dir, local_dest, entry->data, entry->version_tag, config,
+		                    /*lru_eviction_decider=*/[]() -> string { return {}; });
+	}
+
+	for (const auto &filepath : old_filepaths) {
+		local_filesystem.TryRemoveFile(filepath);
+	}
 }
 
 } // namespace duckdb
