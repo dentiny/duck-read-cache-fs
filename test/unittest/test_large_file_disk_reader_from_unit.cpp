@@ -9,8 +9,6 @@
 #include "scoped_directory.hpp"
 #include "test_utils.hpp"
 
-#include <utime.h>
-
 using namespace duckdb; // NOLINT
 
 namespace {

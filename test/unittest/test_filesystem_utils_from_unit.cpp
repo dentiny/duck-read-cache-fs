@@ -9,8 +9,7 @@
 #include "cache_filesystem_config.hpp"
 #include "filesystem_utils.hpp"
 #include "scoped_directory.hpp"
-
-#include <utime.h>
+#include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -46,10 +45,7 @@ TEST_CASE_METHOD(FilesystemUtilsDirFixture, "Stale file deletion", "[utils test]
 
 	const time_t now = std::time(nullptr);
 	const time_t two_day_ago = now - 48 * 60 * 60;
-	struct utimbuf updated_time;
-	updated_time.actime = two_day_ago;
-	updated_time.modtime = two_day_ago;
-	REQUIRE(utime(fname2.data(), &updated_time) == 0);
+	SetFileMtime(fname2, two_day_ago);
 
 	// Get files under the folder in the order of creation timestamp.
 	{
