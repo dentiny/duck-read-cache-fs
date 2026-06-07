@@ -7,11 +7,9 @@
 #include "filesystem_utils.hpp"
 #include "hash_utils.hpp"
 #include "scoped_directory.hpp"
+#include "test_utils.hpp"
 
 #include <ctime>
-#if !defined(_WIN32)
-#include <utime.h>
-#endif
 
 using namespace duckdb;
 
@@ -157,10 +155,7 @@ TEST_CASE("CleanupDeadTempFiles deletes only stale temp files", "[disk_cache_uti
 	// Set stale_path mtime to 1 year ago to make it stale.
 	const time_t now = std::time(nullptr);
 	const time_t eleven_min_ago = now - 365 * 24 * 60 * 60;
-	struct utimbuf old_time;
-	old_time.actime = eleven_min_ago;
-	old_time.modtime = eleven_min_ago;
-	REQUIRE(utime(stale_path.c_str(), &old_time) == 0);
+	SetFileMtime(stale_path, eleven_min_ago);
 
 	const idx_t deleted = DiskCacheUtil::CleanupDeadTempFiles({test_dir});
 	REQUIRE(deleted == 1);

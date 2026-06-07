@@ -3,6 +3,15 @@
 #include "cache_httpfs_instance_state.hpp"
 #include "duckdb/common/local_file_system.hpp"
 
+#include <cerrno>
+#include <cstring>
+
+#if !defined(_WIN32)
+#include <utime.h>
+#else
+#include <sys/utime.h>
+#endif
+
 namespace duckdb {
 
 TestCacheFileSystemHelper::TestCacheFileSystemHelper(TestCacheConfig config) : db() {
@@ -77,6 +86,22 @@ BaseProfileCollector &TestCacheFileSystemHelper::GetProfileCollectorOrDefault(co
 
 void InitializeCacheReaderForTest(shared_ptr<CacheHttpfsInstanceState> &instance_state, const InstanceConfig &config) {
 	instance_state->cache_reader_manager.SetCacheReader(config, instance_state);
+}
+
+void SetFileMtime(const string &path, time_t mtime) {
+#if !defined(_WIN32)
+	struct utimbuf times;
+	times.actime = mtime;
+	times.modtime = mtime;
+	if (utime(path.c_str(), &times) != 0) {
+#else
+	struct _utimbuf times;
+	times.actime = mtime;
+	times.modtime = mtime;
+	if (_utime(path.c_str(), &times) != 0) {
+#endif
+		throw IOException("SetFileMtime failed for %s: %s", path, strerror(errno));
+	}
 }
 
 } // namespace duckdb

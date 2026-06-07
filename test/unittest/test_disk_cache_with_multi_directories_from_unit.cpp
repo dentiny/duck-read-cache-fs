@@ -13,8 +13,6 @@
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
-#include <utime.h>
-
 using namespace duckdb; // NOLINT
 
 namespace {

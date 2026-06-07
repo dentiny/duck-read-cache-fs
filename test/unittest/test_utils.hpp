@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <ctime>
+
 #include "base_cache_reader.hpp"
 #include "base_profile_collector.hpp"
 #include "cache_filesystem.hpp"
@@ -81,5 +83,8 @@ private:
 // Helper function to initialize cache reader for test instance state.
 // This should be called after configuring the instance state and before creating CacheFileSystem.
 void InitializeCacheReaderForTest(shared_ptr<CacheHttpfsInstanceState> &instance_state, const InstanceConfig &config);
+
+// Set the modification and access time of a file. Throws on failure.
+void SetFileMtime(const string &path, time_t mtime);
 
 } // namespace duckdb
