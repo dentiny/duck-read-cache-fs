@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <utility>
 
+#include "duckdb/common/exception.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "size_literals.hpp"
@@ -38,6 +39,12 @@ const array<string, 2> ALL_PROFILE_TYPES {{"noop", "temp"}};
 const NoDestructor<string> EXT_BOUNDED_STORAGE {"extension"};
 const NoDestructor<string> OBJECT_CACHE_STORAGE {"object_cache"};
 const array<string, 2> ALL_IN_MEM_CACHE_STORAGES {{"extension", "object_cache"}};
+
+// Parallel read executor mode.
+const NoDestructor<string> INTERNAL_THREAD_POOL_EXECUTOR {"internal_thread_pool"};
+const NoDestructor<string> DUCKDB_TASK_SCHEDULER_EXECUTOR {"duckdb_task_scheduler"};
+const array<string, 2> ALL_PARALLEL_EXECUTOR_MODES {{"internal_thread_pool", "duckdb_task_scheduler"}};
+const NoDestructor<string> DEFAULT_PARALLEL_READ_MODE {*INTERNAL_THREAD_POOL_EXECUTOR};
 
 //===--------------------------------------------------------------------===//
 // Default configuration definitions
@@ -124,6 +131,19 @@ bool DEFAULT_IGNORE_SIGPIPE = false;
 // Default min disk bytes required for on-disk cache; by default 0 which user doesn't specify and override, and default
 // value will be considered.
 idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE = 0;
+
+ParallelExecutorMode ParseParallelExecutorMode(const string &mode) {
+	if (mode == *INTERNAL_THREAD_POOL_EXECUTOR) {
+		return ParallelExecutorMode::INTERNAL_THREAD_POOL;
+	}
+	if (mode == *DUCKDB_TASK_SCHEDULER_EXECUTOR) {
+		return ParallelExecutorMode::DUCKDB_TASK_SCHEDULER;
+	}
+	auto valid_values = StringUtil::Join(ALL_PARALLEL_EXECUTOR_MODES, ALL_PARALLEL_EXECUTOR_MODES.size(), ", ",
+	                                     [](const string &s) { return s; });
+	throw InvalidInputException("Invalid cache_httpfs_parallel_read_mode '%s'. Valid options are: %s", mode,
+	                            valid_values);
+}
 
 uint64_t GetThreadCountForSubrequests(uint64_t io_request_count, uint64_t max_subrequest_count) {
 	if (max_subrequest_count == 0) {

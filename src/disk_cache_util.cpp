@@ -325,7 +325,8 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	return local_cache_dest;
 }
 
-/*static*/ idx_t DiskCacheUtil::CleanupDeadTempFiles(const vector<string> &cache_directories) {
+/*static*/ idx_t DiskCacheUtil::CleanupDeadTempFiles(const vector<string> &cache_directories,
+                                                     optional_ptr<DatabaseInstance> db, ParallelExecutorMode mode) {
 	LocalFileSystem local_filesystem {};
 	vector<string> temp_file_paths;
 
@@ -346,7 +347,7 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	const timestamp_t now = Timestamp::GetCurrentTimestamp();
 	const size_t thread_num = temp_file_paths.size();
 	std::atomic<idx_t> deleted_count {0};
-	auto executor = CreateParallelExecutor(thread_num);
+	auto executor = CreateParallelExecutor(db, mode, thread_num);
 	for (auto &path : temp_file_paths) {
 		executor->Schedule([path = std::move(path), now, &deleted_count]() {
 			LocalFileSystem fs;

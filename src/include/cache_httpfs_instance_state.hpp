@@ -155,6 +155,9 @@ struct InstanceConfig {
 
 	// Cache invalidation on write config
 	bool clear_cache_on_write = DEFAULT_CLEAR_CACHE_ON_WRITE;
+
+	// Parallel read executor mode: "internal_thread_pool" or "duckdb_task_scheduler".
+	ParallelExecutorMode parallel_read_mode = ParallelExecutorMode::INTERNAL_THREAD_POOL;
 };
 
 //===--------------------------------------------------------------------===//

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "cache_filesystem_config.hpp"
+#include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
 #include "duckdb/common/unordered_map.hpp"
@@ -13,6 +15,8 @@
 #include <functional>
 
 namespace duckdb {
+
+class DatabaseInstance;
 
 // Forward declarations.
 class FileSystem;
@@ -98,7 +102,10 @@ public:
 
 	// Remove dead temporary cache files (write-to-temp-then-swap leftovers) under [cache_directories].
 	// Returns the number of files deleted.
-	static idx_t CleanupDeadTempFiles(const vector<string> &cache_directories);
+	// [db] and [mode] are optional; when [db] is nullptr the private thread pool is always used.
+	static idx_t CleanupDeadTempFiles(const vector<string> &cache_directories,
+	                                  optional_ptr<DatabaseInstance> db = nullptr,
+	                                  ParallelExecutorMode mode = ParallelExecutorMode::INTERNAL_THREAD_POOL);
 
 private:
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].

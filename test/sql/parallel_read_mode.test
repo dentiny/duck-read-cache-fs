@@ -1,0 +1,29 @@
+# name: test/sql/parallel_read_mode.test
+# description: test cache_httpfs_parallel_read_mode setting
+# group: [sql]
+
+require cache_httpfs
+
+# Default value.
+query I
+SELECT current_setting('cache_httpfs_parallel_read_mode');
+----
+internal_thread_pool
+
+# Invalid mode should error.
+statement error
+SET cache_httpfs_parallel_read_mode='invalid_mode';
+----
+Invalid cache_httpfs_parallel_read_mode
+
+# Functional check: reads work under duckdb_task_scheduler with in_mem cache.
+statement ok
+SET cache_httpfs_parallel_read_mode='duckdb_task_scheduler';
+
+statement ok
+SET cache_httpfs_type='in_mem';
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251

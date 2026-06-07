@@ -1,10 +1,16 @@
 #pragma once
 
+#include "cache_filesystem_config.hpp"
+
 #include <functional>
 
+#include "duckdb/common/optional_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 
 namespace duckdb {
+
+// Forward declaration.
+class DatabaseInstance;
 
 class BaseParallelExecutor {
 public:
@@ -13,6 +19,7 @@ public:
 	BaseParallelExecutor(const BaseParallelExecutor &) = delete;
 	BaseParallelExecutor &operator=(const BaseParallelExecutor &) = delete;
 
+	// Enqueue one unit of work.
 	virtual void Schedule(std::function<void()> task) = 0;
 
 	// Block until every scheduled task has finished.
@@ -23,6 +30,11 @@ protected:
 	BaseParallelExecutor() = default;
 };
 
-unique_ptr<BaseParallelExecutor> CreateParallelExecutor(size_t thread_count);
+// Creates the executor selected by [mode]:
+//   ParallelExecutorMode::INTERNAL_THREAD_POOL  -> ThreadPoolParallelExecutor  (default)
+//   ParallelExecutorMode::DUCKDB_TASK_SCHEDULER -> DuckDBTaskParallelExecutor
+// Falls back to ThreadPoolParallelExecutor when [db] is nullptr.
+unique_ptr<BaseParallelExecutor> CreateParallelExecutor(optional_ptr<DatabaseInstance> db, ParallelExecutorMode mode,
+                                                        size_t thread_count);
 
 } // namespace duckdb
