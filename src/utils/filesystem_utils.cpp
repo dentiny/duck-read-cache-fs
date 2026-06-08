@@ -20,9 +20,6 @@
 #endif
 #else
 #include <windows.h>
-#ifdef SetFileAttributes
-#undef SetFileAttributes
-#endif
 #endif
 
 #include "cache_filesystem_config.hpp"
@@ -211,7 +208,7 @@ bool UpdateFileTimestamps(const string &filepath) {
 #endif
 }
 
-bool SetFileAttributes(const string &filepath, const unordered_map<string, string> &attrs) {
+bool SetFileXattrs(const string &filepath, const unordered_map<string, string> &attrs) {
 	bool all_ok = true;
 	for (const auto &attr : attrs) {
 		if (!SetSingleFileAttribute(filepath, attr.first, attr.second)) {
@@ -266,7 +263,7 @@ string GetCacheVersion(const string &filepath) {
 #endif
 }
 
-string GetFileAttribute(const string &filepath, const string &key) {
+string GetFileXattr(const string &filepath, const string &key) {
 #if defined(_WIN32)
 	const string ads_path = StringUtil::Format("%s:%s", filepath, key);
 	std::ifstream ads(ads_path, std::ios::binary);

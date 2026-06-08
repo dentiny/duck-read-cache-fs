@@ -22,14 +22,6 @@
 #include "test_constants.hpp"
 #include "test_utils.hpp"
 
-#if !defined(_WIN32)
-#include <utime.h>
-#else
-#include <sys/utime.h>
-#define utimbuf _utimbuf
-#define utime _utime
-#endif
-
 using namespace duckdb; // NOLINT
 
 namespace {
@@ -525,10 +517,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on insufficient disk space", 
 	}
 	const time_t now = std::time(nullptr);
 	const time_t two_day_ago = now - 48 * 60 * 60; // two days ago
-	struct utimbuf updated_time;
-	updated_time.actime = two_day_ago;
-	updated_time.modtime = two_day_ago;
-	REQUIRE(utime(old_cache_file.data(), &updated_time) == 0);
+	SetFileMtime(old_cache_file, two_day_ago);
 
 	// Phase 1: With insufficient disk space (very high min_disk_bytes_for_cache), eviction should happen
 	{
@@ -622,10 +611,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on lru eviction", "[on-disk c
 	{
 		const time_t now = std::time(nullptr);
 		const time_t two_day_ago = now - 48 * 60 * 60;
-		struct utimbuf updated_time;
-		updated_time.actime = two_day_ago;
-		updated_time.modtime = two_day_ago;
-		REQUIRE(utime(existing_file_1.data(), &updated_time) == 0);
+		SetFileMtime(existing_file_1, two_day_ago);
 	}
 
 	// Create existing file 2 and set modification timestamp to one day ago
@@ -637,10 +623,7 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on lru eviction", "[on-disk c
 	{
 		const time_t now = std::time(nullptr);
 		const time_t one_day_ago = now - 24 * 60 * 60;
-		struct utimbuf updated_time;
-		updated_time.actime = one_day_ago;
-		updated_time.modtime = one_day_ago;
-		REQUIRE(utime(existing_file_2.data(), &updated_time) == 0);
+		SetFileMtime(existing_file_2, one_day_ago);
 	}
 
 	// With insufficient disk space config, older file should be evicted first (LRU policy)

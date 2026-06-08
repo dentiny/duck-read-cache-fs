@@ -14,11 +14,10 @@
 #include "in_memory_data_cache_storage.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
-#include "utils/include/thread_pool.hpp"
+#include "utils/include/parallel_executor.hpp"
 #include "utils/include/thread_utils.hpp"
 
 #include <cstdint>
-#include <future>
 #include <utility>
 namespace duckdb {
 
@@ -118,9 +117,7 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 
 	// Threads to parallelly perform IO.
 	const auto task_count = GetThreadCountForSubrequests(alignment_info.subrequest_count, config.max_subrequest_count);
-	ThreadPool io_threads(task_count);
-	vector<std::future<void>> io_task_futures;
-	io_task_futures.reserve(task_count);
+	auto parallel_executor = CreateParallelExecutor(state->db_instance, state->config.parallel_read_mode, task_count);
 	// Get file-level metadata once before processing chunks.
 	string version_tag = config.enable_cache_validation ? handle.Cast<CacheFileSystemHandle>().GetVersionTag() : "";
 
@@ -178,17 +175,13 @@ void InMemoryCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t r
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
-		auto cur_task_future = io_threads.Push([this, &handle, &version_tag, cache_read_chunk]() {
+		parallel_executor->Schedule([this, &handle, &version_tag, cache_read_chunk]() {
 			ProcessCacheReadChunk(handle, version_tag, cache_read_chunk);
 		});
-		io_task_futures.emplace_back(std::move(cur_task_future));
 	}
 
 	// Block wait for all IO operations to complete.
-	io_threads.Wait();
-	for (auto &cur_task_future : io_task_futures) {
-		cur_task_future.get();
-	}
+	parallel_executor->WaitAll();
 
 	// Record "bytes to read" and "bytes to cache".
 	auto &cache_handle_for_profile = handle.Cast<CacheFileSystemHandle>();

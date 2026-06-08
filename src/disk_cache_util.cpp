@@ -1,6 +1,6 @@
 #include "disk_cache_util.hpp"
 
-#include <future>
+#include <atomic>
 
 #include "duckdb/common/assert.hpp"
 #include "cache_filesystem_config.hpp"
@@ -15,7 +15,7 @@
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/hash_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
-#include "utils/include/thread_pool.hpp"
+#include "utils/include/parallel_executor.hpp"
 #include "utils/include/url_utils.hpp"
 
 namespace duckdb {
@@ -48,7 +48,7 @@ string ReadChunkedXattr(const string &filepath, const char *key_prefix) {
 	string result;
 	for (idx_t idx = 0;; ++idx) {
 		const string key = StringUtil::Format("%s.%03llu", key_prefix, idx);
-		string chunk = GetFileAttribute(filepath, key);
+		string chunk = GetFileXattr(filepath, key);
 		if (chunk.empty()) {
 			break;
 		}
@@ -217,7 +217,7 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	if (!version_tag.empty() && !SetCacheVersion(cache_dest.temp_local_filepath, version_tag)) {
 		return;
 	}
-	if (!cache_dest.file_attrs.empty() && !SetFileAttributes(cache_dest.temp_local_filepath, cache_dest.file_attrs)) {
+	if (!cache_dest.file_attrs.empty() && !SetFileXattrs(cache_dest.temp_local_filepath, cache_dest.file_attrs)) {
 		return;
 	}
 
@@ -325,7 +325,8 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	return local_cache_dest;
 }
 
-/*static*/ idx_t DiskCacheUtil::CleanupDeadTempFiles(const vector<string> &cache_directories) {
+/*static*/ idx_t DiskCacheUtil::CleanupDeadTempFiles(const vector<string> &cache_directories,
+                                                     optional_ptr<DatabaseInstance> db, ParallelExecutorMode mode) {
 	LocalFileSystem local_filesystem {};
 	vector<string> temp_file_paths;
 
@@ -345,30 +346,24 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 
 	const timestamp_t now = Timestamp::GetCurrentTimestamp();
 	const size_t thread_num = temp_file_paths.size();
-	ThreadPool tp(thread_num);
-	vector<std::future<idx_t>> futures;
-	futures.reserve(temp_file_paths.size());
+	std::atomic<idx_t> deleted_count {0};
+	auto executor = CreateParallelExecutor(db, mode, thread_num);
 	for (auto &path : temp_file_paths) {
-		futures.emplace_back(tp.Push([path = std::move(path), now]() -> idx_t {
+		executor->Schedule([path = std::move(path), now, &deleted_count]() {
 			LocalFileSystem fs;
 			auto file_handle =
 			    fs.OpenFile(path, FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
 			if (file_handle == nullptr) {
-				return 0;
+				return;
 			}
 			const timestamp_t last_mod_time = fs.GetLastModifiedTime(*file_handle);
 			const int64_t diff_microsec = now.value - last_mod_time.value;
 			if (diff_microsec >= static_cast<int64_t>(DEAD_TEMP_STALENESS_MICROSEC) && fs.TryRemoveFile(path)) {
-				return 1;
+				deleted_count.fetch_add(1);
 			}
-			return 0;
-		}));
+		});
 	}
-	tp.Wait();
-	idx_t deleted_count = 0;
-	for (auto &f : futures) {
-		deleted_count += f.get();
-	}
+	executor->WaitAll();
 	return deleted_count;
 }
 

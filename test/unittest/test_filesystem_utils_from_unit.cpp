@@ -9,14 +9,7 @@
 #include "cache_filesystem_config.hpp"
 #include "filesystem_utils.hpp"
 #include "scoped_directory.hpp"
-
-#if !defined(_WIN32)
-#include <utime.h>
-#else
-#include <sys/utime.h>
-#define utimbuf _utimbuf
-#define utime _utime
-#endif
+#include "test_utils.hpp"
 
 using namespace duckdb; // NOLINT
 
@@ -52,10 +45,7 @@ TEST_CASE_METHOD(FilesystemUtilsDirFixture, "Stale file deletion", "[utils test]
 
 	const time_t now = std::time(nullptr);
 	const time_t two_day_ago = now - 48 * 60 * 60;
-	struct utimbuf updated_time;
-	updated_time.actime = two_day_ago;
-	updated_time.modtime = two_day_ago;
-	REQUIRE(utime(fname2.data(), &updated_time) == 0);
+	SetFileMtime(fname2, two_day_ago);
 
 	// Get files under the folder in the order of creation timestamp.
 	{
@@ -131,22 +121,22 @@ TEST_CASE("SetFileAttributes and GetFileAttribute roundtrip", "[utils test]") {
 	unordered_map<string, string> attrs;
 	attrs["user.test_key_a"] = "value_alpha";
 	attrs["user.test_key_b"] = "value_beta";
-	REQUIRE(SetFileAttributes(test_file, attrs));
+	REQUIRE(SetFileXattrs(test_file, attrs));
 
-	REQUIRE(GetFileAttribute(test_file, "user.test_key_a") == "value_alpha");
-	REQUIRE(GetFileAttribute(test_file, "user.test_key_b") == "value_beta");
+	REQUIRE(GetFileXattr(test_file, "user.test_key_a") == "value_alpha");
+	REQUIRE(GetFileXattr(test_file, "user.test_key_b") == "value_beta");
 
 	// Overwrite one attribute and verify.
 	unordered_map<string, string> updated;
 	updated["user.test_key_a"] = "value_updated";
-	REQUIRE(SetFileAttributes(test_file, updated));
-	REQUIRE(GetFileAttribute(test_file, "user.test_key_a") == "value_updated");
+	REQUIRE(SetFileXattrs(test_file, updated));
+	REQUIRE(GetFileXattr(test_file, "user.test_key_a") == "value_updated");
 	// The other attribute should be untouched.
-	REQUIRE(GetFileAttribute(test_file, "user.test_key_b") == "value_beta");
+	REQUIRE(GetFileXattr(test_file, "user.test_key_b") == "value_beta");
 
 	// Reading a non-existent attribute returns empty.
-	REQUIRE(GetFileAttribute(test_file, "user.no_such_key").empty());
+	REQUIRE(GetFileXattr(test_file, "user.no_such_key").empty());
 
 	// Reading from a non-existent file returns empty.
-	REQUIRE(GetFileAttribute(StringUtil::Format("%s/no_such_file", dir), "user.test_key_a").empty());
+	REQUIRE(GetFileXattr(StringUtil::Format("%s/no_such_file", dir), "user.test_key_a").empty());
 }

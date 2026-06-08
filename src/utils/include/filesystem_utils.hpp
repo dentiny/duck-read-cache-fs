@@ -52,7 +52,7 @@ string GetCacheVersion(const string &filepath);
 // Set extended attributes on a file; if the attribute key already exists, it will be overwritten.
 // Return whether the operation succeeds.
 // Notice, this function doesn't provide transaction guarantee.
-bool SetFileAttributes(const string &filepath, const unordered_map<string, string> &attrs);
+bool SetFileXattrs(const string &filepath, const unordered_map<string, string> &attrs);
 
 // Check if caching is allowed (sufficient disk space)
 bool CanCacheOnDisk(const string &cache_directory, idx_t cache_block_size, idx_t min_disk_bytes_for_cache);
@@ -80,7 +80,7 @@ MaxFileNameLength GetMaxFileNameLength();
 
 // Read a single extended attribute value from a file.
 // Returns the value as a string, or empty string if missing or on error.
-string GetFileAttribute(const string &filepath, const string &key);
+string GetFileXattr(const string &filepath, const string &key);
 
 // Get the maximum size in bytes for a single extended attribute value.
 idx_t GetMaxXattrValueSize();
