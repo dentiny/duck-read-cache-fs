@@ -2,6 +2,8 @@
 # description: test that caching filesystem respects enable_external_access when serving from cache
 # group: [sql]
 
+require notwindows
+
 require cache_httpfs
 
 require parquet

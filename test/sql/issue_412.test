@@ -2,6 +2,8 @@
 # description: regression test for issue 412
 # group: [sql]
 
+require notwindows
+
 require cache_httpfs
 
 statement ok
