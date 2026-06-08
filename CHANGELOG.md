@@ -1,3 +1,16 @@
+# 0.14.0
+
+## Added
+
+- Add windows platform support ([#502])
+
+[#502]: https://github.com/dentiny/duck-read-cache-fs/pull/502
+
+- Add DuckDB thread core compatible thread number ([#503], [#504])
+
+[#503]: https://github.com/dentiny/duck-read-cache-fs/pull/503
+[#504]: https://github.com/dentiny/duck-read-cache-fs/pull/504
+
 # 0.13.6
 
 ## Added
