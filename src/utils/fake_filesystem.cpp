@@ -15,7 +15,12 @@ CacheHttpfsFakeFileSystem::CacheHttpfsFakeFileSystem() : local_filesystem(LocalF
 	local_filesystem->CreateDirectory(GetFakeOnDiskCacheDirectory());
 }
 bool CacheHttpfsFakeFileSystem::CanHandleFile(const string &path) {
+#if defined(_WIN32)
+	const auto canonical_path = local_filesystem->ConvertSeparators(local_filesystem->CanonicalizePath(path));
+	return StringUtil::StartsWith(canonical_path, GetFakeOnDiskCacheDirectory());
+#else
 	return StringUtil::StartsWith(path, GetFakeOnDiskCacheDirectory());
+#endif
 }
 
 unique_ptr<FileHandle> CacheHttpfsFakeFileSystem::OpenFile(const string &path, FileOpenFlags flags,

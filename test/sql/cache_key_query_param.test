@@ -2,8 +2,6 @@
 # description: cache key preserves URL query parameters so URLs differing only by query string are treated as fully distinct cache entries.
 # group: [sql]
 
-require notwindows
-
 require cache_httpfs
 
 # ============================================================

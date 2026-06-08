@@ -357,8 +357,8 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 				return;
 			}
 			const timestamp_t last_mod_time = fs.GetLastModifiedTime(*file_handle);
-			const idx_t diff_microsec = static_cast<idx_t>(now.value - last_mod_time.value);
-			if (diff_microsec >= DEAD_TEMP_STALENESS_MICROSEC && fs.TryRemoveFile(path)) {
+			const int64_t diff_microsec = now.value - last_mod_time.value;
+			if (diff_microsec >= static_cast<int64_t>(DEAD_TEMP_STALENESS_MICROSEC) && fs.TryRemoveFile(path)) {
 				deleted_count.fetch_add(1);
 			}
 		});

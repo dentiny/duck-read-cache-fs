@@ -130,7 +130,6 @@ TEST_CASE("ResolveLocalCacheDestination - oversized filepath triggers fallback",
 	REQUIRE(ReassembleFileAttrsForPrefix(result.file_attrs, REMOTE_PATH_PREFIX) == remote_path);
 }
 
-#if !defined(_WIN32)
 TEST_CASE("CleanupDeadTempFiles deletes only stale temp files", "[disk_cache_util]") {
 	const string test_dir =
 	    StringUtil::Format("/tmp/test_disk_cache_util_%s", UUID::ToString(UUID::GenerateRandomUUID()));
@@ -162,4 +161,3 @@ TEST_CASE("CleanupDeadTempFiles deletes only stale temp files", "[disk_cache_uti
 	REQUIRE(!fs->FileExists(stale_path));
 	REQUIRE(fs->FileExists(fresh_path));
 }
-#endif

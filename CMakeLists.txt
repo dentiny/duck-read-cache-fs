@@ -9,6 +9,9 @@ if(UNIX OR APPLE)
   set(CMAKE_CXX_FLAGS
       "${CMAKE_CXX_FLAGS} -Wno-write-strings -Wno-c++17-extensions -Wno-c++20-extensions -Wunused-variable -Wunused-function -Wunused-but-set-variable"
   )
+elseif(MSVC)
+  set(CMAKE_CXX_STANDARD 20)
+  add_definitions(-D_HAS_DEPRECATED_RESULT_OF=1)
 endif()
 
 # Override DuckDB encryption library, mimics httpfs extension behavior.
