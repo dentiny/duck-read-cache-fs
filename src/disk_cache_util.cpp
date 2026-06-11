@@ -147,6 +147,10 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	};
 }
 
+/*static*/ bool DiskCacheUtil::IsTempCacheFile(const string &filename) {
+	return StringUtil::EndsWith(filename, TEMP_CACHE_FILE_SUFFIX);
+}
+
 /*static*/ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
 	duckdb::hash_bytes remote_file_sha256_val;
 	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
@@ -333,7 +337,7 @@ DiskCacheUtil::ResolveLocalCacheDestination(const string &cache_directory, const
 	for (const auto &cache_directory : cache_directories) {
 		local_filesystem.ListFiles(
 		    cache_directory, [&temp_file_paths, &cache_directory](const string &fname, bool /*unused*/) {
-			    if (!StringUtil::EndsWith(fname, TEMP_CACHE_FILE_SUFFIX)) {
+			    if (!IsTempCacheFile(fname)) {
 				    return;
 			    }
 			    temp_file_paths.emplace_back(StringUtil::Format("%s/%s", cache_directory, fname));
