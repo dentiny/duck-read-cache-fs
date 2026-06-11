@@ -73,6 +73,12 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 	for (const auto &cur_cache_dir : cache_directories) {
 		local_filesystem->ListFiles(
 		    cur_cache_dir, [&cache_entries_info, cur_cache_dir](const string &fname, bool /*unused*/) {
+			    // Skip in-flight temporary cache files. Their transient names don't follow the cache filename
+			    // format, so parsing offsets/sizes out of them would throw; they appear as regular cache entries
+			    // once the write renames them into place.
+			    if (DiskCacheUtil::IsTempCacheFile(fname)) {
+				    return;
+			    }
 			    auto cache_filepath = StringUtil::Format("%s/%s", cur_cache_dir, fname);
 			    auto remote_file_info = DiskCacheUtil::GetRemoteFileInfo(cache_filepath);
 			    auto original_remote_path = DiskCacheUtil::TryGetOriginalRemotePath(cache_filepath);

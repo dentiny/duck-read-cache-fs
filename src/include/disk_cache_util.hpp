@@ -50,6 +50,9 @@ public:
 	// Get remote file information from the given local cache [cache_filepath].
 	static RemoteFileInfo GetRemoteFileInfo(const string &cache_filepath);
 
+	// Returns true if [filename] is an in-flight temporary cache file (a cache write in progress).
+	static bool IsTempCacheFile(const string &filename);
+
 	// Used to delete on-disk cache files, which returns the file prefix for the given [remote_file].
 	static string GetLocalCacheFilePrefix(const string &remote_file);
 

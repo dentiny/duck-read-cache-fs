@@ -61,6 +61,19 @@ TEST_CASE("Get remote file information from local cache filename", "[disk_cache_
 	REQUIRE(info.end_offset == 4096);
 }
 
+TEST_CASE("DiskCacheUtil::IsTempCacheFile - identifies in-flight temp cache files", "[disk_cache_util]") {
+	const string hash64 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+	const string final_name = hash64 + "-file.parquet-0-4096";
+
+	// A finalized cache file is not a temp file.
+	REQUIRE_FALSE(DiskCacheUtil::IsTempCacheFile(final_name));
+
+	// The temp name produced for an in-flight write must be recognized so it is skipped during listing/parsing.
+	const string temp_name =
+	    StringUtil::Format("%s.%s.httpfs_local_cache", final_name, UUID::ToString(UUID::GenerateRandomUUID()));
+	REQUIRE(DiskCacheUtil::IsTempCacheFile(temp_name));
+}
+
 TEST_CASE("DiskCacheUtil::GetLocalCacheFilePrefix - query string differentiates cache key", "[disk_cache_util]") {
 	const string url_plain = "https://example.com/file.parquet";
 	const string url_with_query = "https://example.com/file.parquet?version=1";
