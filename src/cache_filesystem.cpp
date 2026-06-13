@@ -613,7 +613,7 @@ int64_t CacheFileSystem::ReadImpl(FileHandle &handle, void *buffer, int64_t nr_b
 	const int64_t bytes_to_read = MinValue<int64_t>(nr_bytes, file_size - location);
 	if (state->exclusion_manager.MatchAnyExclusion(handle.GetPath())) {
 		auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
-		internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, nr_bytes, location);
+		internal_filesystem->Read(*cache_handle.internal_file_handle, buffer, bytes_to_read, location);
 		return bytes_to_read;
 	}
 
