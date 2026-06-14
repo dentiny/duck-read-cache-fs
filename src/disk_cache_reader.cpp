@@ -38,7 +38,7 @@ void DiskCacheReader::RemoveCacheFileAccessTimestamp(const string &filepath) {
 		return;
 	}
 	const auto erased = cache_file_access_timestamp_map.erase(reverse_it->second);
-	D_ASSERT(erased == 1);
+	ALWAYS_ASSERT(erased == 1);
 	cache_filepath_to_access_timestamp.erase(reverse_it);
 }
 
@@ -50,9 +50,9 @@ void DiskCacheReader::LoadCacheFileAccessTimestampMapsFromDisk() {
 	cache_filepath_to_access_timestamp.reserve(cache_file_access_timestamp_map.size());
 	for (const auto &entry : cache_file_access_timestamp_map) {
 		const auto inserted = cache_filepath_to_access_timestamp.emplace(entry.second, entry.first).second;
-		D_ASSERT(inserted);
+		ALWAYS_ASSERT(inserted);
 	}
-	D_ASSERT(cache_file_access_timestamp_map.size() == cache_filepath_to_access_timestamp.size());
+	ALWAYS_ASSERT(cache_file_access_timestamp_map.size() == cache_filepath_to_access_timestamp.size());
 }
 
 void DiskCacheReader::UpsertCacheFileAccessTimestamp(const string &filepath) {

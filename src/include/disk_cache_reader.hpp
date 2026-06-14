@@ -59,11 +59,10 @@ private:
 	void UpsertCacheFileAccessTimestamp(const string &filepath);
 
 	// Remove [filepath] from the LRU access maps.
-	void RemoveCacheFileAccessTimestamp(const string &filepath)
-	    DUCKDB_GUARDED_BY(cache_file_access_timestamp_map_mutex);
+	void RemoveCacheFileAccessTimestamp(const string &filepath) DUCKDB_REQUIRES(cache_file_access_timestamp_map_mutex);
 
 	// Rebuild LRU access maps from on-disk cache files.
-	void LoadCacheFileAccessTimestampMapsFromDisk() DUCKDB_GUARDED_BY(cache_file_access_timestamp_map_mutex);
+	void LoadCacheFileAccessTimestampMapsFromDisk() DUCKDB_REQUIRES(cache_file_access_timestamp_map_mutex);
 
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
