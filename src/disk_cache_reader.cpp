@@ -10,6 +10,7 @@
 #include "cache_read_chunk.hpp"
 #include "disk_cache_reader.hpp"
 #include "disk_cache_util.hpp"
+#include "duckdb/common/assert.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/timestamp.hpp"
@@ -31,35 +32,54 @@ DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_sta
     : BaseCacheReader(std::move(instance_state_p)), local_filesystem(LocalFileSystem::CreateLocal()) {
 }
 
+void DiskCacheReader::RemoveCacheFileAccessTimestamp(const string &filepath) {
+	const auto reverse_it = cache_filepath_to_access_timestamp.find(filepath);
+	if (reverse_it == cache_filepath_to_access_timestamp.end()) {
+		return;
+	}
+	const auto erased = cache_file_access_timestamp_map.erase(reverse_it->second);
+	D_ASSERT(erased == 1);
+	cache_filepath_to_access_timestamp.erase(reverse_it);
+}
+
+void DiskCacheReader::LoadCacheFileAccessTimestampMapsFromDisk() {
+	auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
+	const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
+	cache_file_access_timestamp_map = GetOnDiskFilesUnder(cache_directories);
+	cache_filepath_to_access_timestamp.clear();
+	cache_filepath_to_access_timestamp.reserve(cache_file_access_timestamp_map.size());
+	for (const auto &entry : cache_file_access_timestamp_map) {
+		const auto inserted = cache_filepath_to_access_timestamp.emplace(entry.second, entry.first).second;
+		D_ASSERT(inserted);
+	}
+	D_ASSERT(cache_file_access_timestamp_map.size() == cache_filepath_to_access_timestamp.size());
+}
+
 void DiskCacheReader::UpsertCacheFileAccessTimestamp(const string &filepath) {
 	timestamp_t ts = Timestamp::GetCurrentTimestamp();
 	const concurrency::lock_guard<concurrency::mutex> lck(cache_file_access_timestamp_map_mutex);
-	for (auto it = cache_file_access_timestamp_map.begin(); it != cache_file_access_timestamp_map.end();) {
-		if (it->second == filepath) {
-			it = cache_file_access_timestamp_map.erase(it);
-		} else {
-			++it;
-		}
-	}
+	RemoveCacheFileAccessTimestamp(filepath);
 	while (cache_file_access_timestamp_map.count(ts)) {
 		ts = timestamp_t {ts.value + 1};
 	}
 	cache_file_access_timestamp_map.emplace(ts, filepath);
+	const auto inserted = cache_filepath_to_access_timestamp.emplace(filepath, ts).second;
+	ALWAYS_ASSERT(inserted);
+	ALWAYS_ASSERT(cache_file_access_timestamp_map.size() == cache_filepath_to_access_timestamp.size());
 }
 
 optional<string> DiskCacheReader::EvictCacheBlockLru() {
 	const concurrency::lock_guard<concurrency::mutex> lck(cache_file_access_timestamp_map_mutex);
 	if (cache_file_access_timestamp_map.empty()) {
-		auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
-		const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
-		cache_file_access_timestamp_map = GetOnDiskFilesUnder(cache_directories);
+		LoadCacheFileAccessTimestampMapsFromDisk();
 	}
 	if (cache_file_access_timestamp_map.empty()) {
 		return nullopt;
 	}
 
 	auto filepath = std::move(cache_file_access_timestamp_map.begin()->second);
-	cache_file_access_timestamp_map.erase(cache_file_access_timestamp_map.begin());
+	RemoveCacheFileAccessTimestamp(filepath);
+	ALWAYS_ASSERT(cache_file_access_timestamp_map.size() == cache_filepath_to_access_timestamp.size());
 	return filepath;
 }
 
@@ -324,6 +344,7 @@ void DiskCacheReader::ClearCache() {
 	{
 		const concurrency::lock_guard<concurrency::mutex> lck(cache_file_access_timestamp_map_mutex);
 		cache_file_access_timestamp_map.clear();
+		cache_filepath_to_access_timestamp.clear();
 	}
 	if (in_mem_storage != nullptr) {
 		in_mem_storage->Clear();
@@ -343,6 +364,14 @@ void DiskCacheReader::ClearCache(const string &fname) {
 				cache_files_to_remove.emplace_back(std::move(filepath));
 			}
 		});
+	}
+
+	{
+		const concurrency::lock_guard<concurrency::mutex> lck(cache_file_access_timestamp_map_mutex);
+		for (const auto &filepath : cache_files_to_remove) {
+			RemoveCacheFileAccessTimestamp(filepath);
+		}
+		ALWAYS_ASSERT(cache_file_access_timestamp_map.size() == cache_filepath_to_access_timestamp.size());
 	}
 
 	const auto thread_num = std::min<size_t>(GetCpuCoreCount(), cache_files_to_remove.size());

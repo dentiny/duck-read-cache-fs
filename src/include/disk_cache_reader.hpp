@@ -11,6 +11,7 @@
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/types/timestamp.hpp"
+#include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "in_mem_cache_block.hpp"
 #include "in_mem_cache_data_entry.hpp"
@@ -46,7 +47,6 @@ public:
 
 	// Get file cache block to evict.
 	// Notice returned filepath will be removed from LRU list, but the actual file won't be deleted.
-	// Returns nullopt when there is nothing to evict.
 	optional<string> EvictCacheBlockLru();
 
 private:
@@ -58,12 +58,22 @@ private:
 	// Insert or refresh [filepath] in the LRU access map with the current timestamp.
 	void UpsertCacheFileAccessTimestamp(const string &filepath);
 
+	// Remove [filepath] from the LRU access maps. Caller must hold [cache_file_access_timestamp_map_mutex].
+	void RemoveCacheFileAccessTimestamp(const string &filepath);
+
+	// Rebuild LRU access maps from on-disk cache files. Caller must hold [cache_file_access_timestamp_map_mutex].
+	void LoadCacheFileAccessTimestampMapsFromDisk() DUCKDB_GUARDED_BY(cache_file_access_timestamp_map_mutex);
+
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
-	// Guards the on-disk cache block LRU access map below.
+	// Used for on-disk cache block LRU-based eviction.
 	concurrency::mutex cache_file_access_timestamp_map_mutex;
-	// Maps last-access timestamp to cache filepath (ascending: begin() is LRU victim).
+	// Maps last-access timestamp to cache filepath.
 	map<timestamp_t, string> cache_file_access_timestamp_map DUCKDB_GUARDED_BY(cache_file_access_timestamp_map_mutex);
+	// Maps from filepath to last-access timestamp.
+	// Invariant: each filepath appears exactly once in both maps.
+	unordered_map<string, timestamp_t>
+	    cache_filepath_to_access_timestamp DUCKDB_GUARDED_BY(cache_file_access_timestamp_map_mutex);
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
 	// In-memory cache to store blocks; late initialized after first access.
