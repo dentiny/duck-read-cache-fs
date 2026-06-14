@@ -55,7 +55,7 @@ private:
 	                           const DiskCacheUtil::RemoteFileCachePathInfo &path_info,
 	                           CacheReadChunk cache_read_chunk);
 
-	// Insert or refresh [filepath] in the LRU access map with the current timestamp.
+	// Insert or refresh [filepath] in the LRU access maps and on-disk access time.
 	void UpsertCacheFileAccessTimestamp(const string &filepath);
 
 	// Remove [filepath] from the LRU access maps.

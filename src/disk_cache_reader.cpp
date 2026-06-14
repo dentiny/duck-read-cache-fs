@@ -43,10 +43,12 @@ void DiskCacheReader::RemoveCacheFileAccessTimestamp(const string &filepath) {
 }
 
 void DiskCacheReader::LoadCacheFileAccessTimestampMapsFromDisk() {
+	ALWAYS_ASSERT(cache_file_access_timestamp_map.empty());
+	ALWAYS_ASSERT(cache_filepath_to_access_timestamp.empty());
+
 	auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
 	const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
 	cache_file_access_timestamp_map = GetOnDiskFilesUnder(cache_directories);
-	cache_filepath_to_access_timestamp.clear();
 	cache_filepath_to_access_timestamp.reserve(cache_file_access_timestamp_map.size());
 	for (const auto &entry : cache_file_access_timestamp_map) {
 		const auto inserted = cache_filepath_to_access_timestamp.emplace(entry.second, entry.first).second;
@@ -56,6 +58,10 @@ void DiskCacheReader::LoadCacheFileAccessTimestampMapsFromDisk() {
 }
 
 void DiskCacheReader::UpsertCacheFileAccessTimestamp(const string &filepath) {
+	// Update file access timestamp to the current time.
+	UpdateFileTimestamps(filepath);
+
+	// Update in-memory access timestamp map.
 	timestamp_t ts = Timestamp::GetCurrentTimestamp();
 	const concurrency::lock_guard<concurrency::mutex> lck(cache_file_access_timestamp_map_mutex);
 	RemoveCacheFileAccessTimestamp(filepath);
