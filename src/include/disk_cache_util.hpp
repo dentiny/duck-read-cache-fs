@@ -31,11 +31,14 @@ public:
 	};
 
 	// File-level cache path components computed once per remote file read.
-	// Per-chunk paths are built via GetLocalCacheFile(path_info, start_offset, bytes_to_read).
 	struct RemoteFileCachePathInfo {
+		// Index for all cache directories.
 		idx_t cache_directory_idx = 0;
+		// Local cache filepath.
 		string cache_directory;
+		// SHA-256 hash of the remote filepath.
 		string remote_file_sha256_hex;
+		// Sanitized filename.
 		string sanitized_fname;
 	};
 
