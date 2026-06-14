@@ -58,6 +58,17 @@ private:
 	string version_tag;
 };
 
+string FindCacheFileForBlock(const string &cache_dir, idx_t offset, idx_t block_size) {
+	const string suffix = StringUtil::Format("-%llu-%llu", offset, block_size);
+	string result;
+	LocalFileSystem::CreateLocal()->ListFiles(cache_dir, [&](const string &fname, bool /*unused*/) {
+		if (StringUtil::EndsWith(fname, suffix)) {
+			result = StringUtil::Format("%s/%s", cache_dir, fname);
+		}
+	});
+	return result;
+}
+
 } // namespace
 
 // Test default directory works for uncached read.
@@ -671,4 +682,52 @@ TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test on lru eviction", "[on-disk c
 		REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_1));
 		REQUIRE(!LocalFileSystem::CreateLocal()->FileExists(existing_file_2));
 	}
+}
+
+// Test LRU-based eviction: re-reading a cached block refreshes its position so a newer block is evicted first.
+TEST_CASE_METHOD(DiskCacheFilesystemFixture, "Test lru access timestamp touch on read",
+                 "[on-disk cache filesystem test]") {
+	LocalFileSystem::CreateLocal()->RemoveDirectory(TEST_ON_DISK_CACHE_DIRECTORY);
+	ScopedDirectory scoped_cache_dir(TEST_ON_DISK_CACHE_DIRECTORY);
+
+	constexpr uint64_t test_block_size = 5;
+	TestCacheConfig config;
+	config.cache_type = "on_disk";
+	config.cache_block_size = test_block_size;
+	config.cache_directories = {TEST_ON_DISK_CACHE_DIRECTORY};
+	config.eviction_policy = "lru_sp";
+	config.enable_disk_reader_mem_cache = false;
+	TestCacheFileSystemHelper helper(std::move(config));
+	auto *disk_cache_fs = helper.GetCacheFileSystem();
+	auto local_fs = LocalFileSystem::CreateLocal();
+
+	auto read_range = [&](uint64_t start_offset, uint64_t bytes_to_read) {
+		auto handle = disk_cache_fs->OpenFile(test_filename, FileOpenFlags::FILE_FLAGS_READ |
+		                                                         FileOpenFlags::FILE_FLAGS_PARALLEL_ACCESS);
+		string content(bytes_to_read, '\0');
+		disk_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
+		                    start_offset);
+		REQUIRE(content == TEST_FILE_CONTENT.substr(start_offset, bytes_to_read));
+	};
+
+	read_range(0, test_block_size);
+	read_range(test_block_size, test_block_size);
+	REQUIRE(GetFileCountUnder(TEST_ON_DISK_CACHE_DIRECTORY) == 2);
+
+	const string block0_path = FindCacheFileForBlock(TEST_ON_DISK_CACHE_DIRECTORY, /*offset=*/0, test_block_size);
+	const string block5_path =
+	    FindCacheFileForBlock(TEST_ON_DISK_CACHE_DIRECTORY, /*offset=*/test_block_size, test_block_size);
+	REQUIRE(local_fs->FileExists(block0_path));
+	REQUIRE(local_fs->FileExists(block5_path));
+
+	// Disk hit refreshes block@0 in the LRU map; without this, block@0 would be evicted before block@5.
+	read_range(0, test_block_size);
+
+	// Reset required disk space to trigger disk cache eviction.
+	helper.GetConfig().min_disk_bytes_for_cache = static_cast<idx_t>(-1);
+
+	// Perform one read to evict cache blocks.
+	read_range(2 * test_block_size, test_block_size);
+	REQUIRE(local_fs->FileExists(block0_path));
+	REQUIRE(!local_fs->FileExists(block5_path));
 }

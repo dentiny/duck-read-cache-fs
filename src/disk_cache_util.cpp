@@ -178,7 +178,7 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 
 /*static*/ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
                                                const string &eviction_policy,
-                                               const std::function<string()> &lru_eviction_decider) {
+                                               const std::function<optional<string>()> &lru_eviction_decider) {
 	// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
 	// because on unix platform files are only deleted physically when their last reference count goes away.
 	//
@@ -191,15 +191,18 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 	// For LRU-based eviction, get the entry to remove and delete the file to release storage space.
 	ALWAYS_ASSERT(eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION);
 	const auto filepath_to_evict = lru_eviction_decider();
+	if (!filepath_to_evict) {
+		return;
+	}
 	// Intentionally ignore return value.
-	local_filesystem.TryRemoveFile(filepath_to_evict);
+	local_filesystem.TryRemoveFile(*filepath_to_evict);
 }
 
 /*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory,
                                                    const LocalCacheDestination &cache_dest,
                                                    const PageAlignedDataChunk &content, const string &version_tag,
                                                    const InstanceConfig &config,
-                                                   const std::function<string()> &lru_eviction_decider) {
+                                                   const std::function<optional<string>()> &lru_eviction_decider) {
 	LocalFileSystem local_filesystem {};
 
 	// Skip local cache if insufficient disk space.

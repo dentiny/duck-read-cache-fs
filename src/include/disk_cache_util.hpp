@@ -10,6 +10,7 @@
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 #include "page_aligned_data_chunk.hpp"
+#include "optional.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -99,7 +100,8 @@ public:
 	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
 	static void StoreLocalCacheFile(const string &cache_directory, const LocalCacheDestination &cache_dest,
 	                                const PageAlignedDataChunk &content, const string &version_tag,
-	                                const InstanceConfig &config, const std::function<string()> &lru_eviction_decider);
+	                                const InstanceConfig &config,
+	                                const std::function<optional<string>()> &lru_eviction_decider);
 
 	// Options for reading local cache files.
 	struct ReadOption {
@@ -133,7 +135,8 @@ private:
 	// Attempt to evict cache files, if file size threshold reached.
 	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
 	static void EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
-	                            const string &eviction_policy, const std::function<string()> &lru_eviction_decider);
+	                            const string &eviction_policy,
+	                            const std::function<optional<string>()> &lru_eviction_decider);
 };
 
 } // namespace duckdb

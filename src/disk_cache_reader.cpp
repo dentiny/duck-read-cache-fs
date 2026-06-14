@@ -12,6 +12,7 @@
 #include "disk_cache_util.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/main/database.hpp"
 #include "in_mem_cache_remap.hpp"
 #include "in_memory_data_cache_storage.hpp"
@@ -30,19 +31,35 @@ DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_sta
     : BaseCacheReader(std::move(instance_state_p)), local_filesystem(LocalFileSystem::CreateLocal()) {
 }
 
-string DiskCacheReader::EvictCacheBlockLru() {
-	const concurrency::lock_guard<concurrency::mutex> lck(cache_file_creation_timestamp_map_mutex);
-	// Initialize file creation timestamp map, which should be called only once.
-	// IO operation is performed inside of critical section intentionally, since it's required for all threads.
-	if (cache_file_creation_timestamp_map.empty()) {
+void DiskCacheReader::UpsertCacheFileAccessTimestamp(const string &filepath) {
+	timestamp_t ts = Timestamp::GetCurrentTimestamp();
+	const concurrency::lock_guard<concurrency::mutex> lck(cache_file_access_timestamp_map_mutex);
+	for (auto it = cache_file_access_timestamp_map.begin(); it != cache_file_access_timestamp_map.end();) {
+		if (it->second == filepath) {
+			it = cache_file_access_timestamp_map.erase(it);
+		} else {
+			++it;
+		}
+	}
+	while (cache_file_access_timestamp_map.count(ts)) {
+		ts = timestamp_t {ts.value + 1};
+	}
+	cache_file_access_timestamp_map.emplace(ts, filepath);
+}
+
+optional<string> DiskCacheReader::EvictCacheBlockLru() {
+	const concurrency::lock_guard<concurrency::mutex> lck(cache_file_access_timestamp_map_mutex);
+	if (cache_file_access_timestamp_map.empty()) {
 		auto instance_state_locked = GetInstanceConfigOrThrow(instance_state);
 		const auto &cache_directories = instance_state_locked->config.on_disk_cache_directories;
-		cache_file_creation_timestamp_map = GetOnDiskFilesUnder(cache_directories);
+		cache_file_access_timestamp_map = GetOnDiskFilesUnder(cache_directories);
 	}
-	ALWAYS_ASSERT(!cache_file_creation_timestamp_map.empty());
+	if (cache_file_access_timestamp_map.empty()) {
+		return nullopt;
+	}
 
-	auto filepath = std::move(cache_file_creation_timestamp_map.begin()->second);
-	cache_file_creation_timestamp_map.erase(cache_file_creation_timestamp_map.begin());
+	auto filepath = std::move(cache_file_access_timestamp_map.begin()->second);
+	cache_file_access_timestamp_map.erase(cache_file_access_timestamp_map.begin());
 	return filepath;
 }
 
@@ -138,6 +155,10 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
 			cache_read_chunk.CopyBufferToRequestedMemory(read_result.content);
 
+			if (config.on_disk_eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION) {
+				UpsertCacheFileAccessTimestamp(cache_dest.dest_local_filepath);
+			}
+
 			// Update in-memory cache if applicable.
 			if (in_mem_storage != nullptr) {
 				in_mem_storage->Put(block_key, std::move(read_result.content), version_tag);
@@ -171,6 +192,10 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	try {
 		DiskCacheUtil::StoreLocalCacheFile(path_info.cache_directory, cache_dest, content, version_tag, config,
 		                                   [this]() { return EvictCacheBlockLru(); });
+		if (config.on_disk_eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION &&
+		    local_filesystem->FileExists(cache_dest.dest_local_filepath)) {
+			UpsertCacheFileAccessTimestamp(cache_dest.dest_local_filepath);
+		}
 
 		// Update in-memory cache if applicable.
 		if (in_mem_storage != nullptr) {
@@ -295,6 +320,10 @@ void DiskCacheReader::ClearCache() {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		// Create an empty directory, otherwise later read access errors.
 		local_filesystem->CreateDirectory(cur_cache_dir);
+	}
+	{
+		const concurrency::lock_guard<concurrency::mutex> lck(cache_file_access_timestamp_map_mutex);
+		cache_file_access_timestamp_map.clear();
 	}
 	if (in_mem_storage != nullptr) {
 		in_mem_storage->Clear();

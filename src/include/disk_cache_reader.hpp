@@ -16,6 +16,7 @@
 #include "in_mem_cache_data_entry.hpp"
 #include "in_memory_data_cache_storage.hpp"
 #include "mutex.hpp"
+#include "optional.hpp"
 #include "thread_annotation.hpp"
 
 namespace duckdb {
@@ -45,7 +46,8 @@ public:
 
 	// Get file cache block to evict.
 	// Notice returned filepath will be removed from LRU list, but the actual file won't be deleted.
-	string EvictCacheBlockLru();
+	// Returns nullopt when there is nothing to evict.
+	optional<string> EvictCacheBlockLru();
 
 private:
 	// Process a single cache read chunk in a worker thread.
@@ -53,13 +55,15 @@ private:
 	                           const DiskCacheUtil::RemoteFileCachePathInfo &path_info,
 	                           CacheReadChunk cache_read_chunk);
 
+	// Insert or refresh [filepath] in the LRU access map with the current timestamp.
+	void UpsertCacheFileAccessTimestamp(const string &filepath);
+
 	// Used to access local cache files.
 	unique_ptr<FileSystem> local_filesystem;
-	// Used for on-disk cache block LRU-based eviction.
-	concurrency::mutex cache_file_creation_timestamp_map_mutex;
-	// Maps from last access timestamp to filepath.
-	map<timestamp_t, string>
-	    cache_file_creation_timestamp_map DUCKDB_GUARDED_BY(cache_file_creation_timestamp_map_mutex);
+	// Guards the on-disk cache block LRU access map below.
+	concurrency::mutex cache_file_access_timestamp_map_mutex;
+	// Maps last-access timestamp to cache filepath (ascending: begin() is LRU victim).
+	map<timestamp_t, string> cache_file_access_timestamp_map DUCKDB_GUARDED_BY(cache_file_access_timestamp_map_mutex);
 	// Once flag to guard against cache's initialization.
 	std::once_flag cache_init_flag;
 	// In-memory cache to store blocks; late initialized after first access.
