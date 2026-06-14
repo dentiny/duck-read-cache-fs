@@ -63,9 +63,8 @@ if(NOT WIN32
     unittest_cache_httpfs test_helpers duckdb ${EXTENSION_NAME}
     ${OPENSSL_LIBRARIES} ${CURL_LIBRARIES})
 else()
-  target_link_libraries(
-    unittest_cache_httpfs test_helpers duckdb_static
-    ${OPENSSL_LIBRARIES} ${CURL_LIBRARIES})
+  target_link_libraries(unittest_cache_httpfs test_helpers duckdb_static
+                        ${OPENSSL_LIBRARIES} ${CURL_LIBRARIES})
   link_extension_libraries(unittest_cache_httpfs "")
 endif()
 

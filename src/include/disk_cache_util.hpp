@@ -30,6 +30,22 @@ public:
 		string cache_filepath;
 	};
 
+	// File-level cache path components computed once per remote file read.
+	struct RemoteFileCachePathInfo {
+		// Index for all cache directories.
+		idx_t cache_directory_idx = 0;
+		// Local cache filepath.
+		string cache_directory;
+		// SHA-256 hash of the remote filepath.
+		string remote_file_sha256_hex;
+		// Sanitized filename.
+		string sanitized_fname;
+	};
+
+	// Compute file-level cache path components for [remote_file] (SHA-256, sanitized basename, cache directory).
+	static RemoteFileCachePathInfo BuildRemoteFileCachePathInfo(const vector<string> &cache_directories,
+	                                                            const string &remote_file);
+
 	// Get local cache filename for the given [remote_file].
 	//
 	// Cache filename is formatted as `<cache-directory>/<filename-sha256>-<filename>-<start-offset>-<size>`. So we
@@ -39,6 +55,10 @@ public:
 	// filesystems.
 	static CacheFileDestination GetLocalCacheFile(const vector<string> &cache_directories, const string &remote_file,
 	                                              idx_t start_offset, idx_t bytes_to_read);
+
+	// Get local cache filepath for a chunk using precomputed [path_info].
+	static CacheFileDestination GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t start_offset,
+	                                              idx_t bytes_to_read);
 
 	// Remote file information for a local cache filename.
 	struct RemoteFileInfo {

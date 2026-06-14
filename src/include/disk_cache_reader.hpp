@@ -5,6 +5,7 @@
 #include "base_cache_reader.hpp"
 #include "cache_filesystem_config.hpp"
 #include "cache_read_chunk.hpp"
+#include "disk_cache_util.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/map.hpp"
 #include "duckdb/common/shared_ptr.hpp"
@@ -49,6 +50,7 @@ public:
 private:
 	// Process a single cache read chunk in a worker thread.
 	void ProcessCacheReadChunk(FileHandle &handle, const InstanceConfig &config, const string &version_tag,
+	                           const DiskCacheUtil::RemoteFileCachePathInfo &path_info,
 	                           CacheReadChunk cache_read_chunk);
 
 	// Used to access local cache files.

@@ -76,41 +76,62 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 	}
 }
 
+idx_t GetCacheDirectoryIdx(const duckdb::hash_bytes &remote_file_sha256_val, idx_t cache_directory_count) {
+	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
+	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
+		hash_value ^= static_cast<uint64_t>(remote_file_sha256_val[idx]);
+		hash_value *= 0x100000001b3; // FNV prime
+	}
+	return hash_value % cache_directory_count;
+}
+
+void PopulateRemoteFileCacheKey(const string &remote_file, duckdb::hash_bytes &remote_file_sha256_val,
+                                string &remote_file_sha256_hex, string &sanitized_fname) {
+	static_assert(sizeof(remote_file_sha256_val) == 32);
+	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
+	remote_file_sha256_hex = Sha256ToHexString(remote_file_sha256_val);
+	sanitized_fname = StringUtil::GetFileName(SanitizedCachePath(remote_file).Path());
+}
+
 } // namespace
 
 /*static*/ string DiskCacheUtil::TryGetOriginalRemotePath(const string &filepath) {
 	return ReadChunkedXattr(filepath, REMOTE_PATH_ATTR_PREFIX);
 }
 
+/*static*/ DiskCacheUtil::RemoteFileCachePathInfo
+DiskCacheUtil::BuildRemoteFileCachePathInfo(const vector<string> &cache_directories, const string &remote_file) {
+	ALWAYS_ASSERT(!cache_directories.empty());
+
+	RemoteFileCachePathInfo path_info;
+	duckdb::hash_bytes remote_file_sha256_val;
+	PopulateRemoteFileCacheKey(remote_file, remote_file_sha256_val, path_info.remote_file_sha256_hex,
+	                           path_info.sanitized_fname);
+	path_info.cache_directory_idx = GetCacheDirectoryIdx(remote_file_sha256_val, cache_directories.size());
+	path_info.cache_directory = cache_directories[path_info.cache_directory_idx];
+	if (StringUtil::EndsWith(path_info.cache_directory, "/")) {
+		throw InternalException("Cache directory %s cannot ends with '/'", path_info.cache_directory);
+	}
+	return path_info;
+}
+
+/*static*/ DiskCacheUtil::CacheFileDestination
+DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t start_offset, idx_t bytes_to_read) {
+	auto cache_filepath =
+	    StringUtil::Format("%s/%s-%s-%llu-%llu", path_info.cache_directory, path_info.remote_file_sha256_hex,
+	                       path_info.sanitized_fname, start_offset, bytes_to_read);
+	return DiskCacheUtil::CacheFileDestination {
+	    .cache_directory_idx = path_info.cache_directory_idx,
+	    .cache_filepath = std::move(cache_filepath),
+	};
+}
+
 /*static*/ DiskCacheUtil::CacheFileDestination DiskCacheUtil::GetLocalCacheFile(const vector<string> &cache_directories,
                                                                                 const string &remote_file,
                                                                                 idx_t start_offset,
                                                                                 idx_t bytes_to_read) {
-	ALWAYS_ASSERT(!cache_directories.empty());
-
-	duckdb::hash_bytes remote_file_sha256_val;
-	static_assert(sizeof(remote_file_sha256_val) == 32);
-	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
-	const string remote_file_sha256_str = GetSha256(remote_file);
-	const string fname = StringUtil::GetFileName(SanitizedCachePath(remote_file).Path());
-
-	uint64_t hash_value = 0xcbf29ce484222325; // FNV offset basis
-	for (idx_t idx = 0; idx < sizeof(remote_file_sha256_val); ++idx) {
-		hash_value ^= static_cast<uint64_t>(remote_file_sha256_val[idx]);
-		hash_value *= 0x100000001b3; // FNV prime
-	}
-	const idx_t cache_directory_idx = hash_value % cache_directories.size();
-	const auto &cur_cache_dir = cache_directories[cache_directory_idx];
-	if (StringUtil::EndsWith(cur_cache_dir, "/")) {
-		throw InternalException("Cache directory %s cannot ends with '/'", cur_cache_dir);
-	}
-
-	auto cache_filepath = StringUtil::Format("%s/%s-%s-%llu-%llu", cur_cache_dir, remote_file_sha256_str, fname,
-	                                         start_offset, bytes_to_read);
-	return DiskCacheUtil::CacheFileDestination {
-	    .cache_directory_idx = cache_directory_idx,
-	    .cache_filepath = std::move(cache_filepath),
-	};
+	auto path_info = BuildRemoteFileCachePathInfo(cache_directories, remote_file);
+	return GetLocalCacheFile(path_info, start_offset, bytes_to_read);
 }
 
 /*static*/ DiskCacheUtil::RemoteFileInfo DiskCacheUtil::GetRemoteFileInfo(const string &cache_filepath) {
@@ -149,11 +170,10 @@ void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const cha
 
 /*static*/ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {
 	duckdb::hash_bytes remote_file_sha256_val;
-	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
-	const string remote_file_sha256_str = Sha256ToHexString(remote_file_sha256_val);
-
-	const string fname = StringUtil::GetFileName(SanitizedCachePath(remote_file).Path());
-	return StringUtil::Format("%s-%s", remote_file_sha256_str, fname);
+	string remote_file_sha256_hex;
+	string sanitized_fname;
+	PopulateRemoteFileCacheKey(remote_file, remote_file_sha256_val, remote_file_sha256_hex, sanitized_fname);
+	return StringUtil::Format("%s-%s", remote_file_sha256_hex, sanitized_fname);
 }
 
 /*static*/ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,

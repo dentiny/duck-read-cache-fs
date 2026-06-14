@@ -90,6 +90,7 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 }
 
 void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceConfig &config, const string &version_tag,
+                                            const DiskCacheUtil::RemoteFileCachePathInfo &path_info,
                                             CacheReadChunk cache_read_chunk) {
 	SetThreadName("RdCachRdThd");
 
@@ -97,14 +98,11 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 	auto state = instance_state.lock();
 	auto &collector = GetProfileCollectorOrThrow(state, cache_handle.GetConnectionId());
 
-	// Resolve the on-disk cache path once up-front; use the resolved filepath as the unified key for both in-memory and
-	// on-disk cache.
+	// Per-chunk path: only offset and size vary; file-level SHA-256 and basename are precomputed in [path_info].
 	auto cache_file =
-	    DiskCacheUtil::GetLocalCacheFile(config.on_disk_cache_directories, handle.GetPath(),
-	                                     cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
-	const auto &cache_directory = config.on_disk_cache_directories[cache_file.cache_directory_idx];
-	auto cache_dest =
-	    DiskCacheUtil::ResolveLocalCacheDestination(cache_directory, cache_file.cache_filepath, handle.GetPath());
+	    DiskCacheUtil::GetLocalCacheFile(path_info, cache_read_chunk.aligned_start_offset, cache_read_chunk.chunk_size);
+	auto cache_dest = DiskCacheUtil::ResolveLocalCacheDestination(path_info.cache_directory, cache_file.cache_filepath,
+	                                                              handle.GetPath());
 
 	const InMemCacheBlock block_key {handle.GetPath(), cache_read_chunk.aligned_start_offset,
 	                                 cache_read_chunk.chunk_size};
@@ -171,7 +169,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 		return;
 	}
 	try {
-		DiskCacheUtil::StoreLocalCacheFile(cache_directory, cache_dest, content, version_tag, config,
+		DiskCacheUtil::StoreLocalCacheFile(path_info.cache_directory, cache_dest, content, version_tag, config,
 		                                   [this]() { return EvictCacheBlockLru(); });
 
 		// Update in-memory cache if applicable.
@@ -217,6 +215,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	    CreateParallelExecutor(instance_state_locked->db_instance, config.parallel_read_mode, task_count);
 	// Get file-level metadata once before processing chunks.
 	string version_tag = config.enable_cache_validation ? handle.Cast<CacheFileSystemHandle>().GetVersionTag() : "";
+	const auto path_info =
+	    DiskCacheUtil::BuildRemoteFileCachePathInfo(config.on_disk_cache_directories, handle.GetPath());
 
 	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in
 	// parallel.
@@ -272,8 +272,8 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
-		parallel_executor->Schedule([this, &handle, &config, &version_tag, cache_read_chunk]() {
-			ProcessCacheReadChunk(handle, config, version_tag, cache_read_chunk);
+		parallel_executor->Schedule([this, &handle, &config, &version_tag, &path_info, cache_read_chunk]() {
+			ProcessCacheReadChunk(handle, config, version_tag, path_info, cache_read_chunk);
 		});
 	}
 
