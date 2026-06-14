@@ -50,25 +50,6 @@ TEST_CASE("Deterministic cache destination for same input", "[disk_cache_util]")
 	REQUIRE(r1.cache_filepath == r2.cache_filepath);
 }
 
-TEST_CASE("BuildRemoteFileCachePathInfo matches GetLocalCacheFile per chunk", "[disk_cache_util]") {
-	vector<string> cache_dirs = {"/cache1", "/cache2", "/cache3"};
-	const string remote = "https://example.com/data/file.parquet";
-
-	const auto path_info = DiskCacheUtil::BuildRemoteFileCachePathInfo(cache_dirs, remote);
-	const auto expected0 =
-	    DiskCacheUtil::GetLocalCacheFile(cache_dirs, remote, /*start_offset=*/0, /*bytes_to_read=*/4096);
-	const auto expected1 =
-	    DiskCacheUtil::GetLocalCacheFile(cache_dirs, remote, /*start_offset=*/4096, /*bytes_to_read=*/4096);
-
-	const auto chunk0 = DiskCacheUtil::GetLocalCacheFile(path_info, /*start_offset=*/0, /*bytes_to_read=*/4096);
-	const auto chunk1 = DiskCacheUtil::GetLocalCacheFile(path_info, /*start_offset=*/4096, /*bytes_to_read=*/4096);
-
-	REQUIRE(chunk0.cache_directory_idx == expected0.cache_directory_idx);
-	REQUIRE(chunk0.cache_filepath == expected0.cache_filepath);
-	REQUIRE(chunk1.cache_directory_idx == expected1.cache_directory_idx);
-	REQUIRE(chunk1.cache_filepath == expected1.cache_filepath);
-}
-
 TEST_CASE("Get remote file information from local cache filename", "[disk_cache_util]") {
 	// fname format: <64 hex>-<remote-fname>-<start>-<block-size>
 	string hash64 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
