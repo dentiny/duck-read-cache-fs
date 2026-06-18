@@ -1,5 +1,9 @@
 # 0.14.1
 
+## Updated
+
+- Bumpup DuckDB and all submodules to v1.5.4
+
 ## Fixed
 
 - Fix bytes to read when cache disabled for certain filepath ([#511])
