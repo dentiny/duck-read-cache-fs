@@ -1,3 +1,15 @@
+# 0.14.2
+
+## Updated
+
+- Bumpup DuckDB and all submodules to v1.5.5
+
+## Fixed
+
+- Skip in-flight temp files when listing disk cache entries ([#510])
+
+[#510]: https://github.com/dentiny/duck-read-cache-fs/pull/510
+
 # 0.14.1
 
 ## Updated
