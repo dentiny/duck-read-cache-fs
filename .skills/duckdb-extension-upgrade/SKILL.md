@@ -23,6 +23,8 @@ Track these as a checklist; do not skip ahead:
 - 6. Run test
   + Extension C++ unit test: `./build/reldebug/extension/cache_httpfs/test/unittest/unittest_cache_httpfs`
   + SQL test: `make test_reldebug` (expands to `./build/reldebug/test/unittest "test/*"`)
+- 7. Write a new CHANGELOG.md version section for the release (do not append into the previous version)
+- 8. Bumpup version at community extension repo (i.e., ~/Desktop/community-extensions)
 
 ## Reference: historical upgrade commits
 
