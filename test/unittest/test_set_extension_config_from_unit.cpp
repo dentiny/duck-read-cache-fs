@@ -4,6 +4,7 @@
 
 #include "cache_filesystem.hpp"
 #include "cache_filesystem_config.hpp"
+#include "cache_httpfs_config.hpp"
 #include "cache_httpfs_instance_state.hpp"
 #include "disk_cache_reader.hpp"
 #include "duckdb/common/local_file_system.hpp"
@@ -68,6 +69,23 @@ TEST_CASE("Test on correct config", "[extension config test]") {
 	// In-memory cache block count.
 	result = con.Query(StringUtil::Format("SET cache_httpfs_max_in_mem_cache_block_count=10"));
 	REQUIRE(!result->HasError());
+}
+
+TEST_CASE("Test public extension config API", "[extension config test]") {
+	DuckDB db(nullptr);
+	Connection con(db);
+
+	SetCacheHttpfsExtensionOption(*db.instance, "cache_httpfs_type", Value("in_mem"));
+
+	auto result = con.Query("SELECT current_setting('cache_httpfs_type')");
+	REQUIRE(!result->HasError());
+	REQUIRE(result->GetValue(0, 0).GetValue<string>() == "in_mem");
+
+	auto &instance_state = GetInstanceStateOrThrow(*db.instance);
+	REQUIRE(instance_state.config.cache_type == "in_mem");
+	auto *cache_reader = instance_state.cache_reader_manager.GetCacheReader();
+	REQUIRE(cache_reader != nullptr);
+	[[maybe_unused]] auto &in_mem_reader = cache_reader->Cast<InMemoryCacheReader>();
 }
 
 TEST_CASE_METHOD(SetExtensionConfigFixture, "Test on changing extension config change default cache dir path setting",
