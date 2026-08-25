@@ -1,0 +1,48 @@
+# name: test/sql/max_ondisk_cache_size.test
+# description: test cache_httpfs behavior when the on-disk cache's own size is capped
+# group: [sql]
+
+require notwindows
+
+require cache_httpfs
+
+statement ok
+SET cache_httpfs_type='on_disk';
+
+# Disable the disk reader's in-memory cache, so repeated reads exercise the on-disk cache path.
+statement ok
+SET cache_httpfs_disk_cache_reader_enable_memory_cache=false;
+
+# Cap the cache's own size to 1 byte, which is smaller than any cache block, so no cache file could be stored.
+statement ok
+SET cache_httpfs_max_ondisk_cache_size=1;
+
+statement ok
+SET cache_httpfs_cache_directory='/tmp/duckdb_cache_httpfs_cache';
+
+statement ok
+SELECT cache_httpfs_clear_cache();
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+query I
+SELECT COUNT(*) FROM glob('/tmp/duckdb_cache_httpfs_cache/*');
+----
+0
+
+# Lift the cap, so cache files could be stored again.
+statement ok
+SET cache_httpfs_max_ondisk_cache_size=0;
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+query I
+SELECT COUNT(*) > 0 FROM glob('/tmp/duckdb_cache_httpfs_cache/*');
+----
+true
