@@ -5,6 +5,7 @@
 # Default load config loads cache_httpfs directly, for manual load (to mimic production environment), set [`DONT_LINK`] additionally.
 duckdb_extension_load(cache_httpfs
     SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}
+    EXTENSION_VERSION 0.14.3
     LOAD_TESTS
 )
 
