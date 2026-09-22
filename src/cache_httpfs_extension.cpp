@@ -5,12 +5,10 @@
 #include <algorithm>
 #include <csignal>
 
-#include "base_profile_collector.hpp"
-#include "cache_exclusion_utils.hpp"
 #include "cache_filesystem.hpp"
+#include "cache_httpfs_functions.hpp"
 #include "cache_httpfs_extension_callback.hpp"
 #include "cache_httpfs_instance_state.hpp"
-#include "cache_status_query_function.hpp"
 #include "disk_cache_util.hpp"
 #include "duckdb/common/constants.hpp"
 #include "duckdb/common/exception.hpp"
@@ -21,9 +19,7 @@
 #include "duckdb/main/extension_manager.hpp"
 #include "duckdb/main/setting_info.hpp"
 #include "duckdb/storage/external_file_cache.hpp"
-#include "extension_config_query_function.hpp"
 #include "fake_filesystem.hpp"
-#include "filesystem_status_query_function.hpp"
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
 #include "s3fs.hpp"
@@ -34,149 +30,6 @@ namespace {
 
 // "httpfs" extension name.
 constexpr const char *HTTPFS_EXTENSION = "httpfs";
-// Query execution success.
-constexpr bool SUCCESS = true;
-
-// Get database instance from expression state.
-// Returned instance ownership lies in the given [`state`].
-DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
-	auto *executor = state.root.executor;
-	auto &client_context = executor->GetContext();
-	return *client_context.db.get();
-}
-
-connection_t GetConnectionId(ExpressionState &state) {
-	auto *executor = state.root.executor;
-	auto &client_context = executor->GetContext();
-	return client_context.GetConnectionId();
-}
-
-// Clear both in-memory and on-disk data block cache.
-void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
-	auto &instance = GetDatabaseInstance(state);
-	auto &inst_state = GetInstanceStateOrThrow(instance);
-
-	// Special handle local disk cache clear, since it's possible disk cache reader hasn't been initialized.
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	for (const auto &cur_cache_dir : inst_state.config.on_disk_cache_directories) {
-		local_filesystem->RemoveDirectory(cur_cache_dir);
-		local_filesystem->CreateDirectory(cur_cache_dir);
-	}
-
-	// Clear data block cache for all initialized cache readers.
-	inst_state.cache_reader_manager.ClearCache();
-
-	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
-	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
-	for (auto *cur_cache_fs : cache_filesystem_instances) {
-		cur_cache_fs->ClearCache();
-	}
-
-	// Clear profile collection for this connection.
-	auto conn_id = GetConnectionId(state);
-	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
-
-	result.Reference(Value(SUCCESS));
-}
-
-void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
-	ALWAYS_ASSERT(args.ColumnCount() == 1);
-	const string filepath = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
-
-	auto &instance = GetDatabaseInstance(state);
-	auto &inst_state = GetInstanceStateOrThrow(instance);
-
-	// Clear data block cache on the given [fname] for all initialized filesystems.
-	inst_state.cache_reader_manager.ClearCache(filepath);
-
-	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
-	auto conn_id = GetConnectionId(state);
-	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
-	for (auto *cur_cache_fs : cache_filesystem_instances) {
-		cur_cache_fs->ClearCache(filepath, conn_id);
-	}
-
-	result.Reference(Value(SUCCESS));
-}
-
-// Clean up dead temporary cache files (creation time older than 10 minutes). Returns the number of files deleted.
-void CleanupDeadTemp(const DataChunk &args, ExpressionState &state, Vector &result) {
-	auto &instance = GetDatabaseInstance(state);
-	auto &inst_state = GetInstanceStateOrThrow(instance);
-	const idx_t deleted = DiskCacheUtil::CleanupDeadTempFiles(inst_state.config.on_disk_cache_directories, &instance,
-	                                                          inst_state.config.parallel_read_mode);
-	result.Reference(Value::BIGINT(NumericCast<int64_t>(deleted)));
-}
-
-// Get on-disk data cache file size for all cache filesystems.
-void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vector &result) {
-	auto &instance = GetDatabaseInstance(state);
-	auto &inst_state = GetInstanceStateOrThrow(instance);
-
-	auto local_filesystem = LocalFileSystem::CreateLocal();
-	int64_t total_cache_size = 0;
-	for (const auto &cur_cache_dir : inst_state.config.on_disk_cache_directories) {
-		local_filesystem->ListFiles(cur_cache_dir, [&local_filesystem, &total_cache_size,
-		                                            &cur_cache_dir](const string &fname, bool /*unused*/) {
-			const string file_path = StringUtil::Format("%s/%s", cur_cache_dir, fname);
-			auto file_handle = local_filesystem->OpenFile(file_path, FileOpenFlags::FILE_FLAGS_READ);
-			total_cache_size += local_filesystem->GetFileSize(*file_handle);
-		});
-	}
-	result.Reference(Value(total_cache_size));
-}
-
-void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
-	auto &instance = GetDatabaseInstance(state);
-	auto &inst_state = GetInstanceStateOrThrow(instance);
-	auto conn_id = GetConnectionId(state);
-
-	if (!inst_state.profile_collector_manager.HasExplicitProfileCollector(conn_id)) {
-		result.Reference(Value("No valid access to cache filesystem"));
-		return;
-	}
-
-	auto &collector = inst_state.profile_collector_manager.GetProfileCollectorOrDefault(conn_id);
-	auto stats_pair = collector.GetHumanReadableStats();
-	auto &latest_stat = stats_pair.first;
-	if (latest_stat.empty()) {
-		latest_stat = "No valid access to cache filesystem";
-	}
-	result.Reference(Value(std::move(latest_stat)));
-}
-
-void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
-	auto &instance = GetDatabaseInstance(state);
-	auto &inst_state = GetInstanceStateOrThrow(instance);
-	auto conn_id = GetConnectionId(state);
-	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
-	result.Reference(Value(SUCCESS));
-}
-
-// Wrap the filesystem with extension cache filesystem.
-// Throw exception if the requested filesystem hasn't been registered into duckdb instance.
-void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &result) {
-	ALWAYS_ASSERT(args.ColumnCount() == 1);
-	const string filesystem_name = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
-
-	// duckdb instance has a opener filesystem, which is a wrapper around virtual filesystem.
-	auto &duckdb_instance = GetDatabaseInstance(state);
-	auto &opener_filesystem = duckdb_instance.GetFileSystem().Cast<OpenerFileSystem>();
-	auto &vfs = opener_filesystem.GetFileSystem();
-	auto internal_filesystem = vfs.ExtractSubSystem(filesystem_name);
-	if (internal_filesystem == nullptr) {
-		throw InvalidInputException("Filesystem %s hasn't been registered yet! Use "
-		                            "cache_httpfs_list_registered_filesystems() to see available filesystems.",
-		                            filesystem_name);
-	}
-
-	auto cache_filesystem =
-	    make_uniq<CacheFileSystem>(std::move(internal_filesystem), GetInstanceStateShared(duckdb_instance));
-	vfs.RegisterSubSystem(std::move(cache_filesystem));
-	DUCKDB_LOG_DEBUG(duckdb_instance, StringUtil::Format("Wrap filesystem %s with cache filesystem.", filesystem_name));
-
-	result.Reference(Value(SUCCESS));
-}
 
 // Extract or get httpfs filesystem.
 unique_ptr<FileSystem> ExtractOrCreateHttpfs(FileSystem &vfs) {
@@ -763,90 +616,10 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          "Cache entry timeout in milliseconds for glob cache.", LogicalTypeId::UBIGINT,
 	                          Value::UBIGINT(DEFAULT_GLOB_CACHE_ENTRY_TIMEOUT_MILLISEC), UpdateGlobCacheEntryTimeout);
 
-	// Cache exclusion regex list.
-	ScalarFunction add_cache_exclusion_regex("cache_httpfs_add_exclusion_regex",
-	                                         /*arguments=*/ {LogicalType {LogicalTypeId::VARCHAR}},
-	                                         /*return_type=*/LogicalType {LogicalTypeId::BOOLEAN},
-	                                         AddCacheExclusionRegex);
-	loader.RegisterFunction(add_cache_exclusion_regex);
-
-	ScalarFunction reset_cache_exclusion_regex("cache_httpfs_reset_exclusion_regex",
-	                                           /*arguments=*/ {},
-	                                           /*return_type=*/LogicalType {LogicalTypeId::BOOLEAN},
-	                                           ResetCacheExclusionRegex);
-	loader.RegisterFunction(reset_cache_exclusion_regex);
-
-	loader.RegisterFunction(ListCacheExclusionRegex());
-
-	// Register cache cleanup function for data cache (both in-memory and on-disk cache) and other types of cache.
-	ScalarFunction clear_cache_function("cache_httpfs_clear_cache", /*arguments=*/ {},
-	                                    /*return_type=*/LogicalType {LogicalTypeId::BOOLEAN}, ClearAllCache);
-	loader.RegisterFunction(clear_cache_function);
-
-	// Register cache cleanup function for the given filename.
-	ScalarFunction clear_cache_for_file_function("cache_httpfs_clear_cache_for_file",
-	                                             /*arguments=*/ {LogicalType {LogicalTypeId::VARCHAR}},
-	                                             /*return_type=*/LogicalType {LogicalTypeId::BOOLEAN},
-	                                             ClearCacheForFile);
-	loader.RegisterFunction(clear_cache_for_file_function);
-
-	// Register a function to wrap all duckdb-vfs-compatible filesystems. By default only httpfs filesystem instances
-	// are wrapped. Usage for the target filesystem can be used as normal.
-	//
-	// Example usage:
-	// D. LOAD azure;
-	// -- Wrap filesystem with its name.
-	// D. SELECT cache_httpfs_wrap_cache_filesystem('AzureBlobStorageFileSystem');
-	ScalarFunction wrap_cache_filesystem_function("cache_httpfs_wrap_cache_filesystem",
-	                                              /*arguments=*/ {LogicalTypeId::VARCHAR},
-	                                              /*return_type=*/LogicalTypeId::BOOLEAN, WrapCacheFileSystem);
-	loader.RegisterFunction(wrap_cache_filesystem_function);
-
-	// Register dead temporary cache file cleanup function.
-	ScalarFunction cleanup_dead_temp_function("cache_httpfs_cleanup_dead_temp", /*arguments=*/ {},
-	                                          /*return_type=*/LogicalType {LogicalTypeId::BIGINT}, CleanupDeadTemp);
-	loader.RegisterFunction(cleanup_dead_temp_function);
-
-	// Register on-disk data cache file size stat function.
-	ScalarFunction get_ondisk_data_cache_size_function("cache_httpfs_get_ondisk_data_cache_size", /*arguments=*/ {},
-	                                                   /*return_type=*/LogicalType {LogicalTypeId::BIGINT},
-	                                                   GetOnDiskDataCacheSize);
-	loader.RegisterFunction(get_ondisk_data_cache_size_function);
-
-	// Register on-disk cache file display.
-	loader.RegisterFunction(GetDataCacheStatusQueryFunc());
-
-	// Register profile collector metrics.
-	// A commonly-used SQL is `COPY (SELECT cache_httpfs_get_profile()) TO '/tmp/output.txt';`.
-	ScalarFunction get_profile_stats_function("cache_httpfs_get_profile", /*arguments=*/ {},
-	                                          /*return_type=*/LogicalType {LogicalTypeId::VARCHAR}, GetProfileStats);
-	loader.RegisterFunction(get_profile_stats_function);
-
-	// Register profile collector metrics reset.
-	ScalarFunction clear_profile_stats_function("cache_httpfs_clear_profile", /*arguments=*/ {},
-	                                            /*return_type=*/LogicalType {LogicalTypeId::BOOLEAN},
-	                                            ResetProfileStats);
-	loader.RegisterFunction(clear_profile_stats_function);
-
-	// Register table function to get current cache config.
-	loader.RegisterFunction(GetDataCacheConfigQueryFunc());
-	loader.RegisterFunction(GetMetadataCacheConfigQueryFunc());
-	loader.RegisterFunction(GetFileHandleCacheConfigQueryFunc());
-	loader.RegisterFunction(GetGlobCacheConfigQueryFunc());
-	loader.RegisterFunction(GetCacheTypeQueryFunc());
-	loader.RegisterFunction(GetCacheConfigQueryFunc());
-
-	// Register filesystem registration query function.
-	loader.RegisterFunction(ListRegisteredFileSystemsQueryFunc());
-
-	// Register cache access metrics.
-	loader.RegisterFunction(GetCacheAccessInfoQueryFunc());
+	RegisterCacheHttpfsFunctions(loader);
 
 	// Create default cache directory.
 	LocalFileSystem::CreateLocal()->CreateDirectory(GetDefaultOnDiskCacheDirectory());
-
-	// Register wrapped cache filesystems info.
-	loader.RegisterFunction(GetWrappedCacheFileSystemsFunc());
 
 	// Fill in extension load information.
 	string description = StringUtil::Format(

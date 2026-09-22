@@ -1,3 +1,9 @@
+# 0.14.3
+
+## Added
+
+- Add descriptions, examples, categories, and parameter names for cache_httpfs SQL functions in `duckdb_functions()`.
+
 # 0.14.2
 
 ## Updated
