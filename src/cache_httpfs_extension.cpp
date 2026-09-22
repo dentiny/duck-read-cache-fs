@@ -37,8 +37,11 @@ namespace {
 
 // "httpfs" extension name.
 constexpr const char *HTTPFS_EXTENSION = "httpfs";
+// Query execution success.
 constexpr bool SUCCESS = true;
 
+// Get database instance from expression state.
+// Returned instance ownership lies in the given [`state`].
 DatabaseInstance &GetDatabaseInstance(ExpressionState &state) {
 	auto *executor = state.root.executor;
 	auto &client_context = executor->GetContext();
@@ -51,23 +54,28 @@ connection_t GetConnectionId(ExpressionState &state) {
 	return client_context.GetConnectionId();
 }
 
+// Clear both in-memory and on-disk data block cache.
 void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
 
+	// Special handle local disk cache clear, since it's possible disk cache reader hasn't been initialized.
 	auto local_filesystem = LocalFileSystem::CreateLocal();
 	for (const auto &cur_cache_dir : inst_state.config.on_disk_cache_directories) {
 		local_filesystem->RemoveDirectory(cur_cache_dir);
 		local_filesystem->CreateDirectory(cur_cache_dir);
 	}
 
+	// Clear data block cache for all initialized cache readers.
 	inst_state.cache_reader_manager.ClearCache();
 
+	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
 	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_cache_fs : cache_filesystem_instances) {
 		cur_cache_fs->ClearCache();
 	}
 
+	// Clear profile collection for this connection.
 	auto conn_id = GetConnectionId(state);
 	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
 
@@ -81,8 +89,10 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
 
+	// Clear data block cache on the given [fname] for all initialized filesystems.
 	inst_state.cache_reader_manager.ClearCache(filepath);
 
+	// Clear all non data block cache, including file handle cache, glob cache and metadata cache.
 	auto conn_id = GetConnectionId(state);
 	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
 	for (auto *cur_cache_fs : cache_filesystem_instances) {
@@ -92,6 +102,7 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 	result.Reference(Value(SUCCESS));
 }
 
+// Clean up dead temporary cache files (creation time older than 10 minutes). Returns the number of files deleted.
 void CleanupDeadTemp(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
@@ -100,6 +111,7 @@ void CleanupDeadTemp(const DataChunk &args, ExpressionState &state, Vector &resu
 	result.Reference(Value::BIGINT(NumericCast<int64_t>(deleted)));
 }
 
+// Get on-disk data cache file size for all cache filesystems.
 void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
 	auto &inst_state = GetInstanceStateOrThrow(instance);
@@ -144,10 +156,13 @@ void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &re
 	result.Reference(Value(SUCCESS));
 }
 
+// Wrap the filesystem with extension cache filesystem.
+// Throw exception if the requested filesystem hasn't been registered into duckdb instance.
 void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &result) {
 	ALWAYS_ASSERT(args.ColumnCount() == 1);
 	const string filesystem_name = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
 
+	// duckdb instance has a opener filesystem, which is a wrapper around virtual filesystem.
 	auto &duckdb_instance = GetDatabaseInstance(state);
 	auto &opener_filesystem = duckdb_instance.GetFileSystem().Cast<OpenerFileSystem>();
 	auto &vfs = opener_filesystem.GetFileSystem();
@@ -180,8 +195,10 @@ void RegisterScalarFunction(ExtensionLoader &loader, ScalarFunction function, ve
                             string description, vector<string> examples, vector<string> categories) {
 	CreateScalarFunctionInfo info(std::move(function));
 	info.on_conflict = OnCreateConflict::ALTER_ON_CONFLICT;
-	info.descriptions.push_back(GetFunctionDescription(std::move(parameter_names), std::move(description),
-	                                                   std::move(examples), std::move(categories)));
+	info.descriptions.push_back(GetFunctionDescription(/*parameter_names=*/std::move(parameter_names),
+	                                                   /*description=*/std::move(description),
+	                                                   /*examples=*/std::move(examples),
+	                                                   /*categories=*/std::move(categories)));
 	loader.RegisterFunction(std::move(info));
 }
 
@@ -189,88 +206,148 @@ void RegisterTableFunction(ExtensionLoader &loader, TableFunction function, stri
                            vector<string> categories) {
 	CreateTableFunctionInfo info(std::move(function));
 	info.on_conflict = OnCreateConflict::ALTER_ON_CONFLICT;
-	info.descriptions.push_back(
-	    GetFunctionDescription({}, std::move(description), std::move(examples), std::move(categories)));
+	info.descriptions.push_back(GetFunctionDescription(/*parameter_names=*/ {},
+	                                                   /*description=*/std::move(description),
+	                                                   /*examples=*/std::move(examples),
+	                                                   /*categories=*/std::move(categories)));
 	loader.RegisterFunction(std::move(info));
 }
 
 void RegisterCacheHttpfsFunctions(ExtensionLoader &loader) {
+	// Cache exclusion regex list.
 	RegisterScalarFunction(loader,
 	                       ScalarFunction("cache_httpfs_add_exclusion_regex", {LogicalType::VARCHAR},
 	                                      LogicalType::BOOLEAN, AddCacheExclusionRegex),
-	                       {"regex"}, "Adds a regular expression for remote paths that should bypass the cache.",
-	                       {"SELECT cache_httpfs_add_exclusion_regex('.*\\.tmp$');"},
-	                       {"cache_httpfs", "configuration"});
+	                       /*parameter_names=*/ {"regex"},
+	                       /*description=*/"Adds a regular expression for remote paths that should bypass the cache.",
+	                       /*examples=*/ {"SELECT cache_httpfs_add_exclusion_regex('.*\\.tmp$');"},
+	                       /*categories=*/ {"cache_httpfs", "configuration"});
 	RegisterScalarFunction(
 	    loader,
-	    ScalarFunction("cache_httpfs_reset_exclusion_regex", {}, LogicalType::BOOLEAN, ResetCacheExclusionRegex), {},
-	    "Removes all path exclusion regular expressions.", {"SELECT cache_httpfs_reset_exclusion_regex();"},
-	    {"cache_httpfs", "configuration"});
-	RegisterTableFunction(loader, ListCacheExclusionRegex(), "Lists the path exclusion regular expressions.",
-	                      {"SELECT * FROM cache_httpfs_list_exclusion_regex();"}, {"cache_httpfs", "configuration"});
+	    ScalarFunction("cache_httpfs_reset_exclusion_regex", {}, LogicalType::BOOLEAN, ResetCacheExclusionRegex),
+	    /*parameter_names=*/ {}, /*description=*/"Removes all path exclusion regular expressions.",
+	    /*examples=*/ {"SELECT cache_httpfs_reset_exclusion_regex();"},
+	    /*categories=*/ {"cache_httpfs", "configuration"});
+	RegisterTableFunction(loader, ListCacheExclusionRegex(),
+	                      /*description=*/"Lists the path exclusion regular expressions.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_list_exclusion_regex();"},
+	                      /*categories=*/ {"cache_httpfs", "configuration"});
 
+	// Register cache cleanup function for data cache (both in-memory and on-disk cache) and other types of cache.
 	RegisterScalarFunction(loader, ScalarFunction("cache_httpfs_clear_cache", {}, LogicalType::BOOLEAN, ClearAllCache),
-	                       {}, "Clears all data, metadata, file handle, glob, and profile caches.",
-	                       {"SELECT cache_httpfs_clear_cache();"}, {"cache_httpfs", "cache"});
+	                       /*parameter_names=*/ {},
+	                       /*description=*/"Clears all data, metadata, file handle, glob, and profile caches.",
+	                       /*examples=*/ {"SELECT cache_httpfs_clear_cache();"},
+	                       /*categories=*/ {"cache_httpfs", "cache"});
+
+	// Register cache cleanup function for the given filename.
 	RegisterScalarFunction(loader,
 	                       ScalarFunction("cache_httpfs_clear_cache_for_file", {LogicalType::VARCHAR},
 	                                      LogicalType::BOOLEAN, ClearCacheForFile),
-	                       {"filename"}, "Clears cached entries for one remote file.",
-	                       {"SELECT cache_httpfs_clear_cache_for_file('s3://bucket/file.parquet');"},
-	                       {"cache_httpfs", "cache"});
+	                       /*parameter_names=*/ {"filename"},
+	                       /*description=*/"Clears cached entries for one remote file.",
+	                       /*examples=*/ {"SELECT cache_httpfs_clear_cache_for_file('s3://bucket/file.parquet');"},
+	                       /*categories=*/ {"cache_httpfs", "cache"});
+
+	// Register a function to wrap all duckdb-vfs-compatible filesystems. By default only httpfs filesystem instances
+	// are wrapped. Usage for the target filesystem can be used as normal.
+	//
+	// Example usage:
+	// D. LOAD azure;
+	// -- Wrap filesystem with its name.
+	// D. SELECT cache_httpfs_wrap_cache_filesystem('AzureBlobStorageFileSystem');
 	RegisterScalarFunction(loader,
 	                       ScalarFunction("cache_httpfs_wrap_cache_filesystem", {LogicalType::VARCHAR},
 	                                      LogicalType::BOOLEAN, WrapCacheFileSystem),
-	                       {"filesystem_name"}, "Wraps a registered DuckDB filesystem with the cache filesystem.",
-	                       {"SELECT cache_httpfs_wrap_cache_filesystem('AzureBlobStorageFileSystem');"},
-	                       {"cache_httpfs", "filesystem"});
+	                       /*parameter_names=*/ {"filesystem_name"},
+	                       /*description=*/"Wraps a registered DuckDB filesystem with the cache filesystem.",
+	                       /*examples=*/ {"SELECT cache_httpfs_wrap_cache_filesystem('AzureBlobStorageFileSystem');"},
+	                       /*categories=*/ {"cache_httpfs", "filesystem"});
+
+	// Register dead temporary cache file cleanup function.
 	RegisterScalarFunction(loader,
 	                       ScalarFunction("cache_httpfs_cleanup_dead_temp", {}, LogicalType::BIGINT, CleanupDeadTemp),
-	                       {}, "Deletes stale temporary cache files and returns the number deleted.",
-	                       {"SELECT cache_httpfs_cleanup_dead_temp();"}, {"cache_httpfs", "maintenance"});
+	                       /*parameter_names=*/ {},
+	                       /*description=*/"Deletes stale temporary cache files and returns the number deleted.",
+	                       /*examples=*/ {"SELECT cache_httpfs_cleanup_dead_temp();"},
+	                       /*categories=*/ {"cache_httpfs", "maintenance"});
+
+	// Register on-disk data cache file size stat function.
 	RegisterScalarFunction(
 	    loader,
-	    ScalarFunction("cache_httpfs_get_ondisk_data_cache_size", {}, LogicalType::BIGINT, GetOnDiskDataCacheSize), {},
-	    "Returns the total size in bytes of files in the configured on-disk cache directories.",
-	    {"SELECT cache_httpfs_get_ondisk_data_cache_size();"}, {"cache_httpfs", "observability"});
-	RegisterTableFunction(loader, GetDataCacheStatusQueryFunc(),
-	                      "Returns cached data entries with their local path, remote path, byte range, and cache type.",
-	                      {"SELECT * FROM cache_httpfs_cache_status_query();"}, {"cache_httpfs", "observability"});
+	    ScalarFunction("cache_httpfs_get_ondisk_data_cache_size", {}, LogicalType::BIGINT, GetOnDiskDataCacheSize),
+	    /*parameter_names=*/ {},
+	    /*description=*/"Returns the total size in bytes of files in the configured on-disk cache directories.",
+	    /*examples=*/ {"SELECT cache_httpfs_get_ondisk_data_cache_size();"},
+	    /*categories=*/ {"cache_httpfs", "observability"});
 
-	RegisterScalarFunction(loader,
-	                       ScalarFunction("cache_httpfs_get_profile", {}, LogicalType::VARCHAR, GetProfileStats), {},
-	                       "Returns human-readable cache profile statistics for the current connection.",
-	                       {"SELECT cache_httpfs_get_profile();"}, {"cache_httpfs", "observability"});
+	// Register on-disk cache file display.
+	RegisterTableFunction(loader, GetDataCacheStatusQueryFunc(),
+	                      /*description=*/
+	                      "Returns cached data entries with their local path, remote path, byte range, and cache type.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_cache_status_query();"},
+	                      /*categories=*/ {"cache_httpfs", "observability"});
+
+	// Register profile collector metrics.
+	// A commonly-used SQL is `COPY (SELECT cache_httpfs_get_profile()) TO '/tmp/output.txt';`.
+	RegisterScalarFunction(
+	    loader, ScalarFunction("cache_httpfs_get_profile", {}, LogicalType::VARCHAR, GetProfileStats),
+	    /*parameter_names=*/ {},
+	    /*description=*/"Returns human-readable cache profile statistics for the current connection.",
+	    /*examples=*/ {"SELECT cache_httpfs_get_profile();"},
+	    /*categories=*/ {"cache_httpfs", "observability"});
+
+	// Register profile collector metrics reset.
 	RegisterScalarFunction(loader,
 	                       ScalarFunction("cache_httpfs_clear_profile", {}, LogicalType::BOOLEAN, ResetProfileStats),
-	                       {}, "Clears cache profile statistics for the current connection.",
-	                       {"SELECT cache_httpfs_clear_profile();"}, {"cache_httpfs", "observability"});
+	                       /*parameter_names=*/ {},
+	                       /*description=*/"Clears cache profile statistics for the current connection.",
+	                       /*examples=*/ {"SELECT cache_httpfs_clear_profile();"},
+	                       /*categories=*/ {"cache_httpfs", "observability"});
 
-	RegisterTableFunction(loader, GetDataCacheConfigQueryFunc(), "Returns the current data cache configuration.",
-	                      {"SELECT * FROM cache_httpfs_get_data_cache_config();"}, {"cache_httpfs", "configuration"});
-	RegisterTableFunction(
-	    loader, GetMetadataCacheConfigQueryFunc(), "Returns the current metadata cache configuration.",
-	    {"SELECT * FROM cache_httpfs_get_metadata_cache_config();"}, {"cache_httpfs", "configuration"});
-	RegisterTableFunction(
-	    loader, GetFileHandleCacheConfigQueryFunc(), "Returns the current file handle cache configuration.",
-	    {"SELECT * FROM cache_httpfs_get_file_handle_cache_config();"}, {"cache_httpfs", "configuration"});
-	RegisterTableFunction(loader, GetGlobCacheConfigQueryFunc(), "Returns the current glob cache configuration.",
-	                      {"SELECT * FROM cache_httpfs_get_glob_cache_config();"}, {"cache_httpfs", "configuration"});
+	// Register table function to get current cache config.
+	RegisterTableFunction(loader, GetDataCacheConfigQueryFunc(),
+	                      /*description=*/"Returns the current data cache configuration.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_get_data_cache_config();"},
+	                      /*categories=*/ {"cache_httpfs", "configuration"});
+	RegisterTableFunction(loader, GetMetadataCacheConfigQueryFunc(),
+	                      /*description=*/"Returns the current metadata cache configuration.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_get_metadata_cache_config();"},
+	                      /*categories=*/ {"cache_httpfs", "configuration"});
+	RegisterTableFunction(loader, GetFileHandleCacheConfigQueryFunc(),
+	                      /*description=*/"Returns the current file handle cache configuration.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_get_file_handle_cache_config();"},
+	                      /*categories=*/ {"cache_httpfs", "configuration"});
+	RegisterTableFunction(loader, GetGlobCacheConfigQueryFunc(),
+	                      /*description=*/"Returns the current glob cache configuration.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_get_glob_cache_config();"},
+	                      /*categories=*/ {"cache_httpfs", "configuration"});
 	RegisterTableFunction(loader, GetCacheTypeQueryFunc(),
-	                      "Returns the active cache type and whether caching is enabled.",
-	                      {"SELECT * FROM cache_httpfs_get_cache_type();"}, {"cache_httpfs", "configuration"});
-	RegisterTableFunction(loader, GetCacheConfigQueryFunc(), "Returns all current cache_httpfs configuration values.",
-	                      {"SELECT * FROM cache_httpfs_get_cache_config();"}, {"cache_httpfs", "configuration"});
+	                      /*description=*/"Returns the active cache type and whether caching is enabled.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_get_cache_type();"},
+	                      /*categories=*/ {"cache_httpfs", "configuration"});
+	RegisterTableFunction(loader, GetCacheConfigQueryFunc(),
+	                      /*description=*/"Returns all current cache_httpfs configuration values.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_get_cache_config();"},
+	                      /*categories=*/ {"cache_httpfs", "configuration"});
 
-	RegisterTableFunction(
-	    loader, ListRegisteredFileSystemsQueryFunc(), "Lists filesystem implementations registered with DuckDB.",
-	    {"SELECT * FROM cache_httpfs_list_registered_filesystems();"}, {"cache_httpfs", "filesystem"});
+	// Register filesystem registration query function.
+	RegisterTableFunction(loader, ListRegisteredFileSystemsQueryFunc(),
+	                      /*description=*/"Lists filesystem implementations registered with DuckDB.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_list_registered_filesystems();"},
+	                      /*categories=*/ {"cache_httpfs", "filesystem"});
+
+	// Register cache access metrics.
 	RegisterTableFunction(loader, GetCacheAccessInfoQueryFunc(),
-	                      "Returns hit, miss, byte, and latency statistics for each cache entity.",
-	                      {"SELECT * FROM cache_httpfs_cache_access_info_query();"}, {"cache_httpfs", "observability"});
+	                      /*description=*/"Returns hit, miss, byte, and latency statistics for each cache entity.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_cache_access_info_query();"},
+	                      /*categories=*/ {"cache_httpfs", "observability"});
+
+	// Register wrapped cache filesystems info.
 	RegisterTableFunction(loader, GetWrappedCacheFileSystemsFunc(),
-	                      "Lists filesystem implementations currently wrapped by cache_httpfs.",
-	                      {"SELECT * FROM cache_httpfs_get_cache_filesystems();"}, {"cache_httpfs", "filesystem"});
+	                      /*description=*/"Lists filesystem implementations currently wrapped by cache_httpfs.",
+	                      /*examples=*/ {"SELECT * FROM cache_httpfs_get_cache_filesystems();"},
+	                      /*categories=*/ {"cache_httpfs", "filesystem"});
 }
 
 // Extract or get httpfs filesystem.
