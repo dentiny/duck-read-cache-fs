@@ -511,6 +511,8 @@ void UpdateCacheDirectoriesImpl(ClientContext &context, CacheHttpfsInstanceState
 		local_fs->CreateDirectory(dir);
 	}
 	inst_state.config.on_disk_cache_directories = std::move(directories);
+	// Cache directories changed, so the tracked total cache file size needs to be re-scanned.
+	inst_state.disk_cache_footprint_tracker.Invalidate();
 	DUCKDB_LOG_DEBUG(DatabaseInstance::GetDatabase(context),
 	                 StringUtil::Format("Created cache directories: %s",
 	                                    StringUtil::Join(inst_state.config.on_disk_cache_directories, ", ")));
@@ -553,6 +555,11 @@ void UpdateMinDiskBytesForCache(ClientContext &context, SetScope scope, Value &p
 		throw InvalidInputException("cache_httpfs_min_disk_bytes_for_cache must be greater than 0");
 	}
 	inst_state.config.min_disk_bytes_for_cache = disk_cache_min_bytes;
+}
+
+void UpdateMaxOnDiskCacheSize(ClientContext &context, SetScope scope, Value &parameter) {
+	auto &inst_state = GetInstanceStateOrThrow(context);
+	inst_state.config.max_on_disk_cache_size = parameter.GetValue<uint64_t>();
 }
 
 void UpdateEvictPolicy(ClientContext &context, SetScope scope, Value &parameter) {
@@ -843,6 +850,15 @@ void LoadInternal(ExtensionLoader &loader) {
 	                          "By default, 5% disk space will be reserved for other usage. When min disk bytes "
 	                          "specified with a positive value, the default value will be overriden.",
 	                          LogicalType {LogicalTypeId::UBIGINT}, 0, UpdateMinDiskBytesForCache);
+	config.AddExtensionOption(
+	    "cache_httpfs_max_ondisk_cache_size",
+	    "Max total size in bytes for all on-disk cache files; by default 0, which means the cache's own size is not "
+	    "capped. Unlike 'cache_httpfs_min_disk_bytes_for_cache', which keeps a free space floor for the whole "
+	    "filesystem, this option caps the cache's own footprint, so disk space could be budgeted between the cache "
+	    "and other consumers. When a cache file write would exceed the cap, cache file eviction is performed based "
+	    "on the configured eviction policy. The check is performed with best effort, concurrent writes could "
+	    "transiently overshoot the cap by a few blocks.",
+	    LogicalType {LogicalTypeId::UBIGINT}, Value::UBIGINT(DEFAULT_MAX_ON_DISK_CACHE_SIZE), UpdateMaxOnDiskCacheSize);
 	config.AddExtensionOption(
 	    "cache_httpfs_evict_policy",
 	    "Eviction policy for on-disk cache cache blocks. By default "

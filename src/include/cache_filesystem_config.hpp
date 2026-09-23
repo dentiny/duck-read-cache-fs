@@ -142,6 +142,10 @@ extern bool DEFAULT_IGNORE_SIGPIPE;
 // value will be considered.
 extern idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
 
+// Default max total size in bytes for all on-disk cache files; by default 0, which means the cache's own size is not
+// capped and only the min disk space requirement above applies.
+extern idx_t DEFAULT_MAX_ON_DISK_CACHE_SIZE;
+
 //===--------------------------------------------------------------------===//
 // Util function for filesystem configurations.
 //===--------------------------------------------------------------------===//
