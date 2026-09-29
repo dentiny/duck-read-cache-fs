@@ -53,6 +53,7 @@ set(EXTENSION_SOURCES
     src/cache_filesystem_config.cpp
     src/cache_status_query_function.cpp
     src/cache_read_chunk.cpp
+    src/disk_cache_footprint_tracker.cpp
     src/disk_cache_reader.cpp
     src/disk_cache_util.cpp
     src/extension_bounded_data_cache_storage.cpp

@@ -7,6 +7,7 @@
 #include "base_profile_collector.hpp"
 #include "cache_exclusion_manager.hpp"
 #include "cache_filesystem_config.hpp"
+#include "disk_cache_footprint_tracker.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string.hpp"
 #include "duckdb/common/typedefs.hpp"
@@ -122,6 +123,7 @@ struct InstanceConfig {
 	// On-disk cache config
 	vector<string> on_disk_cache_directories = {GetDefaultOnDiskCacheDirectory()};
 	idx_t min_disk_bytes_for_cache = DEFAULT_MIN_DISK_BYTES_FOR_CACHE;
+	idx_t max_on_disk_cache_size = DEFAULT_MAX_ON_DISK_CACHE_SIZE;
 	string on_disk_eviction_policy = *DEFAULT_ON_DISK_EVICTION_POLICY;
 
 	// Disk reader in-memory cache config
@@ -178,6 +180,8 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 	InstanceCacheReaderManager cache_reader_manager;
 	InstanceProfileCollectorManager profile_collector_manager;
 	CacheExclusionManager exclusion_manager;
+	// Tracks the total on-disk cache file size, used to enforce `max_on_disk_cache_size` when configured.
+	DiskCacheFootprintTracker disk_cache_footprint_tracker;
 
 	CacheHttpfsInstanceState() = default;
 	~CacheHttpfsInstanceState() override;

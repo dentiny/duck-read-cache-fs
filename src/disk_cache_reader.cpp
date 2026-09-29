@@ -180,8 +180,9 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 		    // Otherwise, rely on page cache for repeated access.
 		    .attempt_direct_io = config.enable_disk_reader_mem_cache,
 		};
-		auto read_result = DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath,
-		                                                     cache_read_chunk.chunk_size, version_tag, read_options);
+		auto read_result =
+		    DiskCacheUtil::ReadLocalCacheFile(cache_dest.dest_local_filepath, cache_read_chunk.chunk_size, version_tag,
+		                                      read_options, &state->disk_cache_footprint_tracker);
 		if (read_result.cache_hit) {
 			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
@@ -222,8 +223,9 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 		return;
 	}
 	try {
-		DiskCacheUtil::StoreLocalCacheFile(path_info.cache_directory, cache_dest, content, version_tag, config,
-		                                   [this]() { return EvictCacheBlockLru(); });
+		DiskCacheUtil::StoreLocalCacheFile(
+		    path_info.cache_directory, cache_dest, content, version_tag, config,
+		    [this]() { return EvictCacheBlockLru(); }, &state->disk_cache_footprint_tracker);
 		if (config.on_disk_eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION &&
 		    local_filesystem->FileExists(cache_dest.dest_local_filepath)) {
 			UpsertCacheFileAccessTimestamp(cache_dest.dest_local_filepath);
@@ -358,6 +360,7 @@ void DiskCacheReader::ClearCache() {
 		cache_file_access_timestamp_map.clear();
 		cache_filepath_to_access_timestamp.clear();
 	}
+	instance_state_locked->disk_cache_footprint_tracker.Invalidate();
 	if (in_mem_storage != nullptr) {
 		in_mem_storage->Clear();
 	}
@@ -388,8 +391,12 @@ void DiskCacheReader::ClearCache(const string &fname) {
 
 	const auto thread_num = std::min<size_t>(GetCpuCoreCount(), cache_files_to_remove.size());
 	auto executor = CreateParallelExecutor(instance_state_locked->db_instance, config.parallel_read_mode, thread_num);
+	auto &footprint_tracker = instance_state_locked->disk_cache_footprint_tracker;
 	for (auto cur_cache_file : cache_files_to_remove) {
-		executor->Schedule([this, cur = std::move(cur_cache_file)]() { local_filesystem->TryRemoveFile(cur); });
+		executor->Schedule([this, &footprint_tracker, cur = std::move(cur_cache_file)]() {
+			footprint_tracker.SubtractFileSize(*local_filesystem, cur);
+			local_filesystem->TryRemoveFile(cur);
+		});
 	}
 	executor->WaitAll();
 

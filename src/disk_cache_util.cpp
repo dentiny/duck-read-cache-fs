@@ -6,6 +6,7 @@
 #include "cache_filesystem_config.hpp"
 #include "crypto.hpp"
 #include "cache_httpfs_instance_state.hpp"
+#include "disk_cache_footprint_tracker.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -182,13 +183,19 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 
 /*static*/ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
                                                const string &eviction_policy,
-                                               const std::function<optional<string>()> &lru_eviction_decider) {
+                                               const std::function<optional<string>()> &lru_eviction_decider,
+                                               optional_ptr<DiskCacheFootprintTracker> footprint_tracker) {
 	// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
 	// because on unix platform files are only deleted physically when their last reference count goes away.
 	//
 	// For timestamp-based eviction, we simply return all the files which reaches certain threshold.
 	if (eviction_policy == *ON_DISK_CREATION_TIMESTAMP_EVICTION) {
-		EvictStaleCacheFiles(local_filesystem, cache_directory);
+		const auto evicted_cache_files = EvictStaleCacheFiles(local_filesystem, cache_directory);
+		// Stale cache file eviction deletes files in bulk without size accounting, so drop the tracked cache size and
+		// lazily rebuild it on the next cache file write.
+		if (!evicted_cache_files.empty() && footprint_tracker != nullptr) {
+			footprint_tracker->Invalidate();
+		}
 		return;
 	}
 
@@ -198,6 +205,9 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 	if (!filepath_to_evict) {
 		return;
 	}
+	if (footprint_tracker != nullptr) {
+		footprint_tracker->SubtractFileSize(local_filesystem, *filepath_to_evict);
+	}
 	// Intentionally ignore return value.
 	local_filesystem.TryRemoveFile(*filepath_to_evict);
 }
@@ -206,7 +216,8 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
                                                    const LocalCacheDestination &cache_dest,
                                                    const PageAlignedDataChunk &content, const string &version_tag,
                                                    const InstanceConfig &config,
-                                                   const std::function<optional<string>()> &lru_eviction_decider) {
+                                                   const std::function<optional<string>()> &lru_eviction_decider,
+                                                   optional_ptr<DiskCacheFootprintTracker> footprint_tracker) {
 	LocalFileSystem local_filesystem {};
 
 	// Skip local cache if insufficient disk space.
@@ -214,8 +225,22 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
 	// cache chunk size.
 	if (!CanCacheOnDisk(cache_directory, config.cache_block_size, config.min_disk_bytes_for_cache)) {
-		EvictCacheFiles(local_filesystem, cache_directory, config.on_disk_eviction_policy, lru_eviction_decider);
+		EvictCacheFiles(local_filesystem, cache_directory, config.on_disk_eviction_policy, lru_eviction_decider,
+		                footprint_tracker);
 		return;
+	}
+
+	// Skip local cache if the total cache file size would exceed the configured max on-disk cache size.
+	// Same as the disk space check above it's not a strict check, since concurrent writers could pass the check
+	// together and transiently overshoot the cap by a few blocks; eviction on later writes converges the total cache
+	// file size back under the cap.
+	if (config.max_on_disk_cache_size != DEFAULT_MAX_ON_DISK_CACHE_SIZE && footprint_tracker != nullptr) {
+		const idx_t total_cache_file_bytes = footprint_tracker->GetOrLoad(config.on_disk_cache_directories);
+		if (total_cache_file_bytes + content.length > config.max_on_disk_cache_size) {
+			EvictCacheFiles(local_filesystem, cache_directory, config.on_disk_eviction_policy, lru_eviction_decider,
+			                footprint_tracker);
+			return;
+		}
 	}
 
 	// Temporary file is removed after write completion whatever.
@@ -254,12 +279,17 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 	// Issue reference: https://github.com/dentiny/duck-read-cache-fs/issues/422
 	local_filesystem.MoveFile(/*source=*/cache_dest.temp_local_filepath,
 	                          /*target=*/cache_dest.dest_local_filepath);
+
+	// Account the newly finalized cache file.
+	if (footprint_tracker != nullptr) {
+		footprint_tracker->Add(content.length);
+	}
 }
 
-/*static*/ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath,
-                                                                                 idx_t chunk_size,
-                                                                                 const string &version_tag,
-                                                                                 const ReadOption &options) {
+/*static*/ DiskCacheUtil::LocalCacheReadResult
+DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size, const string &version_tag,
+                                  const ReadOption &options,
+                                  optional_ptr<DiskCacheFootprintTracker> footprint_tracker) {
 	auto file_open_flags = FileOpenFlags::FILE_FLAGS_READ | FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
 
 	// Enable direct IO when requested and size is page-aligned.
@@ -277,6 +307,9 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 
 	// Check cache validity and clear if necessary.
 	if (file_handle != nullptr && !ValidateCacheFile(cache_filepath, version_tag)) {
+		if (footprint_tracker != nullptr) {
+			footprint_tracker->SubtractFileSize(local_filesystem, cache_filepath);
+		}
 		local_filesystem.TryRemoveFile(cache_filepath);
 		file_handle = nullptr;
 	}

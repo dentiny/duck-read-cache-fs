@@ -39,6 +39,7 @@ TestCacheFileSystemHelper::TestCacheFileSystemHelper(TestCacheConfig config) : d
 	inst_config.max_in_mem_cache_block_count = config.max_in_mem_cache_block_count;
 	inst_config.disk_reader_max_mem_cache_block_count = config.max_disk_reader_mem_cache_block_count;
 	inst_config.min_disk_bytes_for_cache = config.min_disk_bytes_for_cache;
+	inst_config.max_on_disk_cache_size = config.max_on_disk_cache_size;
 
 	// Cache behavior
 	inst_config.clear_cache_on_write = config.clear_cache_on_write;

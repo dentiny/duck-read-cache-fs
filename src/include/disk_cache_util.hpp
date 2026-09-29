@@ -17,6 +17,7 @@
 
 namespace duckdb {
 // Forward declarations.
+class DiskCacheFootprintTracker;
 class FileSystem;
 struct InstanceConfig;
 class DatabaseInstance;
@@ -99,12 +100,16 @@ public:
 	static string TryGetOriginalRemotePath(const string &filepath);
 
 	// Store content to a local cache file using the pre-resolved [cache_dest].
-	// Disk space availability is validated, and eviction is triggered if needed.
+	// Disk space availability and the max on-disk cache size (if configured) are validated, and eviction is triggered
+	// if needed.
 	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
+	// [footprint_tracker] (optional) keeps track of the total cache file size, used to enforce
+	// `max_on_disk_cache_size` when configured.
 	static void StoreLocalCacheFile(const string &cache_directory, const LocalCacheDestination &cache_dest,
 	                                const PageAlignedDataChunk &content, const string &version_tag,
 	                                const InstanceConfig &config,
-	                                const std::function<optional<string>()> &lru_eviction_decider);
+	                                const std::function<optional<string>()> &lru_eviction_decider,
+	                                optional_ptr<DiskCacheFootprintTracker> footprint_tracker = nullptr);
 
 	// Options for reading local cache files.
 	struct ReadOption {
@@ -118,10 +123,12 @@ public:
 	};
 
 	// Attempt to open, validate, and read a local cache file at the already-resolved [cache_filepath].
-	// If the local cache file doesn't match the requested [version_tag], it will be deleted.
+	// If the local cache file doesn't match the requested [version_tag], it will be deleted, and its size gets
+	// subtracted from [footprint_tracker] if provided.
 	// Uses direct I/O when [options.attempt_direct_io] is true and conditions allow (avoids double buffering).
 	static LocalCacheReadResult ReadLocalCacheFile(const string &cache_filepath, idx_t chunk_size,
-	                                               const string &version_tag, const ReadOption &options);
+	                                               const string &version_tag, const ReadOption &options,
+	                                               optional_ptr<DiskCacheFootprintTracker> footprint_tracker = nullptr);
 
 	// Remove dead temporary cache files (write-to-temp-then-swap leftovers) under [cache_directories].
 	// Returns the number of files deleted.
@@ -137,9 +144,11 @@ private:
 
 	// Attempt to evict cache files, if file size threshold reached.
 	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
+	// [footprint_tracker] (optional) gets updated to reflect the evicted cache files.
 	static void EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
 	                            const string &eviction_policy,
-	                            const std::function<optional<string>()> &lru_eviction_decider);
+	                            const std::function<optional<string>()> &lru_eviction_decider,
+	                            optional_ptr<DiskCacheFootprintTracker> footprint_tracker = nullptr);
 };
 
 } // namespace duckdb
