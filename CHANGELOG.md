@@ -1,5 +1,9 @@
 # 0.14.3
 
+## Updated
+
+- Update DuckDB and extension-ci-tools to `v1.5.6` and align httpfs with DuckDB core.
+
 ## Added
 
 - Add descriptions, examples, categories, and parameter names for cache_httpfs SQL functions in `duckdb_functions()`.
