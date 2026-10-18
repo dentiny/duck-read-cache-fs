@@ -280,6 +280,18 @@ TEST_CASE("Test clear cache with mock filesystem", "[mock filesystem test]") {
 	perform_io_operation();
 	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 3);
 	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 3);
+
+	// Clearing only the file handle cache opens the file again but preserves the glob cache.
+	cache_filesystem->ClearFileHandleCache();
+	perform_io_operation();
+	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 3);
+	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 4);
+
+	// The filepath variant has the same isolation for matching handles.
+	cache_filesystem->ClearFileHandleCache(TEST_FILENAME);
+	perform_io_operation();
+	REQUIRE(mock_filesystem_ptr->GetGlobInvocation() == 3);
+	REQUIRE(mock_filesystem_ptr->GetFileOpenInvocation() == 5);
 }
 
 // MockS3LikeFileSystem mimics the S3FileSystem/HTTPFileSystem inheritance pattern:
