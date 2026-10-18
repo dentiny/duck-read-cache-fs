@@ -36,6 +36,26 @@ file handle	0	1	0	NULL	NULL	NULL	NULL
 glob	0	0	0	NULL	NULL	NULL	NULL
 
 # ==========================
+# Clear only file handle cache
+# ==========================
+statement ok
+SELECT cache_httpfs_clear_file_handle_cache();
+
+query I
+SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/duck-read-cache-fs/refs/heads/main/test/data/stock-exchanges.csv');
+----
+251
+
+# The file handle is reopened while metadata and data remain cached.
+query IIIIIIII
+SELECT * FROM cache_httpfs_cache_access_info_query();
+----
+metadata	5	1	0	NULL	NULL	NULL	NULL
+data	1	1	0	32444	32444	16222	16222
+file handle	0	2	0	NULL	NULL	NULL	NULL
+glob	0	0	0	NULL	NULL	NULL	NULL
+
+# ==========================
 # Clear all cache
 # ==========================
 # Clear all cache and re-execute the query.

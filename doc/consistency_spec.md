@@ -11,6 +11,10 @@ We provide several workarounds, so users are able to configure based on their wo
 D SELECT cache_httpfs_clear_cache();
 -- Clear cache based on filepath.
 D SELECT cache_httpfs_clear_cache_for_file();
+-- Clear only cached file handles, for example after rotating remote-storage credentials.
+D SELECT cache_httpfs_clear_file_handle_cache();
+-- Clear only cached file handles for one filepath.
+D SELECT cache_httpfs_clear_file_handle_cache_for_file('filename');
 ```
 
 > [!CAUTION]
