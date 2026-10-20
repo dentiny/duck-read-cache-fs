@@ -6,6 +6,7 @@
 #include "cache_filesystem_config.hpp"
 #include "crypto.hpp"
 #include "cache_httpfs_instance_state.hpp"
+#include "disk_cache_eviction_policy.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -180,42 +181,23 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 	return StringUtil::Format("%s-%s", remote_file_sha256_hex, sanitized_fname);
 }
 
-/*static*/ void DiskCacheUtil::EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
-                                               const string &eviction_policy,
-                                               const std::function<optional<string>()> &lru_eviction_decider) {
-	// After cache file eviction and file deletion request we cannot perform a cache dump operation immediately,
-	// because on unix platform files are only deleted physically when their last reference count goes away.
-	//
-	// For timestamp-based eviction, we simply return all the files which reaches certain threshold.
-	if (eviction_policy == *ON_DISK_CREATION_TIMESTAMP_EVICTION) {
-		EvictStaleCacheFiles(local_filesystem, cache_directory);
-		return;
-	}
-
-	// For LRU-based eviction, get the entry to remove and delete the file to release storage space.
-	ALWAYS_ASSERT(eviction_policy == *ON_DISK_LRU_SINGLE_PROC_EVICTION);
-	const auto filepath_to_evict = lru_eviction_decider();
-	if (!filepath_to_evict) {
-		return;
-	}
-	// Intentionally ignore return value.
-	local_filesystem.TryRemoveFile(*filepath_to_evict);
-}
-
-/*static*/ void DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory,
+/*static*/ bool DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory,
                                                    const LocalCacheDestination &cache_dest,
                                                    const PageAlignedDataChunk &content, const string &version_tag,
                                                    const InstanceConfig &config,
-                                                   const std::function<optional<string>()> &lru_eviction_decider) {
+                                                   DiskCacheEvictionPolicy &eviction_policy) {
 	LocalFileSystem local_filesystem {};
 
 	// Skip local cache if insufficient disk space.
 	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
 	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
 	// cache chunk size.
+	//
+	// After cache file eviction we cannot write the cache file immediately, because on unix platform files are only
+	// deleted physically when their last reference count goes away.
 	if (!CanCacheOnDisk(cache_directory, config.cache_block_size, config.min_disk_bytes_for_cache)) {
-		EvictCacheFiles(local_filesystem, cache_directory, config.on_disk_eviction_policy, lru_eviction_decider);
-		return;
+		eviction_policy.Evict(cache_directory, config);
+		return false;
 	}
 
 	// Temporary file is removed after write completion whatever.
@@ -242,10 +224,10 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 	// Store validation metadata before publishing the cache file. Otherwise a concurrent reader can observe the moved
 	// file before xattrs are attached and invalidate it as a mismatched cache entry.
 	if (!version_tag.empty() && !SetCacheVersion(cache_dest.temp_local_filepath, version_tag)) {
-		return;
+		return false;
 	}
 	if (!cache_dest.file_attrs.empty() && !SetFileXattrs(cache_dest.temp_local_filepath, cache_dest.file_attrs)) {
-		return;
+		return false;
 	}
 
 	// Then atomically move to the target postion to prevent data corruption due to concurrent write.
@@ -254,6 +236,7 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 	// Issue reference: https://github.com/dentiny/duck-read-cache-fs/issues/422
 	local_filesystem.MoveFile(/*source=*/cache_dest.temp_local_filepath,
 	                          /*target=*/cache_dest.dest_local_filepath);
+	return true;
 }
 
 /*static*/ DiskCacheUtil::LocalCacheReadResult DiskCacheUtil::ReadLocalCacheFile(const string &cache_filepath,

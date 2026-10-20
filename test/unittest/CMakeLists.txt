@@ -27,6 +27,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_disk_cache_with_multi_directories_from_unit.cpp
     test_exclusive_lru_cache.cpp
     test_exclusive_multi_lru_cache.cpp
+    test_extension_bounded_data_cache_storage.cpp
     test_filesystem_config_from_unit.cpp
     test_filesystem_utils_from_unit.cpp
     test_histogram.cpp
@@ -35,6 +36,7 @@ set(CATCHFS_UNITTEST_OBJECTS
     test_latency_guard.cpp
     test_large_file_disk_reader_from_unit.cpp
     test_large_file_inmem_reader_from_unit.cpp
+    test_lru_eviction_policy.cpp
     test_max_fanout_subrequest.cpp
     test_multi_duckdb_instance_from_unit.cpp
     test_no_destructor.cpp

@@ -17,6 +17,7 @@
 
 namespace duckdb {
 // Forward declarations.
+class DiskCacheEvictionPolicy;
 class FileSystem;
 struct InstanceConfig;
 class DatabaseInstance;
@@ -99,12 +100,11 @@ public:
 	static string TryGetOriginalRemotePath(const string &filepath);
 
 	// Store content to a local cache file using the pre-resolved [cache_dest].
-	// Disk space availability is validated, and eviction is triggered if needed.
-	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
-	static void StoreLocalCacheFile(const string &cache_directory, const LocalCacheDestination &cache_dest,
+	// Disk space availability is validated, and [eviction_policy] is triggered if needed.
+	// Return whether the cache file has been stored.
+	static bool StoreLocalCacheFile(const string &cache_directory, const LocalCacheDestination &cache_dest,
 	                                const PageAlignedDataChunk &content, const string &version_tag,
-	                                const InstanceConfig &config,
-	                                const std::function<optional<string>()> &lru_eviction_decider);
+	                                const InstanceConfig &config, DiskCacheEvictionPolicy &eviction_policy);
 
 	// Options for reading local cache files.
 	struct ReadOption {
@@ -134,12 +134,6 @@ private:
 	// Return whether the cached file at [cache_filepath] is still valid for the given [version_tag].
 	// Empty version tag means cache validation is disabled.
 	static bool ValidateCacheFile(const string &cache_filepath, const string &version_tag);
-
-	// Attempt to evict cache files, if file size threshold reached.
-	// [lru_eviction_decider] is used to obtain the filepath to remove under LRU eviction policy.
-	static void EvictCacheFiles(FileSystem &local_filesystem, const string &cache_directory,
-	                            const string &eviction_policy,
-	                            const std::function<optional<string>()> &lru_eviction_decider);
 };
 
 } // namespace duckdb
