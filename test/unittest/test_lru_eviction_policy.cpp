@@ -1,38 +1,39 @@
 #include "catch/catch.hpp"
 
-#include "lru_eviction_policy.hpp"
 #include "duckdb/common/string.hpp"
-#include "duckdb/common/vector.hpp"
+#include "lru_eviction_policy.hpp"
 
 using namespace duckdb; // NOLINT
 
-TEST_CASE("LruEvictionPolicy evicts least recently used key", "[cache eviction policy test]") {
-	LruEvictionPolicy<string> policy {/*max_entries_p=*/2};
-	REQUIRE(policy.OnInsert("a").empty());
-	REQUIRE(policy.OnInsert("b").empty());
+TEST_CASE("LruEvictionPolicy evicts least recently used key", "[lru eviction policy test]") {
+	LruEvictionPolicy<string> policy;
+	REQUIRE_FALSE(policy.PopVictim());
+
+	policy.OnInsert("a");
+	policy.OnInsert("b");
+	policy.OnInsert("c");
 
 	// Access "a", so "b" becomes the least recently used one.
 	policy.OnAccess("a");
-	REQUIRE(policy.OnInsert("c") == vector<string> {"b"});
-	REQUIRE(policy.OnInsert("d") == vector<string> {"a"});
+	REQUIRE(*policy.PopVictim() == "b");
+	REQUIRE(*policy.PopVictim() == "c");
+	REQUIRE(*policy.PopVictim() == "a");
+	REQUIRE_FALSE(policy.PopVictim());
 }
 
-TEST_CASE("LruEvictionPolicy removal frees capacity", "[cache eviction policy test]") {
-	LruEvictionPolicy<string> policy {/*max_entries_p=*/2};
-	REQUIRE(policy.OnInsert("a").empty());
-	REQUIRE(policy.OnInsert("b").empty());
+TEST_CASE("LruEvictionPolicy tracks keys", "[lru eviction policy test]") {
+	LruEvictionPolicy<string> policy;
+	policy.OnInsert("a");
+	policy.OnInsert("b");
+	REQUIRE(policy.Contains("a"));
+
 	policy.OnRemove("a");
-	REQUIRE(policy.OnInsert("c").empty());
-	REQUIRE(policy.OnInsert("d") == vector<string> {"b"});
+	REQUIRE_FALSE(policy.Contains("a"));
+	REQUIRE(*policy.PopVictim() == "b");
+	REQUIRE_FALSE(policy.Contains("b"));
 
+	policy.OnInsert("c");
 	policy.Clear();
-	REQUIRE(policy.OnInsert("e").empty());
-	REQUIRE(policy.OnInsert("f").empty());
-}
-
-TEST_CASE("LruEvictionPolicy unbounded", "[cache eviction policy test]") {
-	LruEvictionPolicy<string> policy {/*max_entries_p=*/0};
-	for (int idx = 0; idx < 100; ++idx) {
-		REQUIRE(policy.OnInsert(std::to_string(idx)).empty());
-	}
+	REQUIRE_FALSE(policy.Contains("c"));
+	REQUIRE_FALSE(policy.PopVictim());
 }

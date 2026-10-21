@@ -6,7 +6,6 @@
 #include "cache_filesystem_config.hpp"
 #include "crypto.hpp"
 #include "cache_httpfs_instance_state.hpp"
-#include "disk_cache_eviction_policy.hpp"
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -181,24 +180,10 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 	return StringUtil::Format("%s-%s", remote_file_sha256_hex, sanitized_fname);
 }
 
-/*static*/ bool DiskCacheUtil::StoreLocalCacheFile(const string &cache_directory,
-                                                   const LocalCacheDestination &cache_dest,
+/*static*/ bool DiskCacheUtil::StoreLocalCacheFile(const LocalCacheDestination &cache_dest,
                                                    const PageAlignedDataChunk &content, const string &version_tag,
-                                                   const InstanceConfig &config,
-                                                   DiskCacheEvictionPolicy &eviction_policy) {
+                                                   const InstanceConfig &config) {
 	LocalFileSystem local_filesystem {};
-
-	// Skip local cache if insufficient disk space.
-	// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
-	// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger than
-	// cache chunk size.
-	//
-	// After cache file eviction we cannot write the cache file immediately, because on unix platform files are only
-	// deleted physically when their last reference count goes away.
-	if (!CanCacheOnDisk(cache_directory, config.cache_block_size, config.min_disk_bytes_for_cache)) {
-		eviction_policy.Evict(cache_directory, config);
-		return false;
-	}
 
 	// Temporary file is removed after write completion whatever.
 	SCOPE_EXIT {

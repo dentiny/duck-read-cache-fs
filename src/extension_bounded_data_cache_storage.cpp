@@ -15,8 +15,8 @@ uint64_t GetNowMilliSec() {
 } // namespace
 
 ExtensionBoundedDataCacheStorage::ExtensionBoundedDataCacheStorage(
-    unique_ptr<CacheEvictionPolicy<InMemCacheBlock>> eviction_policy_p, uint64_t timeout_millisec_p)
-    : timeout_millisec(timeout_millisec_p), eviction_policy(std::move(eviction_policy_p)) {
+    size_t max_entries_p, uint64_t timeout_millisec_p, unique_ptr<EvictionPolicy<InMemCacheBlock>> eviction_policy_p)
+    : max_entries(max_entries_p), timeout_millisec(timeout_millisec_p), eviction_policy(std::move(eviction_policy_p)) {
 	ALWAYS_ASSERT(eviction_policy != nullptr);
 }
 
@@ -46,10 +46,12 @@ void ExtensionBoundedDataCacheStorage::Put(InMemCacheBlock key, PageAlignedDataC
 		return;
 	}
 
-	auto evicted_keys = eviction_policy->OnInsert(key);
+	eviction_policy->OnInsert(key);
 	entries.emplace(std::move(key), std::move(new_entry));
-	for (const auto &cur_key : evicted_keys) {
-		const auto erased = entries.erase(cur_key);
+	while (max_entries > 0 && entries.size() > max_entries) {
+		auto victim = eviction_policy->PopVictim();
+		ALWAYS_ASSERT(victim.has_value());
+		const auto erased = entries.erase(*victim);
 		ALWAYS_ASSERT(erased == 1);
 	}
 }

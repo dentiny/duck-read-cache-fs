@@ -16,6 +16,7 @@
 #include "duckdb/main/database.hpp"
 #include "in_mem_cache_remap.hpp"
 #include "in_memory_data_cache_storage.hpp"
+#include "lru_eviction_policy.hpp"
 #include "utils/include/chunk_utils.hpp"
 #include "utils/include/filesystem_utils.hpp"
 #include "utils/include/page_aligned_data_chunk.hpp"
@@ -31,12 +32,59 @@ DiskCacheReader::DiskCacheReader(weak_ptr<CacheHttpfsInstanceState> instance_sta
     : BaseCacheReader(std::move(instance_state_p)), local_filesystem(LocalFileSystem::CreateLocal()) {
 }
 
-shared_ptr<DiskCacheEvictionPolicy> DiskCacheReader::GetEvictionPolicy(const InstanceConfig &config) {
-	const concurrency::lock_guard<concurrency::mutex> lck(eviction_policy_mutex);
-	if (eviction_policy == nullptr || eviction_policy->GetName() != config.on_disk_eviction_policy) {
-		eviction_policy = CreateDiskCacheEvictionPolicy(config.on_disk_eviction_policy);
+EvictionPolicy<string> *DiskCacheReader::GetEvictionPolicy(const InstanceConfig &config) {
+	if (eviction_policy_name != config.on_disk_eviction_policy) {
+		eviction_policy_name = config.on_disk_eviction_policy;
+		if (eviction_policy_name == *ON_DISK_LRU_SINGLE_PROC_EVICTION) {
+			eviction_policy = make_uniq<LruEvictionPolicy<string>>();
+		} else {
+			ALWAYS_ASSERT(eviction_policy_name == *ON_DISK_CREATION_TIMESTAMP_EVICTION);
+			eviction_policy = nullptr;
+		}
 	}
-	return eviction_policy;
+	return eviction_policy.get();
+}
+
+void DiskCacheReader::RecordCacheFileAccess(const InstanceConfig &config, const string &cache_filepath) {
+	const concurrency::lock_guard<concurrency::mutex> lck(eviction_policy_mutex);
+	auto *policy = GetEvictionPolicy(config);
+	if (policy == nullptr) {
+		return;
+	}
+	if (policy->Contains(cache_filepath)) {
+		policy->OnAccess(cache_filepath);
+	} else {
+		policy->OnInsert(cache_filepath);
+	}
+}
+
+void DiskCacheReader::EvictCacheFiles(const InstanceConfig &config, const string &cache_directory) {
+	bool has_eviction_policy = false;
+	optional<string> filepath_to_evict;
+	{
+		const concurrency::lock_guard<concurrency::mutex> lck(eviction_policy_mutex);
+		auto *policy = GetEvictionPolicy(config);
+		has_eviction_policy = policy != nullptr;
+		if (has_eviction_policy) {
+			filepath_to_evict = policy->PopVictim();
+			// Cache files created by previous processes are not tracked, load them in last-access order.
+			if (!filepath_to_evict) {
+				for (const auto &cur_file : GetOnDiskFilesUnder(config.on_disk_cache_directories)) {
+					policy->OnInsert(cur_file.second);
+				}
+				filepath_to_evict = policy->PopVictim();
+			}
+		}
+	}
+
+	if (!has_eviction_policy) {
+		EvictStaleCacheFiles(*local_filesystem, cache_directory);
+		return;
+	}
+	if (filepath_to_evict) {
+		// Intentionally ignore return value.
+		local_filesystem->TryRemoveFile(*filepath_to_evict);
+	}
 }
 
 // TODO(hjiang): For oversized filepath, both in-memory cache and on-disk cache stores resolved path, which uses SHA-256
@@ -90,7 +138,7 @@ vector<DataCacheEntryInfo> DiskCacheReader::GetCacheEntriesInfo() const {
 
 void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceConfig &config, const string &version_tag,
                                             const DiskCacheUtil::RemoteFileCachePathInfo &path_info,
-                                            DiskCacheEvictionPolicy &eviction_policy, CacheReadChunk cache_read_chunk) {
+                                            CacheReadChunk cache_read_chunk) {
 	SetThreadName("RdCachRdThd");
 
 	auto &cache_handle = handle.Cast<CacheFileSystemHandle>();
@@ -136,7 +184,7 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 			collector.RecordCacheAccess(CacheEntity::kData, CacheAccess::kCacheHit, cache_read_chunk.bytes_to_copy);
 			DUCKDB_LOG_READ_CACHE_HIT((handle));
 			cache_read_chunk.CopyBufferToRequestedMemory(read_result.content);
-			eviction_policy.OnCacheFileAccess(cache_dest.dest_local_filepath);
+			RecordCacheFileAccess(config, cache_dest.dest_local_filepath);
 
 			// Update in-memory cache if applicable.
 			if (in_mem_storage != nullptr) {
@@ -169,9 +217,17 @@ void DiskCacheReader::ProcessCacheReadChunk(FileHandle &handle, const InstanceCo
 		return;
 	}
 	try {
-		if (DiskCacheUtil::StoreLocalCacheFile(path_info.cache_directory, cache_dest, content, version_tag, config,
-		                                       eviction_policy)) {
-			eviction_policy.OnCacheFileStore(cache_dest.dest_local_filepath);
+		// Skip local cache if insufficient disk space.
+		// It's worth noting it's not a strict check since there could be concurrent check and write operation (RMW
+		// operation), but it's acceptable since min available disk space reservation is an order of magnitude bigger
+		// than cache chunk size.
+		//
+		// After cache file eviction we cannot write the cache file immediately, because on unix platform files are
+		// only deleted physically when their last reference count goes away.
+		if (!CanCacheOnDisk(path_info.cache_directory, config.cache_block_size, config.min_disk_bytes_for_cache)) {
+			EvictCacheFiles(config, path_info.cache_directory);
+		} else if (DiskCacheUtil::StoreLocalCacheFile(cache_dest, content, version_tag, config)) {
+			RecordCacheFileAccess(config, cache_dest.dest_local_filepath);
 		}
 
 		// Update in-memory cache if applicable.
@@ -219,8 +275,6 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 	string version_tag = config.enable_cache_validation ? handle.Cast<CacheFileSystemHandle>().GetVersionTag() : "";
 	const auto path_info =
 	    DiskCacheUtil::BuildRemoteFileCachePathInfo(config.on_disk_cache_directories, handle.GetPath());
-	auto eviction_policy_ref = GetEvictionPolicy(config);
-
 	// To improve IO performance, we split requested bytes (after alignment) into multiple chunks and fetch them in
 	// parallel.
 	idx_t total_bytes_to_cache = 0;
@@ -275,10 +329,9 @@ void DiskCacheReader::ReadAndCache(FileHandle &handle, char *buffer, idx_t reque
 		requested_start_offset = io_start_offset + block_size;
 
 		// Perform read operation in parallel.
-		parallel_executor->Schedule(
-		    [this, &handle, &config, &version_tag, &path_info, &eviction_policy_ref, cache_read_chunk]() {
-			    ProcessCacheReadChunk(handle, config, version_tag, path_info, *eviction_policy_ref, cache_read_chunk);
-		    });
+		parallel_executor->Schedule([this, &handle, &config, &version_tag, &path_info, cache_read_chunk]() {
+			ProcessCacheReadChunk(handle, config, version_tag, path_info, cache_read_chunk);
+		});
 	}
 
 	// Block wait for all IO operations to complete.
@@ -300,7 +353,12 @@ void DiskCacheReader::ClearCache() {
 		// Create an empty directory, otherwise later read access errors.
 		local_filesystem->CreateDirectory(cur_cache_dir);
 	}
-	GetEvictionPolicy(config)->OnCacheCleared();
+	{
+		const concurrency::lock_guard<concurrency::mutex> lck(eviction_policy_mutex);
+		if (eviction_policy != nullptr) {
+			eviction_policy->Clear();
+		}
+	}
 	if (in_mem_storage != nullptr) {
 		in_mem_storage->Clear();
 	}
@@ -321,7 +379,16 @@ void DiskCacheReader::ClearCache(const string &fname) {
 		});
 	}
 
-	GetEvictionPolicy(config)->OnCacheFilesRemoved(cache_files_to_remove);
+	{
+		const concurrency::lock_guard<concurrency::mutex> lck(eviction_policy_mutex);
+		if (eviction_policy != nullptr) {
+			for (const auto &cur_file : cache_files_to_remove) {
+				if (eviction_policy->Contains(cur_file)) {
+					eviction_policy->OnRemove(cur_file);
+				}
+			}
+		}
+	}
 
 	const auto thread_num = std::min<size_t>(GetCpuCoreCount(), cache_files_to_remove.size());
 	auto executor = CreateParallelExecutor(instance_state_locked->db_instance, config.parallel_read_mode, thread_num);

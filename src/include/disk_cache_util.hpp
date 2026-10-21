@@ -17,7 +17,6 @@
 
 namespace duckdb {
 // Forward declarations.
-class DiskCacheEvictionPolicy;
 class FileSystem;
 struct InstanceConfig;
 class DatabaseInstance;
@@ -100,11 +99,9 @@ public:
 	static string TryGetOriginalRemotePath(const string &filepath);
 
 	// Store content to a local cache file using the pre-resolved [cache_dest].
-	// Disk space availability is validated, and [eviction_policy] is triggered if needed.
 	// Return whether the cache file has been stored.
-	static bool StoreLocalCacheFile(const string &cache_directory, const LocalCacheDestination &cache_dest,
-	                                const PageAlignedDataChunk &content, const string &version_tag,
-	                                const InstanceConfig &config, DiskCacheEvictionPolicy &eviction_policy);
+	static bool StoreLocalCacheFile(const LocalCacheDestination &cache_dest, const PageAlignedDataChunk &content,
+	                                const string &version_tag, const InstanceConfig &config);
 
 	// Options for reading local cache files.
 	struct ReadOption {

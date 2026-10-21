@@ -30,7 +30,7 @@ InMemCacheBlock MakeKey(const string &fname, idx_t idx) {
 
 unique_ptr<ExtensionBoundedDataCacheStorage> MakeLruStorage(size_t max_entries, uint64_t timeout_millisec = 0) {
 	return make_uniq<ExtensionBoundedDataCacheStorage>(
-	    make_uniq<LruEvictionPolicy<InMemCacheBlock, InMemCacheBlockLess>>(max_entries), timeout_millisec);
+	    max_entries, timeout_millisec, make_uniq<LruEvictionPolicy<InMemCacheBlock, InMemCacheBlockLess>>());
 }
 
 } // namespace

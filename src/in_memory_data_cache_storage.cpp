@@ -15,8 +15,8 @@ shared_ptr<InMemoryDataCacheStorage> BuildInMemoryDataCacheStorage(const string 
 		ALWAYS_ASSERT(db_instance != nullptr);
 		return make_shared_ptr<ObjectCacheStorage>(*db_instance, timeout_millisec);
 	}
-	auto eviction_policy = make_uniq<LruEvictionPolicy<InMemCacheBlock, InMemCacheBlockLess>>(max_entries);
-	return make_shared_ptr<ExtensionBoundedDataCacheStorage>(std::move(eviction_policy), timeout_millisec);
+	auto eviction_policy = make_uniq<LruEvictionPolicy<InMemCacheBlock, InMemCacheBlockLess>>();
+	return make_shared_ptr<ExtensionBoundedDataCacheStorage>(max_entries, timeout_millisec, std::move(eviction_policy));
 }
 
 } // namespace duckdb

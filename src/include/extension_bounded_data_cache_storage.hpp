@@ -1,15 +1,15 @@
-// Extension-managed in-memory data cache: bounded by a pluggable eviction policy and per-entry timeout.
+// Extension-managed in-memory data cache: bounded by entry count and per-entry timeout, with pluggable eviction policy.
 
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
 
-#include "cache_eviction_policy.hpp"
 #include "duckdb/common/map.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
 #include "duckdb/common/vector.hpp"
+#include "eviction_policy.hpp"
 #include "in_memory_data_cache_storage.hpp"
 #include "mutex.hpp"
 #include "thread_annotation.hpp"
@@ -18,10 +18,11 @@ namespace duckdb {
 
 class ExtensionBoundedDataCacheStorage final : public InMemoryDataCacheStorage {
 public:
-	// @param eviction_policy: decides which entries to evict, which also bounds the number of entries.
+	// @param max_entries: 0 means unbounded.
 	// @param timeout_millisec: 0 means no timeout.
-	ExtensionBoundedDataCacheStorage(unique_ptr<CacheEvictionPolicy<InMemCacheBlock>> eviction_policy,
-	                                 uint64_t timeout_millisec);
+	// @param eviction_policy: decides which entry to evict when exceeding [max_entries].
+	ExtensionBoundedDataCacheStorage(size_t max_entries, uint64_t timeout_millisec,
+	                                 unique_ptr<EvictionPolicy<InMemCacheBlock>> eviction_policy);
 
 	ExtensionBoundedDataCacheStorage(const ExtensionBoundedDataCacheStorage &) = delete;
 	ExtensionBoundedDataCacheStorage &operator=(const ExtensionBoundedDataCacheStorage &) = delete;
@@ -48,12 +49,13 @@ private:
 	// Remove the entry pointed by [iter] from both the cache and the eviction policy.
 	void DeleteImpl(EntryMap::iterator iter) DUCKDB_REQUIRES(mu);
 
+	const size_t max_entries;
 	const uint64_t timeout_millisec;
 
 	mutable concurrency::mutex mu;
 	// Use ordered map for range deletion.
 	EntryMap entries DUCKDB_GUARDED_BY(mu);
-	unique_ptr<CacheEvictionPolicy<InMemCacheBlock>> eviction_policy DUCKDB_GUARDED_BY(mu);
+	unique_ptr<EvictionPolicy<InMemCacheBlock>> eviction_policy DUCKDB_GUARDED_BY(mu);
 };
 
 } // namespace duckdb
