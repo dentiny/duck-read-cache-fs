@@ -7,11 +7,6 @@ EXT_CONFIG=${PROJ_DIR}extension_config.cmake
 # Include the Makefile from extension-ci-tools
 include extension-ci-tools/makefiles/duckdb_extension.Makefile
 
-# DuckDB v2 removed these legacy options. Keep local builds warning-free and
-# explicitly use system dependencies instead of vcpkg for this build.
-BUILD_FLAGS := $(filter-out -DENABLE_EXTENSION_AUTOLOADING=% -DENABLE_EXTENSION_AUTOINSTALL=%,$(BUILD_FLAGS))
-BUILD_FLAGS += -DDISABLE_VPTR_SANITIZER=1 -DVCPKG_BUILD=OFF
-
 # SQL tests share fixed cache directories and must run in one worker.
 TEST_RUNNER := python3 $(TEST_RUNNER_SCRIPT) --workers 1
 
