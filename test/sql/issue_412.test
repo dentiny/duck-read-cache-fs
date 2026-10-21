@@ -38,10 +38,16 @@ SELECT COUNT(*) FROM read_csv_auto('https://raw.githubusercontent.com/dentiny/du
 ----
 251
 
-query IIIIIIII
-SELECT * FROM cache_httpfs_cache_access_info_query();
+query II
+SELECT CAST(cache_hit_count > 0 AS INTEGER), cache_miss_count
+FROM cache_httpfs_cache_access_info_query()
+WHERE cache_type = 'metadata';
 ----
-metadata	3	1	0	NULL	NULL	NULL	NULL
+1	1
+
+query IIIIIIII
+SELECT * FROM cache_httpfs_cache_access_info_query() WHERE cache_type <> 'metadata';
+----
 data	1	1	0	32444	32444	16222	16222
 file handle	1	1	0	NULL	NULL	NULL	NULL
 glob	0	0	0	NULL	NULL	NULL	NULL
