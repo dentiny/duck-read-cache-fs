@@ -10,7 +10,7 @@
 #include "duckdb/common/queue.hpp"
 #include "duckdb/common/vector.hpp"
 #include "mutex.hpp"
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"
 
 namespace duckdb {
 
@@ -26,7 +26,7 @@ public:
 
 	// @return future for synchronization.
 	template <typename Fn, typename... Args>
-	auto Push(Fn &&fn, Args &&...args) -> std::future<typename std::result_of_t<Fn(Args...)>>;
+	auto Push(Fn &&fn, Args &&...args) -> std::future<std::invoke_result_t<Fn, Args...>>;
 
 	// Block until the threadpool is dead, or all enqueued tasks finish.
 	void Wait();
@@ -44,8 +44,8 @@ private:
 };
 
 template <typename Fn, typename... Args>
-auto ThreadPool::Push(Fn &&fn, Args &&...args) -> std::future<typename std::result_of_t<Fn(Args...)>> {
-	using Ret = typename std::result_of_t<Fn(Args...)>;
+auto ThreadPool::Push(Fn &&fn, Args &&...args) -> std::future<std::invoke_result_t<Fn, Args...>> {
+	using Ret = std::invoke_result_t<Fn, Args...>;
 
 	auto job =
 	    std::make_shared<std::packaged_task<Ret()>>(std::bind(std::forward<Fn>(fn), std::forward<Args>(args)...));

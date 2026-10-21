@@ -15,7 +15,7 @@ void SetCacheHttpfsExtensionOption(DatabaseInstance &instance, const string &nam
 
 	auto &config = DBConfig::GetConfig(instance);
 	ExtensionOption option;
-	if (!config.TryGetExtensionOption(name, option)) {
+	if (!config.TryGetExtensionOption(Identifier(name), option)) {
 		throw InvalidInputException("cache_httpfs option '%s' is unavailable", name);
 	}
 	if (!option.setting_index.IsValid()) {

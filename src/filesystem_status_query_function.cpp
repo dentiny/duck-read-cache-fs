@@ -27,7 +27,7 @@ struct ListFileSystemData : public GlobalTableFunctionState {
 };
 
 unique_ptr<FunctionData> ListFileSystemQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
-                                                     vector<LogicalType> &return_types, vector<string> &names) {
+                                                     vector<LogicalType> &return_types, vector<Identifier> &names) {
 	ALWAYS_ASSERT(return_types.empty());
 	ALWAYS_ASSERT(names.empty());
 
@@ -73,11 +73,10 @@ void ListFileSystemQueryTableFunc(ClientContext &context, TableFunctionInput &da
 		idx_t col = 0;
 
 		// Registerd filesystem.
-		output.SetValue(col++, count, entry);
+		output.data[col++].Append(Value(entry));
 
 		count++;
 	}
-	output.SetCardinality(count);
 }
 
 } // namespace

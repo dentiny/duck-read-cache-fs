@@ -20,7 +20,8 @@ string Sha256ToHexString(const hash_bytes &sha256) {
 string GetSha256(const string &input) {
 	duckdb::hash_bytes sha256_val;
 	static_assert(sizeof(sha256_val) == 32);
-	duckdb::sha256(input.data(), input.length(), sha256_val);
+	static AESStateSSLFactory encryption_util;
+	duckdb::sha256(encryption_util, const_data_ptr_cast(input.data()), input.length(), sha256_val);
 	return Sha256ToHexString(sha256_val);
 }
 

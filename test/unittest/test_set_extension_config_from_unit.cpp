@@ -79,7 +79,7 @@ TEST_CASE("Test public extension config API", "[extension config test]") {
 
 	auto result = con.Query("SELECT current_setting('cache_httpfs_type')");
 	REQUIRE(!result->HasError());
-	REQUIRE(result->GetValue(0, 0).GetValue<string>() == "in_mem");
+	REQUIRE(result->Fetch()->GetValue(0, 0).GetValue<string>() == "in_mem");
 
 	auto &instance_state = GetInstanceStateOrThrow(*db.instance);
 	REQUIRE(instance_state.config.cache_type == "in_mem");

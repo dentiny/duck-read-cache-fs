@@ -1,6 +1,7 @@
 #include "disk_cache_util.hpp"
 
 #include <atomic>
+#include <string_view>
 
 #include "duckdb/common/assert.hpp"
 #include "cache_filesystem_config.hpp"
@@ -30,24 +31,24 @@ string GetTempCacheFilePath(const string &cache_filepath) {
 }
 
 // Suffix for temporary cache files.
-constexpr const char *TEMP_CACHE_FILE_SUFFIX = ".httpfs_local_cache";
+constexpr std::string_view TEMP_CACHE_FILE_SUFFIX = ".httpfs_local_cache";
 
 // Staleness threshold for dead temp file cleanup: 10 minutes in microseconds.
 constexpr idx_t DEAD_TEMP_STALENESS_MICROSEC = 10 * 60 * 1000 * 1000;
 
 // xattr key prefix for storing chunked original cache filepath.
 // Zero-padded indices (e.g. .001, .002) ensure lexicographic sort matches chunk order.
-constexpr const char *CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_filepath";
+constexpr std::string_view CACHE_FILEPATH_ATTR_PREFIX = "user.cache_httpfs_cache_filepath";
 
 // xattr key prefix for storing chunked original remote/source file path.
-constexpr const char *REMOTE_PATH_ATTR_PREFIX = "user.cache_httpfs_remote_path";
+constexpr std::string_view REMOTE_PATH_ATTR_PREFIX = "user.cache_httpfs_remote_path";
 
 // Reconstruct a string value from chunked xattr entries with the given key prefix.
 // Returns empty string if no attributes are found.
-string ReadChunkedXattr(const string &filepath, const char *key_prefix) {
+string ReadChunkedXattr(const string &filepath, std::string_view key_prefix) {
 	string result;
 	for (idx_t idx = 0;; ++idx) {
-		const string key = StringUtil::Format("%s.%03llu", key_prefix, idx);
+		const string key = StringUtil::Format("%s.%03llu", string(key_prefix), idx);
 		string chunk = GetFileXattr(filepath, key);
 		if (chunk.empty()) {
 			break;
@@ -64,14 +65,15 @@ string TryGetOriginalCacheFilepath(const string &filepath) {
 }
 
 // Write a string value as chunked xattr entries into [file_attrs] with the given key prefix.
-void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, const char *key_prefix, const string &value) {
+void AddChunkedXattrEntries(unordered_map<string, string> &file_attrs, std::string_view key_prefix,
+                            const string &value) {
 	const idx_t max_xattr_val_size = GetMaxXattrValueSize();
 	const idx_t value_len = value.length();
 	const idx_t chunk_count = (value_len + max_xattr_val_size - 1) / max_xattr_val_size;
 	for (idx_t idx = 0; idx < chunk_count; ++idx) {
 		const idx_t offset = idx * max_xattr_val_size;
 		const idx_t len = MinValue(max_xattr_val_size, value_len - offset);
-		const string key = StringUtil::Format("%s.%03llu", key_prefix, idx);
+		const string key = StringUtil::Format("%s.%03llu", string(key_prefix), idx);
 		file_attrs[key] = value.substr(offset, len);
 	}
 }
@@ -88,7 +90,9 @@ idx_t GetCacheDirectoryIdx(const duckdb::hash_bytes &remote_file_sha256_val, idx
 void PopulateRemoteFileCacheKey(const string &remote_file, duckdb::hash_bytes &remote_file_sha256_val,
                                 string &remote_file_sha256_hex, string &sanitized_fname) {
 	static_assert(sizeof(remote_file_sha256_val) == 32);
-	duckdb::sha256(remote_file.data(), remote_file.length(), remote_file_sha256_val);
+	static AESStateSSLFactory encryption_util;
+	duckdb::sha256(encryption_util, const_data_ptr_cast(remote_file.data()), remote_file.length(),
+	               remote_file_sha256_val);
 	remote_file_sha256_hex = Sha256ToHexString(remote_file_sha256_val);
 	sanitized_fname = StringUtil::GetFileName(SanitizedCachePath(remote_file).Path());
 }
@@ -169,7 +173,7 @@ DiskCacheUtil::GetLocalCacheFile(const RemoteFileCachePathInfo &path_info, idx_t
 }
 
 /*static*/ bool DiskCacheUtil::IsTempCacheFile(const string &filename) {
-	return StringUtil::EndsWith(filename, TEMP_CACHE_FILE_SUFFIX);
+	return StringUtil::EndsWith(filename, string(TEMP_CACHE_FILE_SUFFIX));
 }
 
 /*static*/ string DiskCacheUtil::GetLocalCacheFilePrefix(const string &remote_file) {

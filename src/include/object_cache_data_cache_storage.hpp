@@ -15,7 +15,7 @@
 #include "in_mem_cache_block.hpp"
 #include "in_memory_data_cache_storage.hpp"
 #include "mutex.hpp"
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"
 
 namespace duckdb {
 

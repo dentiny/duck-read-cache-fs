@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -17,7 +18,7 @@ using namespace duckdb; // NOLINT
 
 namespace {
 
-const char *TEST_PATH = "/test/remap_data.bin";
+constexpr std::string_view TEST_PATH = "/test/remap_data.bin";
 
 shared_ptr<InMemCacheDataEntry> MakeEntry(const vector<char> &bytes, const string &version_tag = {}) {
 	auto entry = make_shared_ptr<InMemCacheDataEntry>();
@@ -70,7 +71,7 @@ TEST_CASE("RemapInMemCacheEntries: larger old blocks split on smaller aligned gr
 	auto bytes = PatternBytes(old_len, 'a');
 
 	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken;
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, 0, old_len), MakeEntry(bytes, "v1"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), 0, old_len), MakeEntry(bytes, "v1"));
 
 	auto out = RemapInMemCacheEntries(std::move(taken), new_bs);
 	REQUIRE(out.size() == 2);
@@ -89,8 +90,8 @@ TEST_CASE("RemapInMemCacheEntries: smaller old blocks merge on larger aligned gr
 	full.insert(full.end(), part1.begin(), part1.end());
 
 	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken;
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, 0, half), MakeEntry(part0, "v1"));
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, half, half), MakeEntry(part1, "v1"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), 0, half), MakeEntry(part0, "v1"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), half, half), MakeEntry(part1, "v1"));
 
 	auto out = RemapInMemCacheEntries(std::move(taken), /*new_block_size=*/8192);
 	REQUIRE(out.size() == 1);
@@ -111,7 +112,7 @@ TEST_CASE("RemapInMemCacheEntries: old span not aligned to new block size (short
 	file_sizes[string(TEST_PATH)] = file_len;
 
 	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken;
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, 0, old_len), MakeEntry(bytes, "v1"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), 0, old_len), MakeEntry(bytes, "v1"));
 
 	auto out = RemapInMemCacheEntries(std::move(taken), new_bs, file_sizes);
 	REQUIRE(out.size() == 2);
@@ -135,7 +136,7 @@ TEST_CASE("RemapInMemCacheEntries: file length 1024 but cached prefix is 1000 by
 	file_sizes[string(TEST_PATH)] = file_len;
 
 	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken;
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, 0, old_len), MakeEntry(bytes, "v1"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), 0, old_len), MakeEntry(bytes, "v1"));
 
 	auto out = RemapInMemCacheEntries(std::move(taken), new_bs, file_sizes);
 	REQUIRE(out.size() == 1);
@@ -154,7 +155,7 @@ TEST_CASE("RemapInMemCacheEntries: 1024-byte file fully cached splits evenly on 
 	file_sizes[string(TEST_PATH)] = old_len;
 
 	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken;
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, 0, old_len), MakeEntry(bytes, "v1"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), 0, old_len), MakeEntry(bytes, "v1"));
 
 	auto out = RemapInMemCacheEntries(std::move(taken), new_bs, file_sizes);
 	REQUIRE(out.size() == 2);
@@ -183,8 +184,8 @@ TEST_CASE("RemapInMemCacheEntries: two small blocks merge onto larger new block 
 	file_sizes[string(TEST_PATH)] = file_len;
 
 	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken;
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, 0, piece), MakeEntry(part0, "v1"));
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, piece, piece), MakeEntry(part1, "v1"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), 0, piece), MakeEntry(part0, "v1"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), piece, piece), MakeEntry(part1, "v1"));
 
 	auto out = RemapInMemCacheEntries(std::move(taken), new_bs, file_sizes);
 	REQUIRE(out.size() == 2);
@@ -207,8 +208,8 @@ TEST_CASE("RemapInMemCacheEntries: version tag mismatch prevents merge", "[data 
 	file_sizes[string(TEST_PATH)] = file_len;
 
 	vector<std::pair<InMemCacheBlock, shared_ptr<InMemCacheDataEntry>>> taken;
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, 0, old_bs), MakeEntry(part0, "tag_a"));
-	taken.emplace_back(InMemCacheBlock(TEST_PATH, old_bs, old_bs), MakeEntry(part1, "tag_b"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), 0, old_bs), MakeEntry(part0, "tag_a"));
+	taken.emplace_back(InMemCacheBlock(string(TEST_PATH), old_bs, old_bs), MakeEntry(part1, "tag_b"));
 
 	auto out = RemapInMemCacheEntries(std::move(taken), new_bs, file_sizes);
 	REQUIRE(out.empty());

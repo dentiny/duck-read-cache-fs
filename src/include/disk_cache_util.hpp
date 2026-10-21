@@ -10,7 +10,7 @@
 #include "duckdb/common/unordered_map.hpp"
 #include "duckdb/common/vector.hpp"
 #include "page_aligned_data_chunk.hpp"
-#include "optional.hpp"
+#include "duckdb/common/optional.hpp"
 
 #include <cstdint>
 #include <functional>

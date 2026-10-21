@@ -8,6 +8,7 @@ duckdb_extension_load(cache_httpfs
     EXTENSION_VERSION 0.14.3
     LOAD_TESTS
 )
+duckdb_extension_statically_link(cache_httpfs)
 
 # Any extra extensions that should be built
 # e.g.: duckdb_extension_load(json)

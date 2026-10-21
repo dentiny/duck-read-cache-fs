@@ -13,7 +13,7 @@
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/vector.hpp"
 #include "mutex.hpp"
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"
 
 #include <cstdint>
 #include <functional>

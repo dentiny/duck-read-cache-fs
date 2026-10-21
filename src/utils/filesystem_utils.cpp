@@ -5,6 +5,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iterator>
+#include <string_view>
 
 #if !defined(_WIN32)
 #include <cerrno>
@@ -35,7 +36,7 @@ namespace duckdb {
 namespace {
 // Used to set file attribute for on-disk cache version.
 // Linux requires the "user." namespace.
-constexpr const char *CACHE_VERSION_ATTR_KEY = "user.cache_version";
+constexpr std::string_view CACHE_VERSION_ATTR_KEY = "user.cache_version";
 
 // Util function to set key-value pair as the file attribute.
 bool SetSingleFileAttribute(const string &filepath, const string &key, const string &value) {
@@ -219,12 +220,12 @@ bool SetFileXattrs(const string &filepath, const unordered_map<string, string> &
 }
 
 bool SetCacheVersion(const string &filepath, const string &version) {
-	return SetSingleFileAttribute(filepath, CACHE_VERSION_ATTR_KEY, version);
+	return SetSingleFileAttribute(filepath, string(CACHE_VERSION_ATTR_KEY), version);
 }
 
 string GetCacheVersion(const string &filepath) {
 #if defined(_WIN32)
-	const string ads_path = StringUtil::Format("%s:%s", filepath, CACHE_VERSION_ATTR_KEY);
+	const string ads_path = StringUtil::Format("%s:%s", filepath, string(CACHE_VERSION_ATTR_KEY));
 	std::ifstream ads(ads_path, std::ios::binary);
 	if (!ads.is_open()) {
 		return "";
@@ -232,12 +233,12 @@ string GetCacheVersion(const string &filepath) {
 	return string((std::istreambuf_iterator<char>(ads)), std::istreambuf_iterator<char>());
 #elif defined(__APPLE__)
 	ssize_t size =
-	    getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY, nullptr, /*size=*/0, /*position=*/0, /*options=*/0);
+	    getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY.data(), nullptr, /*size=*/0, /*position=*/0, /*options=*/0);
 	if (size <= 0) {
 		return "";
 	}
 	string buffer(size, '\0');
-	ssize_t res = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY,
+	ssize_t res = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY.data(),
 	                       const_cast<void *>(static_cast<const void *>(buffer.data())), size, /*position=*/0,
 	                       /*options=*/0);
 	if (res > 0) {
@@ -246,12 +247,12 @@ string GetCacheVersion(const string &filepath) {
 	}
 	return "";
 #elif defined(__linux__)
-	ssize_t size = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY, /*value=*/nullptr, /*size=*/0);
+	ssize_t size = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY.data(), /*value=*/nullptr, /*size=*/0);
 	if (size <= 0) {
 		return "";
 	}
 	string buffer(size, '\0');
-	ssize_t res = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY,
+	ssize_t res = getxattr(filepath.c_str(), CACHE_VERSION_ATTR_KEY.data(),
 	                       const_cast<void *>(static_cast<const void *>(buffer.data())), size);
 	if (res > 0) {
 		buffer.resize(res);
