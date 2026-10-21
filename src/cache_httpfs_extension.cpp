@@ -105,6 +105,35 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 	result.Reference(Value(SUCCESS), count_t(args.size()));
 }
 
+// Clear cached file handles without affecting data blocks, metadata, glob results, or profiles.
+void ClearFileHandleCache(const DataChunk &args, ExpressionState &state, Vector &result) {
+	auto &instance = GetDatabaseInstance(state);
+	auto &inst_state = GetInstanceStateOrThrow(instance);
+
+	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
+	for (auto *cur_cache_fs : cache_filesystem_instances) {
+		cur_cache_fs->ClearFileHandleCache();
+	}
+
+	result.Reference(Value(SUCCESS), count_t(args.size()));
+}
+
+// Clear cached file handles for one filepath without affecting any other cache entries.
+void ClearFileHandleCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
+	ALWAYS_ASSERT(args.ColumnCount() == 1);
+	const string filepath = args.GetValue(/*col_idx=*/0, /*index=*/0).ToString();
+
+	auto &instance = GetDatabaseInstance(state);
+	auto &inst_state = GetInstanceStateOrThrow(instance);
+
+	auto cache_filesystem_instances = inst_state.registry.GetAllCacheFs();
+	for (auto *cur_cache_fs : cache_filesystem_instances) {
+		cur_cache_fs->ClearFileHandleCache(filepath);
+	}
+
+	result.Reference(Value(SUCCESS), count_t(args.size()));
+}
+
 // Clean up dead temporary cache files (creation time older than 10 minutes). Returns the number of files deleted.
 void CleanupDeadTemp(const DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &instance = GetDatabaseInstance(state);
@@ -257,6 +286,23 @@ void RegisterCacheHttpfsFunctions(ExtensionLoader &loader) {
 	                       /*description=*/"Clears cached entries for one remote file.",
 	                       /*examples=*/ {"SELECT cache_httpfs_clear_cache_for_file('s3://bucket/file.parquet');"},
 	                       /*categories=*/ {"cache_httpfs", "cache"});
+
+	// Register file-handle-only cleanup functions. These are useful after rotating remote-storage credentials.
+	RegisterScalarFunction(
+	    loader,
+	    ScalarFunction("cache_httpfs_clear_file_handle_cache", {}, LogicalType::BOOLEAN, ClearFileHandleCache),
+	    /*parameter_names=*/ {},
+	    /*description=*/"Closes and clears cached file handles without affecting other caches.",
+	    /*examples=*/ {"SELECT cache_httpfs_clear_file_handle_cache();"},
+	    /*categories=*/ {"cache_httpfs", "cache"});
+	RegisterScalarFunction(
+	    loader,
+	    ScalarFunction("cache_httpfs_clear_file_handle_cache_for_file", {LogicalType::VARCHAR},
+	                   LogicalType::BOOLEAN, ClearFileHandleCacheForFile),
+	    /*parameter_names=*/ {"filename"},
+	    /*description=*/"Closes and clears cached file handles for one remote file without affecting other caches.",
+	    /*examples=*/ {"SELECT cache_httpfs_clear_file_handle_cache_for_file('s3://bucket/file.parquet');"},
+	    /*categories=*/ {"cache_httpfs", "cache"});
 
 	// Register a function to wrap all duckdb-vfs-compatible filesystems. By default only httpfs filesystem instances
 	// are wrapped. Usage for the target filesystem can be used as normal.

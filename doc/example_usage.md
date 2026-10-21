@@ -73,6 +73,16 @@ D SELECT cache_httpfs_clear_cache_for_file('filename');
 ```
 Notice the query could be slow.
 
+To close cached file handles without removing data blocks, metadata, glob results, or profiles, use
+```sql
+D SELECT cache_httpfs_clear_file_handle_cache();
+```
+This is useful after rotating credentials used by a remote filesystem. To clear only handles for a particular file, use
+```sql
+D SELECT cache_httpfs_clear_file_handle_cache_for_file('filename');
+```
+Handles that are currently in use are not interrupted; only idle handles already returned to the cache are closed.
+
 - The extension supports not only httpfs, but also ALL filesystems compatible with duckdb.
 ```sql
 D SELECT cache_httpfs_wrap_cache_filesystem('filesystem-name');

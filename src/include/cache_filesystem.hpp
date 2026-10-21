@@ -118,6 +118,14 @@ public:
 	// Clear only in-memory caches (file handle cache, metadata cache, glob cache, etc).
 	void ClearInMemoryCache();
 
+	// Clear cached file handles and close their underlying resources.
+	// Handles that are currently in use are not affected.
+	void ClearFileHandleCache();
+
+	// Clear cached file handles for a filepath and close their underlying resources.
+	// Handles that are currently in use are not affected.
+	void ClearFileHandleCache(const string &filepath);
+
 	// Remove file from both internal filesystem and cache.
 	bool TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
 	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
@@ -283,12 +291,6 @@ private:
 
 	// Initialize glob cache.
 	void SetGlobCache() DUCKDB_REQUIRES(cache_reader_mutex);
-
-	// Clear file handle cache and close all file handle resource inside.
-	void ClearFileHandleCache();
-
-	// Clear file handle cache by filepath, and close deleted file handle resource inside.
-	void ClearFileHandleCache(const string &filepath);
 
 	// Get file handle from cache, or open if it doesn't exist.
 	// Return cached file handle.
