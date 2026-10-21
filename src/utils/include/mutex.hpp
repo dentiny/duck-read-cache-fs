@@ -4,4 +4,4 @@
 
 #include "annotated_mutex.hpp"
 #include "annotated_lock.hpp"
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"

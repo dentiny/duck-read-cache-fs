@@ -243,15 +243,15 @@ void InstanceCacheReaderManager::Reset() {
 //===--------------------------------------------------------------------===//
 
 void SetInstanceState(DatabaseInstance &instance, shared_ptr<CacheHttpfsInstanceState> state) {
-	instance.GetObjectCache().Put(CacheHttpfsInstanceState::CACHE_KEY, std::move(state));
+	instance.GetObjectCache().Put(string(CacheHttpfsInstanceState::CACHE_KEY), std::move(state));
 }
 
 shared_ptr<CacheHttpfsInstanceState> GetInstanceStateShared(DatabaseInstance &instance) {
-	return instance.GetObjectCache().Get<CacheHttpfsInstanceState>(CacheHttpfsInstanceState::CACHE_KEY);
+	return instance.GetObjectCache().Get<CacheHttpfsInstanceState>(string(CacheHttpfsInstanceState::CACHE_KEY));
 }
 
 CacheHttpfsInstanceState &GetInstanceStateOrThrow(DatabaseInstance &instance) {
-	auto state = instance.GetObjectCache().Get<CacheHttpfsInstanceState>(CacheHttpfsInstanceState::CACHE_KEY);
+	auto state = instance.GetObjectCache().Get<CacheHttpfsInstanceState>(string(CacheHttpfsInstanceState::CACHE_KEY));
 	if (state == nullptr) {
 		throw InternalException("cache_httpfs instance state not found - extension not properly loaded");
 	}

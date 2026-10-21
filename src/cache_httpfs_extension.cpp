@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <csignal>
+#include <string_view>
 
 #include "base_profile_collector.hpp"
 #include "cache_exclusion_utils.hpp"
@@ -17,26 +18,28 @@
 #include "duckdb/common/local_file_system.hpp"
 #include "duckdb/common/opener_file_system.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/execution/expression_executor.hpp"
 #include "duckdb/function/scalar_function.hpp"
+#include "duckdb/logging/logger.hpp"
 #include "duckdb/main/extension_callback_manager.hpp"
 #include "duckdb/main/extension_manager.hpp"
 #include "duckdb/main/setting_info.hpp"
 #include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 #include "duckdb/parser/parsed_data/create_table_function_info.hpp"
-#include "duckdb/storage/external_file_cache.hpp"
+#include "duckdb/storage/external_file_cache/external_file_cache.hpp"
 #include "extension_config_query_function.hpp"
 #include "fake_filesystem.hpp"
 #include "filesystem_status_query_function.hpp"
 #include "hffs.hpp"
 #include "httpfs_extension.hpp"
-#include "s3fs.hpp"
+#include "s3/s3fs.hpp"
 
 namespace duckdb {
 
 namespace {
 
 // "httpfs" extension name.
-constexpr const char *HTTPFS_EXTENSION = "httpfs";
+constexpr std::string_view HTTPFS_EXTENSION = "httpfs";
 // Query execution success.
 constexpr bool SUCCESS = true;
 
@@ -79,7 +82,7 @@ void ClearAllCache(const DataChunk &args, ExpressionState &state, Vector &result
 	auto conn_id = GetConnectionId(state);
 	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
 
-	result.Reference(Value(SUCCESS));
+	result.Reference(Value(SUCCESS), count_t(args.size()));
 }
 
 void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &result) {
@@ -99,7 +102,7 @@ void ClearCacheForFile(const DataChunk &args, ExpressionState &state, Vector &re
 		cur_cache_fs->ClearCache(filepath, conn_id);
 	}
 
-	result.Reference(Value(SUCCESS));
+	result.Reference(Value(SUCCESS), count_t(args.size()));
 }
 
 // Clear cached file handles without affecting data blocks, metadata, glob results, or profiles.
@@ -112,7 +115,7 @@ void ClearFileHandleCache(const DataChunk &args, ExpressionState &state, Vector 
 		cur_cache_fs->ClearFileHandleCache();
 	}
 
-	result.Reference(Value(SUCCESS));
+	result.Reference(Value(SUCCESS), count_t(args.size()));
 }
 
 // Clear cached file handles for one filepath without affecting any other cache entries.
@@ -128,7 +131,7 @@ void ClearFileHandleCacheForFile(const DataChunk &args, ExpressionState &state, 
 		cur_cache_fs->ClearFileHandleCache(filepath);
 	}
 
-	result.Reference(Value(SUCCESS));
+	result.Reference(Value(SUCCESS), count_t(args.size()));
 }
 
 // Clean up dead temporary cache files (creation time older than 10 minutes). Returns the number of files deleted.
@@ -137,7 +140,7 @@ void CleanupDeadTemp(const DataChunk &args, ExpressionState &state, Vector &resu
 	auto &inst_state = GetInstanceStateOrThrow(instance);
 	const idx_t deleted = DiskCacheUtil::CleanupDeadTempFiles(inst_state.config.on_disk_cache_directories, &instance,
 	                                                          inst_state.config.parallel_read_mode);
-	result.Reference(Value::BIGINT(NumericCast<int64_t>(deleted)));
+	result.Reference(Value::BIGINT(NumericCast<int64_t>(deleted)), count_t(args.size()));
 }
 
 // Get on-disk data cache file size for all cache filesystems.
@@ -155,7 +158,7 @@ void GetOnDiskDataCacheSize(const DataChunk &args, ExpressionState &state, Vecto
 			total_cache_size += local_filesystem->GetFileSize(*file_handle);
 		});
 	}
-	result.Reference(Value(total_cache_size));
+	result.Reference(Value(total_cache_size), count_t(args.size()));
 }
 
 void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
@@ -164,7 +167,7 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 	auto conn_id = GetConnectionId(state);
 
 	if (!inst_state.profile_collector_manager.HasExplicitProfileCollector(conn_id)) {
-		result.Reference(Value("No valid access to cache filesystem"));
+		result.Reference(Value("No valid access to cache filesystem"), count_t(args.size()));
 		return;
 	}
 
@@ -174,7 +177,7 @@ void GetProfileStats(const DataChunk &args, ExpressionState &state, Vector &resu
 	if (latest_stat.empty()) {
 		latest_stat = "No valid access to cache filesystem";
 	}
-	result.Reference(Value(std::move(latest_stat)));
+	result.Reference(Value(std::move(latest_stat)), count_t(args.size()));
 }
 
 void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &result) {
@@ -182,7 +185,7 @@ void ResetProfileStats(const DataChunk &args, ExpressionState &state, Vector &re
 	auto &inst_state = GetInstanceStateOrThrow(instance);
 	auto conn_id = GetConnectionId(state);
 	inst_state.profile_collector_manager.ResetProfileCollector(conn_id);
-	result.Reference(Value(SUCCESS));
+	result.Reference(Value(SUCCESS), count_t(args.size()));
 }
 
 // Wrap the filesystem with extension cache filesystem.
@@ -207,7 +210,7 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 	vfs.RegisterSubSystem(std::move(cache_filesystem));
 	DUCKDB_LOG_DEBUG(duckdb_instance, StringUtil::Format("Wrap filesystem %s with cache filesystem.", filesystem_name));
 
-	result.Reference(Value(SUCCESS));
+	result.Reference(Value(SUCCESS), count_t(args.size()));
 }
 
 FunctionDescription GetFunctionDescription(vector<string> parameter_names, string description, vector<string> examples,
@@ -222,6 +225,12 @@ FunctionDescription GetFunctionDescription(vector<string> parameter_names, strin
 
 void RegisterScalarFunction(ExtensionLoader &loader, ScalarFunction function, vector<string> parameter_names,
                             string description, vector<string> examples, vector<string> categories) {
+	auto &signature = function.GetSignature();
+	ALWAYS_ASSERT(signature.GetPositionalParameterCount() == parameter_names.size());
+	for (idx_t param_idx = 0; param_idx < parameter_names.size(); ++param_idx) {
+		signature.GetParameter(param_idx).SetName(Identifier(parameter_names[param_idx]));
+	}
+	function.SetFallible();
 	CreateScalarFunctionInfo info(std::move(function));
 	info.on_conflict = OnCreateConflict::ALTER_ON_CONFLICT;
 	info.descriptions.push_back(GetFunctionDescription(/*parameter_names=*/std::move(parameter_names),
@@ -445,7 +454,8 @@ unique_ptr<FileSystem> ExtractOrCreateS3fs(FileSystem &vfs, DatabaseInstance &in
 bool IsHttpfsExtensionLoaded(DatabaseInstance &db_instance) {
 	auto &extension_manager = db_instance.GetExtensionManager();
 	const auto loaded_extensions = extension_manager.GetExtensions();
-	return std::find(loaded_extensions.begin(), loaded_extensions.end(), HTTPFS_EXTENSION) != loaded_extensions.end();
+	return std::find(loaded_extensions.begin(), loaded_extensions.end(), string(HTTPFS_EXTENSION)) !=
+	       loaded_extensions.end();
 }
 
 // Ensure httpfs extension is loaded, loading it if necessary
@@ -459,7 +469,7 @@ void EnsureHttpfsExtensionLoaded(ExtensionLoader &loader, DatabaseInstance &inst
 
 	// Register into extension manager to keep compatibility as httpfs.
 	auto &extension_manager = ExtensionManager::Get(instance);
-	auto extension_active_load = extension_manager.BeginLoad(HTTPFS_EXTENSION);
+	auto extension_active_load = extension_manager.BeginLoad({HTTPFS_EXTENSION.data()});
 	// Manually fill in the extension install info to finalize extension load.
 	ExtensionInstallInfo extension_install_info;
 	extension_install_info.mode = ExtensionInstallMode::UNKNOWN;

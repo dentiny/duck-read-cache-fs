@@ -10,13 +10,14 @@
 #include "time_utils.hpp"
 
 #include <cstdint>
+#include <string_view>
 #include <utility>
 
 namespace duckdb {
 
 // Inner ObjectCache entry that owns the page-aligned chunk.
 struct CacheHttpfsDataBlock : public ObjectCacheEntry {
-	static constexpr const char *OBJECT_TYPE = "CacheHttpfsDataBlock";
+	static constexpr std::string_view OBJECT_TYPE = "CacheHttpfsDataBlock";
 
 	InMemCacheBlock key;
 	weak_ptr<ObjectCacheStorage> storage;
@@ -35,10 +36,10 @@ struct CacheHttpfsDataBlock : public ObjectCacheEntry {
 	}
 
 	string GetObjectType() override {
-		return OBJECT_TYPE;
+		return string(OBJECT_TYPE);
 	}
 	static string ObjectType() {
-		return OBJECT_TYPE;
+		return string(OBJECT_TYPE);
 	}
 	optional_idx GetEstimatedCacheMemory() const override {
 		return optional_idx(data.length);

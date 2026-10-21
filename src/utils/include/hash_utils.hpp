@@ -1,6 +1,7 @@
 #pragma once
 
 #include "crypto.hpp"
+#include "duckdb/common/hash_functions.hpp"
 #include "duckdb/common/string.hpp"
 
 namespace duckdb {

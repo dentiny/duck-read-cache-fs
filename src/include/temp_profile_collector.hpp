@@ -7,7 +7,7 @@
 #include "duckdb/common/profiler.hpp"
 #include "histogram.hpp"
 #include "mutex.hpp"
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"
 
 #include <array>
 

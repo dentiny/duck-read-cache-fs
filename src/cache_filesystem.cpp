@@ -8,13 +8,15 @@
 #include "duckdb/common/types/timestamp.hpp"
 #include "in_memory_cache_reader.hpp"
 
+#include <string_view>
+
 namespace duckdb {
 
 namespace {
 // For certain filesystems, file open info contains "file_size" field in the extended stats map.
-constexpr const char *FILE_SIZE_INFO_KEY = "file_size";
+constexpr std::string_view FILE_SIZE_INFO_KEY = "file_size";
 // For certain filesystems, file open info contains "last_modified" field in the extended stats map.
-constexpr const char *LAST_MOD_TIMESTAMP_KEY = "last_modified";
+constexpr std::string_view LAST_MOD_TIMESTAMP_KEY = "last_modified";
 
 connection_t GetConnectionId(optional_ptr<FileOpener> opener) {
 	if (!opener) {
@@ -397,7 +399,7 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 
 		// Attempt to get file size from extended file info.
 		const auto &cur_extended_file_info = *cur_file_info.extended_info;
-		auto iter = cur_extended_file_info.options.find(FILE_SIZE_INFO_KEY);
+		auto iter = cur_extended_file_info.options.find(string(FILE_SIZE_INFO_KEY));
 		if (iter == cur_extended_file_info.options.end()) {
 			continue;
 		}
@@ -405,7 +407,7 @@ vector<OpenFileInfo> CacheFileSystem::GlobImpl(const string &path, FileOpener *o
 		const int64_t file_size = file_size_value.GetValue<int64_t>();
 
 		// Attempt to get last modification timestamp from extended file info.
-		iter = cur_extended_file_info.options.find(LAST_MOD_TIMESTAMP_KEY);
+		iter = cur_extended_file_info.options.find(string(LAST_MOD_TIMESTAMP_KEY));
 		if (iter == cur_extended_file_info.options.end()) {
 			continue;
 		}

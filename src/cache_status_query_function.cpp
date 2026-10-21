@@ -28,7 +28,7 @@ struct DataCacheStatusData : public GlobalTableFunctionState {
 };
 
 unique_ptr<FunctionData> DataCacheStatusQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
-                                                      vector<LogicalType> &return_types, vector<string> &names) {
+                                                      vector<LogicalType> &return_types, vector<Identifier> &names) {
 	ALWAYS_ASSERT(return_types.empty());
 	ALWAYS_ASSERT(names.empty());
 
@@ -103,25 +103,23 @@ void DataCacheStatusQueryTableFunc(ClientContext &context, TableFunctionInput &d
 		idx_t col = 0;
 
 		// Cache filepath.
-		output.SetValue(col++, count, entry.cache_filepath);
+		output.data[col++].Append(Value(entry.cache_filepath));
 
 		// Original remote path; NULL when unavailable (i.e., for compatibility).
-		output.SetValue(col++, count,
-		                entry.original_remote_path.empty() ? Value(LogicalType {LogicalTypeId::VARCHAR})
-		                                                   : Value(entry.original_remote_path));
+		output.data[col++].Append(entry.original_remote_path.empty() ? Value(LogicalType {LogicalTypeId::VARCHAR})
+		                                                           : Value(entry.original_remote_path));
 
 		// Start offset.
-		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.start_offset)));
+		output.data[col++].Append(Value::BIGINT(static_cast<uint64_t>(entry.start_offset)));
 
 		// End offset.
-		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.end_offset)));
+		output.data[col++].Append(Value::BIGINT(static_cast<uint64_t>(entry.end_offset)));
 
 		// Cache type.
-		output.SetValue(col++, count, entry.cache_type);
+		output.data[col++].Append(Value(entry.cache_type));
 
 		count++;
 	}
-	output.SetCardinality(count);
 }
 
 //===--------------------------------------------------------------------===//
@@ -137,7 +135,7 @@ struct CacheAccessInfoData : public GlobalTableFunctionState {
 };
 
 unique_ptr<FunctionData> CacheAccessInfoQueryFuncBind(ClientContext &context, TableFunctionBindInput &input,
-                                                      vector<LogicalType> &return_types, vector<string> &names) {
+                                                      vector<LogicalType> &return_types, vector<Identifier> &names) {
 	ALWAYS_ASSERT(return_types.empty());
 	ALWAYS_ASSERT(names.empty());
 
@@ -258,32 +256,31 @@ void CacheAccessInfoQueryTableFunc(ClientContext &context, TableFunctionInput &d
 		idx_t col = 0;
 
 		// Cache type.
-		output.SetValue(col++, count, entry.cache_type);
+		output.data[col++].Append(Value(entry.cache_type));
 
 		// Cache hit count.
-		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.cache_hit_count)));
+		output.data[col++].Append(Value::BIGINT(static_cast<uint64_t>(entry.cache_hit_count)));
 
 		// Cache miss count.
-		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.cache_miss_count)));
+		output.data[col++].Append(Value::BIGINT(static_cast<uint64_t>(entry.cache_miss_count)));
 
 		// Cache miss by in-use count.
-		output.SetValue(col++, count, Value::BIGINT(static_cast<uint64_t>(entry.cache_miss_by_in_use)));
+		output.data[col++].Append(Value::BIGINT(static_cast<uint64_t>(entry.cache_miss_by_in_use)));
 
 		// Used for data cache, total number of bytes to read.
-		output.SetValue(col++, count, entry.total_bytes_to_read);
+		output.data[col++].Append(entry.total_bytes_to_read);
 
 		// Used for data cache, total number of bytes to cache.
-		output.SetValue(col++, count, entry.total_bytes_to_cache);
+		output.data[col++].Append(entry.total_bytes_to_cache);
 
 		// Bytes read from hits.
-		output.SetValue(col++, count, entry.bytes_read_from_hits);
+		output.data[col++].Append(entry.bytes_read_from_hits);
 
 		// Bytes read from misses.
-		output.SetValue(col++, count, entry.bytes_read_from_misses);
+		output.data[col++].Append(entry.bytes_read_from_misses);
 
 		count++;
 	}
-	output.SetCardinality(count);
 }
 
 //===--------------------------------------------------------------------===//
@@ -297,7 +294,7 @@ struct WrappedFilesystemsData : public GlobalTableFunctionState {
 };
 
 unique_ptr<FunctionData> WrappedCacheFileSystemsFuncBind(ClientContext &context, TableFunctionBindInput &input,
-                                                         vector<LogicalType> &return_types, vector<string> &names) {
+                                                         vector<LogicalType> &return_types, vector<Identifier> &names) {
 	ALWAYS_ASSERT(return_types.empty());
 	ALWAYS_ASSERT(names.empty());
 
@@ -343,11 +340,10 @@ void WrappedCacheFileSystemsTableFunc(ClientContext &context, TableFunctionInput
 		idx_t col = 0;
 
 		// Wrapped cache filesystem name.
-		output.SetValue(col, count, entry);
+		output.data[col].Append(Value(entry));
 
 		count++;
 	}
-	output.SetCardinality(count);
 }
 } // namespace
 

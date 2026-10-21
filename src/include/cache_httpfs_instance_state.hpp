@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <string_view>
+
 #include "base_cache_reader.hpp"
 #include "base_profile_collector.hpp"
 #include "cache_exclusion_manager.hpp"
@@ -18,7 +20,7 @@
 #include "duckdb/main/config.hpp"
 #include "duckdb/storage/object_cache.hpp"
 #include "filesystem_utils.hpp"
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"
 
 namespace duckdb {
 
@@ -165,8 +167,8 @@ struct InstanceConfig {
 // Inherits from ObjectCacheEntry for automatic cleanup when DatabaseInstance is destroyed
 //===--------------------------------------------------------------------===//
 struct CacheHttpfsInstanceState : public ObjectCacheEntry {
-	static constexpr const char *OBJECT_TYPE = "CacheHttpfsInstanceState";
-	static constexpr const char *CACHE_KEY = "cache_httpfs_instance_state";
+	static constexpr std::string_view OBJECT_TYPE = "CacheHttpfsInstanceState";
+	static constexpr std::string_view CACHE_KEY = "cache_httpfs_instance_state";
 
 	// Extension config for the current duckdb instance.
 	InstanceConfig config;
@@ -184,11 +186,11 @@ struct CacheHttpfsInstanceState : public ObjectCacheEntry {
 
 	// ObjectCacheEntry interface
 	string GetObjectType() override {
-		return OBJECT_TYPE;
+		return string(OBJECT_TYPE);
 	}
 
 	static string ObjectType() {
-		return OBJECT_TYPE;
+		return string(OBJECT_TYPE);
 	}
 
 	optional_idx GetEstimatedCacheMemory() const override {

@@ -1,3 +1,9 @@
+# 0.15.0
+
+## Updated
+
+- Upgrade DuckDB and all submodules to v2.0.0
+
 # 0.14.3
 
 ## Updated

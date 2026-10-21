@@ -12,7 +12,7 @@
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/unordered_map.hpp"
 #include "mutex.hpp"
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"
 
 namespace duckdb {
 

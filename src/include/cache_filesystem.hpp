@@ -13,7 +13,7 @@
 #include "duckdb/main/client_context.hpp"
 #include "exclusive_multi_lru_cache.hpp"
 #include "shared_value_lru_cache.hpp"
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"
 
 #include <functional>
 #include <tuple>
@@ -186,9 +186,6 @@ public:
 	string GetVersionTag(FileHandle &handle) override;
 	void RegisterSubSystem(unique_ptr<FileSystem> sub_fs) override {
 		internal_filesystem->RegisterSubSystem(std::move(sub_fs));
-	}
-	void RegisterSubSystem(FileCompressionType compression_type, unique_ptr<FileSystem> fs) override {
-		internal_filesystem->RegisterSubSystem(compression_type, std::move(fs));
 	}
 	void UnregisterSubSystem(const string &name) override {
 		internal_filesystem->UnregisterSubSystem(name);

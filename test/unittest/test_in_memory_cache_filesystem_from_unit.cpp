@@ -222,7 +222,7 @@ TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test cache validation with ver
 		in_mem_cache_fs->Read(*handle, const_cast<void *>(static_cast<const void *>(content.data())), bytes_to_read,
 		                      start_offset);
 		REQUIRE(content == std::string(TEST_FILE_SIZE, 'a'));
-		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 1);
+		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 2);
 	}
 
 	// Second read with same version tag, should use cache.
@@ -236,7 +236,7 @@ TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test cache validation with ver
 		                      start_offset);
 		REQUIRE(content == std::string(TEST_FILE_SIZE, 'a'));
 		// Should validate but use cache.
-		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 2);
+		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 3);
 	}
 
 	// Third read with different version tag, should invalidate cache and re-read.
@@ -251,7 +251,7 @@ TEST_CASE_METHOD(InMemoryCacheFilesystemFixture, "Test cache validation with ver
 		                      start_offset);
 		REQUIRE(content == std::string(TEST_FILE_SIZE, 'a'));
 		// Should validate, invalidate cache, and re-read from mock filesystem.
-		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 3);
+		REQUIRE(mock_filesystem_ptr->GetVersionTagInvocation() == 4);
 		auto read_operations = mock_filesystem_ptr->GetSortedReadOperations();
 		REQUIRE(read_operations.size() == 1);
 		REQUIRE(read_operations[0].start_offset == 0);

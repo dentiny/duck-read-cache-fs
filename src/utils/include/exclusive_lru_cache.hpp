@@ -24,7 +24,7 @@
 #include "duckdb/common/vector.hpp"
 #include "map_utils.hpp"
 #include "mutex.hpp"
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"
 #include "time_utils.hpp"
 
 namespace duckdb {

@@ -31,6 +31,10 @@ SET allow_persistent_secrets=false;
 statement ok
 SET allowed_directories=['https://raw.githubusercontent.com/', '/tmp/duckdb_cache_httpfs_cache'];
 
+# DuckDB v2.0 reads the system CA bundle through the permissioned filesystem.
+statement ok
+SET allowed_paths=['/etc/ssl/cert.pem', '/etc/ssl/certs/ca-certificates.crt', '/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem', '/etc/pki/tls/certs/ca-bundle.crt', '/etc/ssl/ca-bundle.pem'];
+
 statement ok
 SET enable_external_access = false;
 

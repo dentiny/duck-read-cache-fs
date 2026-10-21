@@ -6,7 +6,7 @@
 #include <mutex>
 #include <shared_mutex>
 
-#include "thread_annotation.hpp"
+#include "duckdb/common/thread_annotation.hpp"
 #include "internal/mutex_impl.hpp"
 
 namespace duckdb {

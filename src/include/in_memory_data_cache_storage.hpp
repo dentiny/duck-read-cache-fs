@@ -10,7 +10,7 @@
 #include "duckdb/common/vector.hpp"
 #include "in_mem_cache_block.hpp"
 #include "in_mem_cache_data_entry.hpp"
-#include "optional.hpp"
+#include "duckdb/common/optional.hpp"
 #include "page_aligned_data_chunk.hpp"
 
 #include "duckdb/common/optional_ptr.hpp"
