@@ -3,6 +3,7 @@
 #include "cache_filesystem_config.hpp"
 #include "duckdb/common/exception.hpp"
 #include "extension_bounded_data_cache_storage.hpp"
+#include "lru_eviction_policy.hpp"
 #include "object_cache_data_cache_storage.hpp"
 
 namespace duckdb {
@@ -14,7 +15,8 @@ shared_ptr<InMemoryDataCacheStorage> BuildInMemoryDataCacheStorage(const string 
 		ALWAYS_ASSERT(db_instance != nullptr);
 		return make_shared_ptr<ObjectCacheStorage>(*db_instance, timeout_millisec);
 	}
-	return make_shared_ptr<ExtensionBoundedDataCacheStorage>(max_entries, timeout_millisec);
+	auto eviction_policy = make_uniq<LruEvictionPolicy<InMemCacheBlock, InMemCacheBlockLess>>();
+	return make_shared_ptr<ExtensionBoundedDataCacheStorage>(max_entries, timeout_millisec, std::move(eviction_policy));
 }
 
 } // namespace duckdb
