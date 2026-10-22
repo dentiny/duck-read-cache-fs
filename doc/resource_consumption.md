@@ -7,6 +7,11 @@ For this extension, users are able to have control of its resource consumption. 
 -- By default the 5% of disk space will be reserved, but it's allowed to override. Eg, the following sql will reserve 5GB space.
 D SET cache_httpfs_min_disk_bytes_for_cache=5000000;
 
+-- Cap the total size of all on-disk cache files, so disk space could be budgeted between the cache and other disk consumers.
+-- Different from the option above, which keeps a free space floor for the whole filesystem, this option bounds the cache's own footprint.
+-- By default 0, which means the cache's own size is not capped. Eg, the following sql caps the on-disk cache at 10GB.
+D SET cache_httpfs_max_ondisk_cache_size=10000000000;
+
 -- Control the maximum memory usage for in-memory data cache.
 -- The maximum memory consumption is calculated as [cache_httpfs_cache_block_size] * [cache_httpfs_max_in_mem_cache_block_count].
 D SET cache_httpfs_max_in_mem_cache_block_count=10;
