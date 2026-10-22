@@ -2,6 +2,7 @@
 
 ## Updated
 
+- Link unit tests against DuckDB's static library when using prebuilt binaries.
 - Upgrade DuckDB and all submodules to v2.0.0
 
 # 0.14.3

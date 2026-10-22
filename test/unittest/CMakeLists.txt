@@ -58,7 +58,8 @@ add_executable(unittest_cache_httpfs ${CATCHFS_UNITTEST_OBJECTS})
 
 if(NOT WIN32
    AND NOT SUN
-   AND NOT ZOS)
+   AND NOT ZOS
+   AND NOT PREBUILT_BINARY)
   target_link_libraries(
     unittest_cache_httpfs test_helpers duckdb ${EXTENSION_NAME}
     ${OPENSSL_LIBRARIES} ${CURL_LIBRARIES})
