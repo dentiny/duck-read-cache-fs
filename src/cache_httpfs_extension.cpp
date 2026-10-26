@@ -200,6 +200,14 @@ void WrapCacheFileSystem(const DataChunk &args, ExpressionState &state, Vector &
 	auto &vfs = opener_filesystem.GetFileSystem();
 	auto internal_filesystem = vfs.ExtractSubSystem(filesystem_name);
 	if (internal_filesystem == nullptr) {
+		// An already wrapped filesystem is registered under the cache wrapper's name.
+		const auto wrapped_name = StringUtil::Format("cache_httpfs_%s", filesystem_name);
+		const auto registered_filesystems = vfs.ListSubSystems();
+		if (std::find(registered_filesystems.begin(), registered_filesystems.end(), wrapped_name) !=
+		    registered_filesystems.end()) {
+			result.Reference(Value(SUCCESS), count_t(args.size()));
+			return;
+		}
 		throw InvalidInputException("Filesystem %s hasn't been registered yet! Use "
 		                            "cache_httpfs_list_registered_filesystems() to see available filesystems.",
 		                            filesystem_name);
@@ -289,16 +297,15 @@ void RegisterCacheHttpfsFunctions(ExtensionLoader &loader) {
 
 	// Register file-handle-only cleanup functions. These are useful after rotating remote-storage credentials.
 	RegisterScalarFunction(
-	    loader,
-	    ScalarFunction("cache_httpfs_clear_file_handle_cache", {}, LogicalType::BOOLEAN, ClearFileHandleCache),
+	    loader, ScalarFunction("cache_httpfs_clear_file_handle_cache", {}, LogicalType::BOOLEAN, ClearFileHandleCache),
 	    /*parameter_names=*/ {},
 	    /*description=*/"Closes and clears cached file handles without affecting other caches.",
 	    /*examples=*/ {"SELECT cache_httpfs_clear_file_handle_cache();"},
 	    /*categories=*/ {"cache_httpfs", "cache"});
 	RegisterScalarFunction(
 	    loader,
-	    ScalarFunction("cache_httpfs_clear_file_handle_cache_for_file", {LogicalType::VARCHAR},
-	                   LogicalType::BOOLEAN, ClearFileHandleCacheForFile),
+	    ScalarFunction("cache_httpfs_clear_file_handle_cache_for_file", {LogicalType::VARCHAR}, LogicalType::BOOLEAN,
+	                   ClearFileHandleCacheForFile),
 	    /*parameter_names=*/ {"filename"},
 	    /*description=*/"Closes and clears cached file handles for one remote file without affecting other caches.",
 	    /*examples=*/ {"SELECT cache_httpfs_clear_file_handle_cache_for_file('s3://bucket/file.parquet');"},
@@ -311,9 +318,11 @@ void RegisterCacheHttpfsFunctions(ExtensionLoader &loader) {
 	// D. LOAD azure;
 	// -- Wrap filesystem with its name.
 	// D. SELECT cache_httpfs_wrap_cache_filesystem('AzureBlobStorageFileSystem');
-	RegisterScalarFunction(loader,
-	                       ScalarFunction("cache_httpfs_wrap_cache_filesystem", {LogicalType::VARCHAR},
-	                                      LogicalType::BOOLEAN, WrapCacheFileSystem),
+	// Wrapping changes the instance's filesystems and must not run during constant folding.
+	ScalarFunction wrap_cache_filesystem_func("cache_httpfs_wrap_cache_filesystem", {LogicalType::VARCHAR},
+	                                          LogicalType::BOOLEAN, WrapCacheFileSystem);
+	wrap_cache_filesystem_func.SetVolatile();
+	RegisterScalarFunction(loader, std::move(wrap_cache_filesystem_func),
 	                       /*parameter_names=*/ {"filesystem_name"},
 	                       /*description=*/"Wraps a registered DuckDB filesystem with the cache filesystem.",
 	                       /*examples=*/ {"SELECT cache_httpfs_wrap_cache_filesystem('AzureBlobStorageFileSystem');"},
