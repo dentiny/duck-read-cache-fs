@@ -132,6 +132,10 @@ bool DEFAULT_IGNORE_SIGPIPE = false;
 // value will be considered.
 idx_t DEFAULT_MIN_DISK_BYTES_FOR_CACHE = 0;
 
+// Default max total size in bytes for all on-disk cache files; by default 0, which means the cache's own size is not
+// capped and only the min disk space requirement above applies.
+idx_t DEFAULT_MAX_ON_DISK_CACHE_SIZE = 0;
+
 ParallelExecutorMode ParseParallelExecutorMode(const string &mode) {
 	if (mode == *INTERNAL_THREAD_POOL_EXECUTOR) {
 		return ParallelExecutorMode::INTERNAL_THREAD_POOL;
