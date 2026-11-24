@@ -1,3 +1,9 @@
+## Unreleased
+
+### Fixed
+
+- Use the httpfs revision pinned by DuckDB v2.0.1, matching the `FileOpenerInfo.file` API and GCC 12 unique_ptr return rules.
+
 ## 0.15.1 - 2026-11-23
 
 ### Changed
